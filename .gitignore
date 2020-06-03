@@ -5,7 +5,8 @@
 *.so
 *.dylib
 webmodules/*.wasm
-assets/js/*.js
+assets/js/
+assets/css/
 .vscode/*
 basicwasm
 
