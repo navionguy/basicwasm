@@ -10,10 +10,10 @@
 	go build -o basicwasm
 
 ./webmodules/gwbasic.wasm : ./webmodules/src/gwbasic/gwbasic.go
-	GOOS=js GOARCH=wasm go build -o ./webmodules/gwbasic.wasm ./webmodules/src/gwbasic/gwbasic.go
+	tinygo build -o ./webmodules/gwbasic.wasm -target=wasm ./webmodules/src/gwbasic/gwbasic.go
 
-./assets/js/wasm_exec.js : /usr/local/go/misc/wasm/wasm_exec.js
-	cp /usr/local/go/misc/wasm/wasm_exec.js ./assets/js/wasm_exec.js
+./assets/js/wasm_exec.js : ~/go/src/github.com/tinygo/targets/wasm_exec.js
+	cp ~/go/src/github.com/tinygo/targets/wasm_exec.js ./assets/js/wasm_exec.js
 
 ./assets/css/xterm.css : ~/node_modules/xterm/css/xterm.css
 	cp ~/node_modules/xterm/css/xterm.css ./assets/css/xterm.css
