@@ -9,8 +9,11 @@
 		./assets/js/xterm-addon-fit.js.map
 	go build -o basicwasm
 
-./webmodules/gwbasic.wasm : ./webmodules/src/gwbasic/gwbasic.go
-	tinygo build -o ./webmodules/gwbasic.wasm -target=wasm ./webmodules/src/gwbasic/gwbasic.go
+./webmodules/gwbasic.wasm : ./webmodules/src/gwbasic/gwbasic.go \
+			./terminal/terminal.go \
+			./cli/cli.go \
+			./keybuffer/keybuffer.go
+	tinygo build -no-debug -o ./webmodules/gwbasic.wasm -target=wasm ./webmodules/src/gwbasic/gwbasic.go
 
 ./assets/js/wasm_exec.js : ~/go/src/github.com/tinygo/targets/wasm_exec.js
 	cp ~/go/src/github.com/tinygo/targets/wasm_exec.js ./assets/js/wasm_exec.js

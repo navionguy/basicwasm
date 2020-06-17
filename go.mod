@@ -1,3 +1,3 @@
-module github.com/navionguy/ham-calc-webasm
+module github.com/navionguy/basicwasm
 
 go 1.14
