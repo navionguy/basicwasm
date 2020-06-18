@@ -16,25 +16,25 @@ func WrapFileOrg() (filesys http.FileSystem) {
 // takes the requested file and extracts out the basename
 // and the extension and returns them.  He does only simple
 // checking to make sure they are valid.
-func parseName(name string) (basename string, ext string, ok bool) {
+func parseName(name string) (basename string, ext string) {
 	parts := strings.Split(name, "/")
 
 	if parts[len(parts)-1] == "" {
-		return "gwbasic", "html", true
+		return "gwbasic", "html"
 	}
 
 	baseparts := strings.Split(parts[len(parts)-1], ".")
 
 	if len(baseparts) == 1 {
-		return baseparts[0], "html", true
+		return baseparts[0], "html"
 	}
 
 	if len(baseparts) > 2 {
 		base := strings.Join(baseparts[:len(baseparts)-1], ".")
-		return base, baseparts[len(baseparts)-1], true
+		return base, baseparts[len(baseparts)-1]
 	}
 
-	return baseparts[0], baseparts[1], true
+	return baseparts[0], baseparts[1]
 }
 
 // buildPath() builds the full path to the file based on the
@@ -72,11 +72,7 @@ type autoPathingSystem struct {
 // that builds the actual file name based on his extension and how
 // my assets are arranged.
 func (fs autoPathingSystem) Open(name string) (hFile http.File, err error) {
-	fileName, ext, ok := parseName(name)
-
-	if !ok { // parse failed, return 403 response
-		return nil, os.ErrPermission
-	}
+	fileName, ext := parseName(name)
 
 	fullPath, ok := buildPath(fileName, ext)
 
