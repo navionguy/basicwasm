@@ -10,15 +10,11 @@ import (
 type Terminal struct {
 	term js.Value
 	buff js.Value
-	rows int
-	cols int
 }
 
 // New creates a new Terminal object
 func New(t js.Value) *Terminal {
 	env := &Terminal{term: t}
-	env.cols = js.Global().Get("term").Get("buffer").Get("_buffers").Get("_activeBuffer").Get("_cols").Int()
-	env.rows = js.Global().Get("term").Get("buffer").Get("_buffers").Get("_activeBuffer").Get("_rows").Int()
 
 	t.Call("setOption", "scrollback", 0)
 	return env
@@ -42,6 +38,11 @@ func (t *Terminal) Print(msg string) {
 	t.term.Call("write", msg)
 }
 
+// SoundBell plays the current bell sound
+func (t *Terminal) SoundBell() {
+	t.term.Get("_core").Get("_soundService").Call("playBellSound")
+}
+
 // Cls clears the terminal of all text
 func (t *Terminal) Cls() {
 	t.term.Call("clear")
@@ -51,8 +52,8 @@ func (t *Terminal) Cls() {
 // NOTE: Cursor position is based on the upper left
 // position being 0,0
 func (t *Terminal) GetCursor() (int, int) { // row,col
-	col := js.Global().Get("term").Get("buffer").Get("_buffers").Get("_activeBuffer").Get("x").Int()
-	row := js.Global().Get("term").Get("buffer").Get("_buffers").Get("_activeBuffer").Get("y").Int()
+	col := t.term.Get("buffer").Get("_buffers").Get("_activeBuffer").Get("x").Int()
+	row := t.term.Get("buffer").Get("_buffers").Get("_activeBuffer").Get("y").Int()
 
 	return row, col
 }

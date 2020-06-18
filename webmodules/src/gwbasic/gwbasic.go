@@ -16,7 +16,6 @@ func registerCallbacks() {
 	//kybd := make(chan byte, 0)
 	term := terminal.New(js.Global().Get("term"))
 
-	term.Println("OK")
 	cli.Start(term)
 
 	js.Global().Set("keyPress", js.FuncOf(func(this js.Value, inputs []js.Value) interface{} {

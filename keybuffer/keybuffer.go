@@ -42,3 +42,12 @@ func ReadByte() (byte, bool) {
 	}
 	return bt, true
 }
+
+func size() int {
+	if write >= read {
+		return write - read
+	}
+
+	// writing has wrapped around, reading has not
+	return write + ringsize - read
+}
