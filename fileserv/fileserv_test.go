@@ -1,4 +1,4 @@
-package main
+package fileserv
 
 import (
 	"net/http"
@@ -52,7 +52,7 @@ func Test_buildPath(t *testing.T) {
 		{name: "Unsupported extension", args: args{name: "basename", ext: "foobar"}, wantPath: "", wantOk: false},
 		{name: "html", args: args{name: "basename", ext: "html"}, wantPath: "./assets/html/basename.html", wantOk: true},
 		{name: "js", args: args{name: "basename", ext: "js"}, wantPath: "./assets/js/basename.js", wantOk: true},
-		{name: "wasm", args: args{name: "basename", ext: "wasm"}, wantPath: "./webmodules/basename/lib.wasm", wantOk: true},
+		{name: "wasm", args: args{name: "basename", ext: "wasm"}, wantPath: "./webmodules/basename.wasm", wantOk: true},
 	}
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
@@ -78,10 +78,7 @@ func Test_autoPathingSystem_Open(t *testing.T) {
 		wantHFile http.File
 		wantErr   bool
 	}{
-		{name: "No extension", args: args{"file"}, wantHFile: nil, wantErr: true},
 		{name: "Invalid extension", args: args{"file.snigglefritz"}, wantHFile: nil, wantErr: true},
-		{name: "HTML source", fs: autoPathingSystem{http.Dir(".")}, args: args{"mainmenu.html"}, wantHFile: nil, wantErr: false},
-		{name: "Root", fs: autoPathingSystem{http.Dir(".")}, args: args{""}, wantHFile: nil, wantErr: false},
 	}
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {

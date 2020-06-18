@@ -15,6 +15,8 @@ func Start(term *terminal.Terminal) {
 
 func runLoop(term *terminal.Terminal) {
 	var cmd []byte
+
+	term.Println("OK")
 	for {
 		k, ok := keybuffer.ReadByte()
 
@@ -23,7 +25,6 @@ func runLoop(term *terminal.Terminal) {
 			continue
 		}
 
-		term.GetCursor()
 		switch k {
 		case '\r':
 			row, col := term.GetCursor()

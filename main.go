@@ -4,6 +4,8 @@ import (
 	"flag"
 	"log"
 	"net/http"
+
+	"github.com/navionguy/basicwasm/fileserv"
 )
 
 var (
@@ -16,5 +18,5 @@ func main() {
 	flag.Parse()
 	log.Printf("listening on %q...", *listen)
 	//log.Fatal(http.ListenAndServe(*listen, http.FileServer(http.Dir(*dir))))
-	log.Fatal(http.ListenAndServe(*listen, http.FileServer(WrapFileOrg())))
+	log.Fatal(http.ListenAndServe(*listen, http.FileServer(fileserv.WrapFileOrg())))
 }

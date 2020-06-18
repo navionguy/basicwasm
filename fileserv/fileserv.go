@@ -1,4 +1,4 @@
-package main
+package fileserv
 
 import (
 	"fmt"

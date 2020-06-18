@@ -1,5 +1,5 @@
 ./basicwasm : main.go \
-        fileserv.go \
+        ./fileserv/fileserv.go \
 		./webmodules/gwbasic.wasm \
 		./assets/js/wasm_exec.js \
 		./assets/css/xterm.css \
