@@ -5,6 +5,7 @@ import (
 	"time"
 
 	"github.com/navionguy/basicwasm/keybuffer"
+	"github.com/navionguy/basicwasm/lexer"
 	"github.com/navionguy/basicwasm/terminal"
 )
 
@@ -14,7 +15,7 @@ func Start(term *terminal.Terminal) {
 }
 
 func runLoop(term *terminal.Terminal) {
-	var cmd []byte
+	//var cmd []byte
 
 	term.Println("OK")
 	for {
@@ -27,15 +28,25 @@ func runLoop(term *terminal.Terminal) {
 
 		switch k {
 		case '\r':
-			row, col := term.GetCursor()
-			fmt.Printf("cursor at %d:%d\n", row, col)
+			row, _ := term.GetCursor()
+			//fmt.Printf("cursor at %d:%d\n", row, col)
 			term.Println("")
-			fmt.Println(term.Read(0, row, 80))
+			execCommand(term.Read(0, row, 80), term)
+			//fmt.Println(term.Read(0, row, 80))
 		default:
 			term.Print(string(k))
-			cmd = append(cmd, k)
+			//cmd = append(cmd, k)
 			//fmt.Printf("%s\n", hex.EncodeToString(cmd[len(cmd)-1:]))
 		}
 	}
 	fmt.Println("cli stopping")
+}
+
+func execCommand(input string, term *terminal.Terminal) {
+	l := lexer.New(input)
+	for tk := l.NextToken(); tk.Literal != "EOF"; tk = l.NextToken() {
+		term.Print(tk.Literal)
+	}
+	term.Println(":")
+	term.Println("OK")
 }

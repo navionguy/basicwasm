@@ -84,9 +84,9 @@
         };
       }
 
-      const go = new Go();
-
       let mod, inst;
+
+      const go = new Go();
 
       WebAssembly.instantiateStreaming(fetch("gwbasic.wasm"), go.importObject).then(
         async result => {

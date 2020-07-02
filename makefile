@@ -12,11 +12,21 @@
 ./webmodules/gwbasic.wasm : ./webmodules/src/gwbasic/gwbasic.go \
 			./terminal/terminal.go \
 			./cli/cli.go \
-			./keybuffer/keybuffer.go
+			./keybuffer/keybuffer.go \
+			./makefile \
+			./token/token.go \
+			./lexer/lexer.go
+# 			./parser/parser.go \
+			./ast/ast.go \
+			./object/object.go 
 	tinygo build -no-debug -o ./webmodules/gwbasic.wasm -target=wasm ./webmodules/src/gwbasic/gwbasic.go
+#	GOOS=js GOARCH=wasm go build -ldflags "-s -w" -o ./webmodules/gwbasic.wasm ./webmodules/src/gwbasic/gwbasic.go
 
 ./assets/js/wasm_exec.js : ~/go/src/github.com/tinygo/targets/wasm_exec.js
 	cp ~/go/src/github.com/tinygo/targets/wasm_exec.js ./assets/js/wasm_exec.js
+
+#./assets/js/wasm_exec.js : /usr/local/go/misc/wasm/wasm_exec.js
+#	cp /usr/local/go/misc/wasm/wasm_exec.js ./assets/js/wasm_exec.js
 
 ./assets/css/xterm.css : ~/node_modules/xterm/css/xterm.css
 	cp ~/node_modules/xterm/css/xterm.css ./assets/css/xterm.css
