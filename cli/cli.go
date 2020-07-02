@@ -4,6 +4,7 @@ import (
 	"fmt"
 	"time"
 
+	"github.com/navionguy/basicwasm/ast"
 	"github.com/navionguy/basicwasm/keybuffer"
 	"github.com/navionguy/basicwasm/lexer"
 	"github.com/navionguy/basicwasm/terminal"
@@ -48,5 +49,7 @@ func execCommand(input string, term *terminal.Terminal) {
 		term.Print(tk.Literal)
 	}
 	term.Println(":")
+	var p ast.Program
+	p.New()
 	term.Println("OK")
 }

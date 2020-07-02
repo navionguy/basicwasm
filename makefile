@@ -15,9 +15,10 @@
 			./keybuffer/keybuffer.go \
 			./makefile \
 			./token/token.go \
-			./lexer/lexer.go
-# 			./parser/parser.go \
+			./lexer/lexer.go \
 			./ast/ast.go \
+			./decimal/decimal.go
+# 			./parser/parser.go \
 			./object/object.go 
 	tinygo build -no-debug -o ./webmodules/gwbasic.wasm -target=wasm ./webmodules/src/gwbasic/gwbasic.go
 #	GOOS=js GOARCH=wasm go build -ldflags "-s -w" -o ./webmodules/gwbasic.wasm ./webmodules/src/gwbasic/gwbasic.go
