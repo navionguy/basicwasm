@@ -446,7 +446,7 @@ func TestNumericConversion(t *testing.T) {
 		res := tt.fn(p)
 
 		if (tt.res == "") && (res != nil) {
-			t.Errorf("Parse succeeded when it should have failed")
+			t.Errorf("Parse succeeded when it should have failed, %s", tt.input)
 		}
 
 		if (tt.res == "") && (len(p.errors) == 0) {

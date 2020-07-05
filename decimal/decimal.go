@@ -37,11 +37,15 @@ func NewFromString(src string) (Decimal, error) {
 		return dec, err
 	}
 
-	if len(parts) == 2 {
+	if len(parts) == 1 {
+		return dec, nil
+	}
+
+	if (len(parts) == 2) && (len(parts[1]) > 0) {
 		dec.exp, err = strconv.Atoi(parts[1])
 	}
 
-	return dec, nil
+	return dec, err
 }
 
 func (d *Decimal) String() string {
