@@ -1,0 +1,19 @@
+go test ./ast -coverprofile=coverage.out
+go test ./fileserv -coverprofile=fileserv.out
+go test ./parser  -coverprofile=parser.out 
+go test ./keybuffer -coverprofile=keybuffer.out
+go test ./lexer -coverprofile=lexer.out
+go test ./object -coverprofile=object.out
+go test ./parser -coverprofile=parser.out
+go test ./token -coverprofile=token.out
+go test ./evaluator -coverprofile=evaluator.out
+#
+sed -e 1d fileserv.out >> coverage.out  
+sed -e 1d parser.out >> coverage.out
+sed -e 1d keybuffer.out >>coverage.out
+sed -e 1d lexer.out >>coverage.out
+sed -e 1d object.out >>coverage.out
+sed -e 1d parser.out >>coverage.out
+sed -e 1d token.out >>coverage.out
+sed -e 1d evaluator.out >>coverage.out
+go tool cover -html=coverage.out
