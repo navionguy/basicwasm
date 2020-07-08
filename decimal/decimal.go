@@ -59,7 +59,12 @@ func NewFromString(src string) (Decimal, error) {
 }
 
 func (d *Decimal) String() string {
-	form := "%d"
+	if d.exp == 0 {
+		return fmt.Sprintf("%d", d.value)
+	}
+
+	form := "%f"
+
 	if d.exp < 0 {
 		form = fmt.Sprintf("%%.%df", abs(d.exp))
 	}

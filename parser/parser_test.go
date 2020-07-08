@@ -455,7 +455,7 @@ func TestNumericConversion(t *testing.T) {
 		}
 
 		if tt.res != "" {
-			fmt.Printf("got %T", res)
+			//fmt.Printf("got %T", res)
 			if tt.res != res.String() {
 				t.Errorf("expected %s, got %s", tt.res, res.String())
 			}
