@@ -11,7 +11,14 @@ import (
 	"strings"
 )
 
-var divisionPrecision = 8
+// DivisionPrecision how precise is my work
+var DivisionPrecision = 8
+
+// Zero value for checking
+var Zero = Decimal{value: 0, exp: 1}
+
+// Value interface allows for extracting value by type
+type Value interface{}
 
 // Decimal represents a fixed-point decimal. It is immutable.
 // number = value * 10 ^ exp
@@ -58,6 +65,19 @@ func NewFromString(src string) (Decimal, error) {
 	return dec, err
 }
 
+// NewFromInt32 converts a int32 to Decimal.
+//
+// Example:
+//
+//     NewFromInt(123).String() // output: "123"
+//     NewFromInt(-10).String() // output: "-10"
+func NewFromInt32(value int32) Decimal {
+	return Decimal{
+		value: int(value),
+		exp:   0,
+	}
+}
+
 func (d *Decimal) String() string {
 	if d.exp == 0 {
 		return fmt.Sprintf("%d", d.value)
@@ -68,7 +88,7 @@ func (d *Decimal) String() string {
 	if d.exp < 0 {
 		form = fmt.Sprintf("%%.%df", abs(d.exp))
 	}
-	return fmt.Sprintf(form, float64(d.value)*math.Pow(10, float64(d.exp)))
+	return strings.TrimRight(fmt.Sprintf(form, float64(d.value)*math.Pow(10, float64(d.exp))), "0")
 }
 
 // Neg returns the negative value from that passed
@@ -77,8 +97,14 @@ func (d *Decimal) Neg() Decimal {
 }
 
 // Add returns the sum of the two values
-func (d *Decimal) Add(d2 Decimal) Decimal {
-	return Decimal{value: 0}
+func (d Decimal) Add(d2 Decimal) Decimal {
+	rd, rd2 := rescalePair(d, d2)
+
+	//d3Value := new(big.Int).Add(rd.value, rd2.value)
+	return Decimal{
+		value: rd.value + rd2.value,
+		exp:   rd.exp,
+	}
 }
 
 // Sub returns d - d2.
@@ -103,7 +129,7 @@ func (d *Decimal) Mul(d2 Decimal) Decimal {
 // Div returns d / d2. If it doesn't divide exactly, the result will have
 // DivisionPrecision digits after the decimal point.
 func (d Decimal) Div(d2 Decimal) Decimal {
-	return d.DivRound(d2, divisionPrecision)
+	return d.DivRound(d2, DivisionPrecision)
 }
 
 // DivRound divides and rounds to a given precision
@@ -112,17 +138,20 @@ func (d Decimal) Div(d2 Decimal) Decimal {
 //   if the quotient is negative then digit 5 is rounded down, away from 0
 // Note that precision<0 is allowed as input.
 func (d Decimal) DivRound(d2 Decimal, precision int) Decimal {
-	// QuoRem already checks initialization
-	q, r := d.QuoRem(d2, precision)
-	// the actual rounding decision is based on comparing r*10^precision and d2/2
-	// instead compare 2 r 10 ^precision and d2
 
-	rv2 := abs(r.value)
-	rv2 <<= 1
-	// now rv2 = abs(r.value) * 2
-	r2 := Decimal{value: rv2, exp: r.exp + precision}
+	q, r := d.QuoRem(d2, precision)
+
+	if r.value == 0 {
+		return q
+	}
+
+	r = r.Abs()
+	r.value *= 2
+	r.exp += precision
+
+	//r2 := Decimal{value: &rv2, exp: r.exp + precision}
 	// r2 is now 2 * r * 10 ^ precision
-	var c = r2.Cmp(d2.Abs())
+	var c = r.Cmp(d2.Abs())
 
 	if c < 0 {
 		return q
@@ -133,6 +162,11 @@ func (d Decimal) DivRound(d2 Decimal, precision int) Decimal {
 	}
 
 	return q.Add(New(1, -precision))
+
+	//q := d.value / d2.value
+	//r := abs(d.value % d2.value)
+
+	//return q
 }
 
 // QuoRem does divsion with remainder
@@ -150,20 +184,19 @@ func (d Decimal) QuoRem(d2 Decimal, precision int) (Decimal, Decimal) {
 	if e > math.MaxInt32 || e < math.MinInt32 {
 		panic("overflow in decimal QuoRem")
 	}
-	var aa, bb, expo int
+	var aa, bb int
 	var scalerest int
 	// d = a 10^ea
 	// d2 = b 10^eb
 	if e < 0 {
 		aa = d.value
-		expo = -e
-		bb = (10 ^ expo) * d2.value
+		bb = int(math.Pow10(-e)) * d2.value
 		scalerest = d.exp
 		// now aa = a
 		//     bb = b 10^(scale + eb - ea)
 	} else {
-		expo = e
-		aa = 10 ^ expo*d.value
+		aa = int(math.Pow10(e))
+		aa *= d.value
 		bb = d2.value
 		scalerest = int(scale) + d2.exp
 		// now aa = a ^ (ea - eb - scale)
@@ -202,6 +235,29 @@ func (d *Decimal) Abs() Decimal {
 	return Decimal{value: abs(d.value), exp: d.exp}
 }
 
+// Value returns object supporting the following interfaces
+func (d *Decimal) Value() (Value, error) {
+	return d, nil
+}
+
+// IntPart returns the integer component of the decimal.
+func (d Decimal) IntPart() int64 {
+	scaledD := d.rescale(0)
+	return int64(scaledD.value)
+}
+
+// Rat returns a rational number representation of the decimal.
+func (d Decimal) Rat() float64 {
+	return float64(d.value) * math.Pow10(d.exp)
+}
+
+// Float64 returns the nearest float64 value for d and a bool indicating
+// whether f represents d exactly.
+// For more details, see the documentation for big.Rat.Float64
+func (d Decimal) Float64() (f float64, exact bool) {
+	return d.Rat(), true
+}
+
 func (d *Decimal) sign() int {
 	if d.value == 0 {
 		return 0
@@ -236,6 +292,31 @@ func (d Decimal) rescale(exp int) Decimal {
 	}
 }
 
+// Round rounds the decimal to places decimal places.
+// If places < 0, it will round the integer part to the nearest 10^(-places).
+//
+// Example:
+//
+// 	   NewFromFloat(5.45).Round(1).String() // output: "5.5"
+// 	   NewFromFloat(545).Round(-1).String() // output: "550"
+//
+func (d Decimal) Round(places int) Decimal {
+	// truncate to places + 1
+	ret := d.rescale(places - 1)
+
+	// add sign(d) * 0.5
+	ret.value += ret.sign() * 5
+
+	// floor for positive numbers, ceil for negative numbers
+	m := ret.divMod(ret.value, 10)
+	ret.exp++
+	if ret.sign() < 0 && m.cmp(0) != 0 {
+		ret.value++
+	}
+
+	return ret
+}
+
 func rescalePair(d1, d2 Decimal) (Decimal, Decimal) {
 	if d1.exp == d2.exp {
 		return d1, d2
@@ -248,6 +329,29 @@ func rescalePair(d1, d2 Decimal) (Decimal, Decimal) {
 	}
 
 	return d1, d2.rescale(baseScale)
+}
+
+func (d *Decimal) divMod(x, y int) Decimal {
+	d.value = x / y
+
+	return Decimal{value: x % y, exp: 0}
+}
+
+func (d Decimal) cmp(t int) int {
+	val := d.value
+	if d.exp != 0 {
+		val *= 10 ^ d.exp
+	}
+
+	if val < t {
+		return -1
+	}
+
+	if val > t {
+		return 1
+	}
+
+	return 0
 }
 
 func min(x, y int) int {
