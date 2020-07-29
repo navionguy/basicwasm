@@ -1,7 +1,10 @@
 package decimal
 
-// borrowed only the parts I need to from github.com/shopspring/decimal
-// the full package from shopspring causes tinygo to woof his cookies
+// borrowed only the parts I need to from shopspring.decimal
+// the full package from shopspring uses the big libary
+// which causes tinygo to woof his cookies
+// I then had to tweak some of the logic to make it behave like the
+// gwbasic interpreter.
 
 import (
 	"errors"
@@ -17,20 +20,11 @@ var DivisionPrecision = 8
 // Zero value for checking
 var Zero = Decimal{value: 0, exp: 1}
 
-// Value interface allows for extracting value by type
-type Value interface{}
-
-// Decimal represents a fixed-point decimal. It is immutable.
+// Decimal represents a fixed-point decimal.
 // number = value * 10 ^ exp
 type Decimal struct {
 	value int
-
-	// NOTE(vadim): this must be an int32, because we cast it to float64 during
-	// calculations. If exp is 64 bit, we might lose precision.
-	// If we cared about being able to represent every possible decimal, we
-	// could make exp a *big.Int but it would hurt performance and numbers
-	// like that are unrealistic.
-	exp int
+	exp   int
 }
 
 // New creaets a new decimal
@@ -123,38 +117,40 @@ func (d *Decimal) Mul(d2 Decimal) Decimal {
 	// todo: figure out how to catch/report overflow
 	prod := Decimal{value: d.value * d2.value, exp: d.exp + d2.exp}
 
+	dig := prod.countDigits()
+
+	if dig > 7 {
+		return prod.Round(-7)
+	}
+
 	return prod
 }
 
-// Div returns d / d2. If it doesn't divide exactly, the result will have
-// DivisionPrecision digits after the decimal point.
+// Div divides the two numbers and then does "GWBasic Rounding"
+// Which means, the final answer will have seven digits.
+// ex: 14.52 / 3.4 = 13.27059
+//     14.52 / 7.3 = 6.180822
+//
+// who thought that up?
 func (d Decimal) Div(d2 Decimal) Decimal {
-	return d.DivRound(d2, DivisionPrecision)
-}
-
-// DivRound divides and rounds to a given precision
-// i.e. to an integer multiple of 10^(-precision)
-//   for a positive quotient digit 5 is rounded up, away from 0
-//   if the quotient is negative then digit 5 is rounded down, away from 0
-// Note that precision<0 is allowed as input.
-func (d Decimal) DivRound(d2 Decimal, precision int) Decimal {
+	precision := 7
 
 	q, r := d.QuoRem(d2, precision)
 
 	if r.value == 0 {
-		return q
+		return q.Round(precision)
 	}
 
 	r = r.Abs()
 	r.value *= 2
-	r.exp += precision
+	r.exp += precision + q.exp
 
 	//r2 := Decimal{value: &rv2, exp: r.exp + precision}
 	// r2 is now 2 * r * 10 ^ precision
 	var c = r.Cmp(d2.Abs())
 
 	if c < 0 {
-		return q
+		return q.Round(-precision)
 	}
 
 	if d.sign()*d2.sign() < 0 {
@@ -235,27 +231,17 @@ func (d *Decimal) Abs() Decimal {
 	return Decimal{value: abs(d.value), exp: d.exp}
 }
 
-// Value returns object supporting the following interfaces
-func (d *Decimal) Value() (Value, error) {
-	return d, nil
-}
-
 // IntPart returns the integer component of the decimal.
 func (d Decimal) IntPart() int64 {
 	scaledD := d.rescale(0)
 	return int64(scaledD.value)
 }
 
-// Rat returns a rational number representation of the decimal.
-func (d Decimal) Rat() float64 {
-	return float64(d.value) * math.Pow10(d.exp)
-}
-
 // Float64 returns the nearest float64 value for d and a bool indicating
 // whether f represents d exactly.
-// For more details, see the documentation for big.Rat.Float64
+// In this implementation, it is exact
 func (d Decimal) Float64() (f float64, exact bool) {
-	return d.Rat(), true
+	return float64(d.value) * math.Pow10(d.exp), true
 }
 
 func (d *Decimal) sign() int {
@@ -302,7 +288,13 @@ func (d Decimal) rescale(exp int) Decimal {
 //
 func (d Decimal) Round(places int) Decimal {
 	// truncate to places + 1
-	ret := d.rescale(places - 1)
+	dc := d.countDigits()
+	if dc < abs(places) {
+		return d
+	}
+
+	places += (dc + places) - 1
+	ret := d.rescale(max(places, d.exp))
 
 	// add sign(d) * 0.5
 	ret.value += ret.sign() * 5
@@ -340,7 +332,7 @@ func (d *Decimal) divMod(x, y int) Decimal {
 func (d Decimal) cmp(t int) int {
 	val := d.value
 	if d.exp != 0 {
-		val *= 10 ^ d.exp
+		val = int(float64(val) * math.Pow10(d.exp))
 	}
 
 	if val < t {
@@ -352,6 +344,48 @@ func (d Decimal) cmp(t int) int {
 	}
 
 	return 0
+}
+
+func (d Decimal) countDigits() int {
+	if d.exp >= 0 {
+		return d.exp + countDigits(d.value)
+	}
+
+	return countDigitsTrimmed(d.value)
+}
+
+func countDigits(num int) int {
+	ct := 0
+
+	for num != 0 {
+		num /= 10
+		ct++
+	}
+	return ct
+}
+
+func countDigitsTrimmed(num int) int {
+	ct := 0
+	tz := true
+
+	for num != 0 {
+		if num%10 != 0 {
+			tz = false
+		}
+		num /= 10
+		if !tz { // until I see non-zero, just trailing zeroes
+			ct++
+		}
+	}
+	return ct
+}
+
+func max(x, y int) int {
+	if x >= y {
+		return x
+	}
+
+	return y
 }
 
 func min(x, y int) int {
