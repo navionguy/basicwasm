@@ -8,6 +8,7 @@ import (
 
 	"github.com/navionguy/basicwasm/ast"
 	"github.com/navionguy/basicwasm/decimal"
+	"github.com/navionguy/basicwasm/terminal"
 )
 
 // BuiltinFunction is a function defined by gwbasic
@@ -40,6 +41,7 @@ const (
 func NewEnclosedEnvironment(outer *Environment) *Environment {
 	env := NewEnvironment()
 	env.outer = outer
+	env.term = outer.term
 	return env
 }
 
@@ -49,12 +51,21 @@ func NewEnvironment() *Environment {
 	return &Environment{store: s}
 }
 
+// NewTermEnvironment creates an environment with a terminal front-end
+func NewTermEnvironment(term *terminal.Terminal) *Environment {
+	env := NewEnvironment()
+	env.term = term
+	return env
+}
+
 // Environment holds my variables and possible an outer environment
 type Environment struct {
 	store map[string]Object
 	outer *Environment
+	term  *terminal.Terminal
 }
 
+// Get attempts to retrieve an object from the environment
 func (e *Environment) Get(name string) (Object, bool) {
 	obj, ok := e.store[strings.ToUpper(name)]
 	if !ok && e.outer != nil {
@@ -63,27 +74,41 @@ func (e *Environment) Get(name string) (Object, bool) {
 	return obj, ok
 }
 
+// Set stores an object in the environment
 func (e *Environment) Set(name string, val Object) Object {
 	e.store[strings.ToUpper(name)] = val
 	return val
 }
 
-func (e *Environment) Print(m string) (int, error) {
-	n, err := fmt.Print(m)
+// Print to either the console or to a terminal
+func (e *Environment) Print(m string) {
+	if e.term != nil {
+		e.term.Print(m)
+		return
+	}
 
-	return n, err
+	fmt.Print(m)
 }
 
-func (e *Environment) Printf(m string, a ...interface{}) (int, error) {
-	n, err := fmt.Printf(m, a...)
+// Printf prints to either the console or a terminal front-end
+func (e *Environment) Printf(m string, a ...interface{}) {
+	if e.term != nil {
+		st := fmt.Sprintf(m, a...)
+		e.term.Print(st)
+		return
+	}
 
-	return n, err
+	fmt.Printf(m, a...)
 }
 
-func (e *Environment) Println(m string) (int, error) {
-	n, err := fmt.Println(m)
+// Println prints the string to either the console or a terminal front-end
+func (e *Environment) Println(m string) {
+	if e.term != nil {
+		e.term.Println(m)
+		return
+	}
 
-	return n, err
+	fmt.Println(m)
 }
 
 type Array struct {

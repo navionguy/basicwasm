@@ -1,13 +1,15 @@
 package cli
 
 import (
-	"fmt"
 	"time"
 
+	"github.com/navionguy/basicwasm/evaluator"
 	"github.com/navionguy/basicwasm/keybuffer"
 	"github.com/navionguy/basicwasm/lexer"
+	"github.com/navionguy/basicwasm/object"
 	"github.com/navionguy/basicwasm/parser"
 	"github.com/navionguy/basicwasm/terminal"
+	"github.com/navionguy/basicwasm/token"
 )
 
 //Start begins interacting with the user
@@ -17,6 +19,7 @@ func Start(term *terminal.Terminal) {
 
 func runLoop(term *terminal.Terminal) {
 	//var cmd []byte
+	env := object.NewTermEnvironment(term)
 
 	term.Println("OK")
 	for {
@@ -31,8 +34,8 @@ func runLoop(term *terminal.Terminal) {
 		case '\r':
 			row, _ := term.GetCursor()
 			//fmt.Printf("cursor at %d:%d\n", row, col)
-			term.Println("")
-			execCommand(term.Read(0, row, 80), term)
+			term.Print("\r\n")
+			execCommand(term.Read(0, row, 80), term, env)
 			//fmt.Println(term.Read(0, row, 80))
 		default:
 			term.Print(string(k))
@@ -40,16 +43,24 @@ func runLoop(term *terminal.Terminal) {
 			//fmt.Printf("%s\n", hex.EncodeToString(cmd[len(cmd)-1:]))
 		}
 	}
-	fmt.Println("cli stopping")
 }
 
-func execCommand(input string, term *terminal.Terminal) {
+func execCommand(input string, term *terminal.Terminal, env *object.Environment) {
 	l := lexer.New(input)
-	for tk := l.NextToken(); tk.Literal != "EOF"; tk = l.NextToken() {
-		term.Print(tk.Literal)
+	tk := l.NextToken()
+	if tk.Type == token.LINENUM {
+		// fresh line of code
+		term.Print("LINENUM")
+	} else {
+		p := parser.New(l)
+		program := p.ParseProgram()
+
+		if len(p.Errors()) > 0 {
+			term.Println("Syntax error")
+			return
+		}
+		evaluator.Eval(program, program.StatementIter(), env)
 	}
-	term.Println(":")
-	p := parser.New(l)
-	p.ParseProgram()
+
 	term.Println("OK")
 }
