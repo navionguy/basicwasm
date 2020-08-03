@@ -137,6 +137,7 @@ func (l *Lexer) NextToken() token.Token {
 	}
 
 	l.readChar()
+	l.newLine = false
 	return tok
 }
 

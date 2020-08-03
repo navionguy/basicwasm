@@ -8,20 +8,18 @@ import (
 	"github.com/navionguy/basicwasm/lexer"
 	"github.com/navionguy/basicwasm/object"
 	"github.com/navionguy/basicwasm/parser"
-	"github.com/navionguy/basicwasm/terminal"
 	"github.com/navionguy/basicwasm/token"
 )
 
 //Start begins interacting with the user
-func Start(term *terminal.Terminal) {
-	go runLoop(term)
+func Start(env *object.Environment) {
+	go runLoop(env)
 }
 
-func runLoop(term *terminal.Terminal) {
+func runLoop(env *object.Environment) {
 	//var cmd []byte
-	env := object.NewTermEnvironment(term)
 
-	term.Println("OK")
+	env.Terminal().Println("OK")
 	for {
 		k, ok := keybuffer.ReadByte()
 
@@ -32,35 +30,37 @@ func runLoop(term *terminal.Terminal) {
 
 		switch k {
 		case '\r':
-			row, _ := term.GetCursor()
+			row, _ := env.Terminal().GetCursor()
 			//fmt.Printf("cursor at %d:%d\n", row, col)
-			term.Print("\r\n")
-			execCommand(term.Read(0, row, 80), term, env)
+			env.Terminal().Print("\r\n")
+			execCommand(env.Terminal().Read(0, row, 80), env)
 			//fmt.Println(term.Read(0, row, 80))
 		default:
-			term.Print(string(k))
+			env.Terminal().Print(string(k))
 			//cmd = append(cmd, k)
 			//fmt.Printf("%s\n", hex.EncodeToString(cmd[len(cmd)-1:]))
 		}
 	}
 }
 
-func execCommand(input string, term *terminal.Terminal, env *object.Environment) {
+func execCommand(input string, env *object.Environment) {
 	l := lexer.New(input)
 	tk := l.NextToken()
 	if tk.Type == token.LINENUM {
 		// fresh line of code
-		term.Print("LINENUM")
+		env.Terminal().Print("LINENUM")
 	} else {
 		p := parser.New(l)
 		program := p.ParseProgram()
 
 		if len(p.Errors()) > 0 {
-			term.Println("Syntax error")
+			for _, m := range p.Errors() {
+				env.Terminal().Println(m)
+			}
 			return
 		}
 		evaluator.Eval(program, program.StatementIter(), env)
 	}
 
-	term.Println("OK")
+	env.Terminal().Println("OK")
 }

@@ -6,6 +6,7 @@ import (
 
 	"github.com/navionguy/basicwasm/cli"
 	"github.com/navionguy/basicwasm/keybuffer"
+	"github.com/navionguy/basicwasm/object"
 	"github.com/navionguy/basicwasm/terminal"
 )
 
@@ -16,7 +17,8 @@ func registerCallbacks() {
 	//kybd := make(chan byte, 0)
 	term := terminal.New(js.Global().Get("term"))
 
-	cli.Start(term)
+	env := object.NewTermEnvironment(term)
+	cli.Start(env)
 
 	js.Global().Set("keyPress", js.FuncOf(func(this js.Value, inputs []js.Value) interface{} {
 		keybuffer.SaveKeyStroke([]byte(inputs[0].String()))

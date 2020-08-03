@@ -245,10 +245,10 @@ func evalGotoStatement(jmp string, code *ast.Code, env *object.Environment) obje
 func evalPrintStatement(node *ast.PrintStatement, code *ast.Code, env *object.Environment) {
 	for i, item := range node.Items {
 
-		env.Print(Eval(item, code, env).Inspect())
+		env.Terminal().Print(Eval(item, code, env).Inspect())
 
 		if node.Seperators[i] == "," {
-			env.Print("\t")
+			env.Terminal().Print("\t")
 		}
 	}
 	if node.Seperators[len(node.Seperators)-1] == ";" {
@@ -256,7 +256,7 @@ func evalPrintStatement(node *ast.PrintStatement, code *ast.Code, env *object.En
 	}
 
 	// end with a newline
-	env.Println("")
+	env.Terminal().Println("")
 }
 
 func evalPrefixExpression(operator string, right object.Object, code *ast.Code, env *object.Environment) object.Object {

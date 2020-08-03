@@ -8,7 +8,6 @@ import (
 
 	"github.com/navionguy/basicwasm/ast"
 	"github.com/navionguy/basicwasm/decimal"
-	"github.com/navionguy/basicwasm/terminal"
 )
 
 // BuiltinFunction is a function defined by gwbasic
@@ -37,6 +36,16 @@ const (
 	TYPED_OBJ        = "TYPED"
 )
 
+// Console defines how collect input and display output
+type Console interface {
+	Print(string)
+	Println(string)
+
+	Locate(int, int)
+	GetCursor() (int, int)
+	Read(col, row, len int) string
+}
+
 // NewEnclosedEnvironment allows variables during function calls
 func NewEnclosedEnvironment(outer *Environment) *Environment {
 	env := NewEnvironment()
@@ -52,7 +61,7 @@ func NewEnvironment() *Environment {
 }
 
 // NewTermEnvironment creates an environment with a terminal front-end
-func NewTermEnvironment(term *terminal.Terminal) *Environment {
+func NewTermEnvironment(term Console) *Environment {
 	env := NewEnvironment()
 	env.term = term
 	return env
@@ -62,7 +71,7 @@ func NewTermEnvironment(term *terminal.Terminal) *Environment {
 type Environment struct {
 	store map[string]Object
 	outer *Environment
-	term  *terminal.Terminal
+	term  Console
 }
 
 // Get attempts to retrieve an object from the environment
@@ -80,35 +89,9 @@ func (e *Environment) Set(name string, val Object) Object {
 	return val
 }
 
-// Print to either the console or to a terminal
-func (e *Environment) Print(m string) {
-	if e.term != nil {
-		e.term.Print(m)
-		return
-	}
-
-	fmt.Print(m)
-}
-
-// Printf prints to either the console or a terminal front-end
-func (e *Environment) Printf(m string, a ...interface{}) {
-	if e.term != nil {
-		st := fmt.Sprintf(m, a...)
-		e.term.Print(st)
-		return
-	}
-
-	fmt.Printf(m, a...)
-}
-
-// Println prints the string to either the console or a terminal front-end
-func (e *Environment) Println(m string) {
-	if e.term != nil {
-		e.term.Println(m)
-		return
-	}
-
-	fmt.Println(m)
+// Terminal allows access to the termianl console
+func (e *Environment) Terminal() Console {
+	return e.term
 }
 
 type Array struct {
