@@ -23,6 +23,9 @@ func Eval(node ast.Node, code *ast.Code, env *object.Environment) object.Object 
 	case *ast.Program:
 		return evalStatements(node, code, env)
 
+	case *ast.ClsStatement:
+		evalClsStatement(node, code, env)
+
 	case *ast.DimStatement:
 		evalDimStatement(node, code, env)
 
@@ -157,6 +160,10 @@ func evalStatements(stmts *ast.Program, code *ast.Code, env *object.Environment)
 	return result
 }
 
+func evalClsStatement(cls *ast.ClsStatement, code *ast.Code, env *object.Environment) {
+	env.Terminal().Cls()
+}
+
 func evalDimStatement(dim *ast.DimStatement, code *ast.Code, env *object.Environment) {
 
 	for i, id := range dim.Vars {
@@ -173,9 +180,9 @@ func allocArray(typeid string, dims []*ast.IndexExpression, code *ast.Code, env 
 	if isError(d) {
 		return d
 	}
-	i := d.(*object.Integer)
+	i, ok := d.(*object.Integer)
 
-	if i == nil {
+	if !ok {
 		i = &object.Integer{Value: coerceIndex(d)}
 	}
 
@@ -635,7 +642,9 @@ func coerceIndex(idx object.Object) int16 {
 	switch idx.Type() {
 	case object.FIXED_OBJ:
 		fx, _ := idx.(*object.Fixed)
-		return int16(fx.Value.Round(0).IntPart())
+		fx2 := fx.Value.Round(0)
+		ti := fx2.IntPart()
+		return int16(ti)
 	case object.FLOATSGL_OBJ:
 		fx, _ := idx.(*object.FloatSgl)
 		return int16(fx.Value)

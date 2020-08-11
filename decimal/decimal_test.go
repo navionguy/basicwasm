@@ -187,7 +187,7 @@ func TestDiv(t *testing.T) {
 		{Decimal{value: 4512, exp: -2}, Decimal{value: 2, exp: 0}, Decimal{value: 2256, exp: -2}},
 		{Decimal{value: 4512, exp: -2}, Decimal{value: -2, exp: 0}, Decimal{value: -2256, exp: -2}},
 		{Decimal{value: 451268, exp: -4}, Decimal{value: 34, exp: 5}, Decimal{value: 132, exp: -7}},
-		{Decimal{value: -451268, exp: -4}, Decimal{value: 3422, exp: -2}, Decimal{value: -1318725, exp: -6}},
+		{Decimal{value: -451268, exp: -4}, Decimal{value: 3422, exp: -2}, Decimal{value: -1318726, exp: -6}},
 	}
 
 	for _, tt := range tests {
@@ -320,4 +320,26 @@ func TestAbs(t *testing.T) {
 			t.Errorf("abs() expected %d got %d", tt.res, res)
 		}
 	}
+}
+
+func TestRound(t *testing.T) {
+	tests := []struct {
+		d1  Decimal
+		r   int
+		exp Decimal
+	}{
+		{Decimal{value: 4512, exp: -2}, 0, Decimal{value: 45, exp: 0}},
+		{Decimal{value: 4512, exp: -3}, -1, Decimal{value: 45, exp: -1}},
+		{Decimal{value: 4512, exp: -1}, 1, Decimal{value: 45, exp: 1}},
+		{Decimal{value: 4512, exp: 0}, 1, Decimal{value: 451, exp: 1}},
+	}
+
+	for _, tt := range tests {
+		res := tt.d1.Round(tt.r)
+
+		if res != tt.exp {
+			t.Errorf("cmp() expected %d, got %d", tt.exp, res)
+		}
+	}
+
 }

@@ -179,9 +179,7 @@ func TestLetWithTypes(t *testing.T) {
 }
 
 func TestLineNumbers(t *testing.T) {
-	input := `10
-	20
-	30`
+	input := "10\n20\n30"
 
 	l := lexer.New(input)
 	p := New(l)
@@ -879,6 +877,41 @@ func TestEndStatements(t *testing.T) {
 		}
 		if endStmt.TokenLiteral() != "END" {
 			t.Fatalf("endStmt.TokenLiteral not 'END', got %q", endStmt.TokenLiteral())
+		}
+	}
+}
+
+func TestCls(t *testing.T) {
+	tests := []struct {
+		input string
+		param int
+	}{
+		{"CLS", -1},
+		{"CLS 0", 0},
+	}
+
+	for _, tt := range tests {
+		l := lexer.New(tt.input)
+		//l.NextToken()
+		p := New(l)
+		program := p.ParseProgram()
+		checkParserErrors(t, p)
+
+		if program.StatementIter().Len() != 1 {
+			t.Fatalf("program.Statements does not contain single command")
+		}
+
+		iter := program.StatementIter()
+		stmt := iter.Value()
+		clsStmt, ok := stmt.(*ast.ClsStatement)
+		if !ok {
+			t.Fatalf("stmt not *ast.ClsStatement. got=%T", stmt)
+		}
+		if clsStmt.TokenLiteral() != "CLS" {
+			t.Fatalf("clsStmt.TokenLiteral not 'CLS', got %q", clsStmt.TokenLiteral())
+		}
+		if tt.param != clsStmt.Param {
+			t.Fatalf("cls param expected %d, got %d", tt.param, clsStmt.Param)
 		}
 	}
 }

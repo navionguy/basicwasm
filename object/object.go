@@ -38,6 +38,7 @@ const (
 
 // Console defines how collect input and display output
 type Console interface {
+	Cls()
 	Print(string)
 	Println(string)
 
@@ -48,21 +49,21 @@ type Console interface {
 
 // NewEnclosedEnvironment allows variables during function calls
 func NewEnclosedEnvironment(outer *Environment) *Environment {
-	env := NewEnvironment()
+	env := newEnvironment()
 	env.outer = outer
 	env.term = outer.term
 	return env
 }
 
 // NewEnvironment creates a place to store variables
-func NewEnvironment() *Environment {
+func newEnvironment() *Environment {
 	s := make(map[string]Object)
 	return &Environment{store: s}
 }
 
 // NewTermEnvironment creates an environment with a terminal front-end
 func NewTermEnvironment(term Console) *Environment {
-	env := NewEnvironment()
+	env := newEnvironment()
 	env.term = term
 	return env
 }

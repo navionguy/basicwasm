@@ -120,7 +120,7 @@ func (d *Decimal) Mul(d2 Decimal) Decimal {
 	dig := prod.countDigits()
 
 	if dig > 7 {
-		return prod.Round(-7)
+		return prod.Round(-6)
 	}
 
 	return prod
@@ -138,7 +138,7 @@ func (d Decimal) Div(d2 Decimal) Decimal {
 	q, r := d.QuoRem(d2, precision)
 
 	if r.value == 0 {
-		return q.Round(precision)
+		return q.Round(-precision)
 	}
 
 	r = r.Abs()
@@ -256,8 +256,8 @@ func (d *Decimal) sign() int {
 	return 1
 }
 func (d Decimal) rescale(exp int) Decimal {
-	if d.exp == exp {
 
+	if d.exp == exp {
 		return Decimal{d.value, d.exp}
 	}
 
@@ -287,26 +287,27 @@ func (d Decimal) rescale(exp int) Decimal {
 // 	   NewFromFloat(545).Round(-1).String() // output: "550"
 //
 func (d Decimal) Round(places int) Decimal {
-	// truncate to places + 1
+	rc := Decimal{value: d.value, exp: places}
 	dc := d.countDigits()
-	if dc < abs(places) {
-		return d
+	ms := -d.exp
+	rc.exp = max(-(7 - (dc + d.exp)), places)
+	rExp := -(ms + rc.exp - 1)
+	/*if dc > abs(places) {
+		rc.exp += dc + places
+		rExp = 1 - (dc + places)
+		places = rc.exp
+	}*/
+	exp := math.Pow10(rExp)
+	rndVal := float64(d.value) * exp
+	if rndVal >= 0 {
+		rndVal += 5
+	} else {
+		rndVal -= 5
 	}
+	rc.value = int(rndVal / 10)
 
-	places += (dc + places) - 1
-	ret := d.rescale(max(places, d.exp))
+	return rc
 
-	// add sign(d) * 0.5
-	ret.value += ret.sign() * 5
-
-	// floor for positive numbers, ceil for negative numbers
-	m := ret.divMod(ret.value, 10)
-	ret.exp++
-	if ret.sign() < 0 && m.cmp(0) != 0 {
-		ret.value++
-	}
-
-	return ret
 }
 
 func rescalePair(d1, d2 Decimal) (Decimal, Decimal) {
@@ -356,7 +357,6 @@ func (d Decimal) countDigits() int {
 
 func countDigits(num int) int {
 	ct := 0
-
 	for num != 0 {
 		num /= 10
 		ct++
@@ -366,16 +366,16 @@ func countDigits(num int) int {
 
 func countDigitsTrimmed(num int) int {
 	ct := 0
-	tz := true
+	//tz := true
 
 	for num != 0 {
 		if num%10 != 0 {
-			tz = false
+			//tz = false
 		}
 		num /= 10
-		if !tz { // until I see non-zero, just trailing zeroes
-			ct++
-		}
+		//if !tz { // until I see non-zero, just trailing zeroes
+		ct++
+		//}
 	}
 	return ct
 }

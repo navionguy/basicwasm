@@ -1,12 +1,90 @@
 package evaluator
 
 import (
+	"fmt"
+
 	"github.com/navionguy/basicwasm/lexer"
 	"github.com/navionguy/basicwasm/object"
 	"github.com/navionguy/basicwasm/parser"
 
 	"testing"
 )
+
+type mockTerm struct {
+	row    *int
+	col    *int
+	strVal *string
+	sawCls *bool
+}
+
+func initMockTerm(mt *mockTerm) {
+	mt.row = new(int)
+	*mt.row = 0
+
+	mt.col = new(int)
+	*mt.col = 0
+
+	mt.strVal = new(string)
+	*mt.strVal = ""
+
+	mt.sawCls = new(bool)
+	*mt.sawCls = false
+}
+
+func (mt mockTerm) Cls() {
+	*mt.sawCls = true
+}
+
+func (mt mockTerm) Print(msg string) {
+	fmt.Print(msg)
+}
+
+func (mt mockTerm) Println(msg string) {
+	fmt.Println(msg)
+}
+
+func (mt mockTerm) Locate(int, int) {
+
+}
+
+func (mt mockTerm) GetCursor() (int, int) {
+	return *mt.row, *mt.col
+}
+
+func (mt mockTerm) Read(col, row, len int) string {
+	return *mt.strVal
+}
+
+func TestClsStatement(t *testing.T) {
+	tests := []struct {
+		input string
+	}{
+		{"Cls"},
+	}
+
+	for _, tt := range tests {
+		l := lexer.New(tt.input)
+		p := parser.New(l)
+		program := p.ParseProgram()
+
+		if len(p.Errors()) > 0 {
+			for _, er := range p.Errors() {
+				fmt.Println(er)
+			}
+			return
+		}
+
+		var mt mockTerm
+		initMockTerm(&mt)
+		//mt.sawCls = new(bool)
+		//*mt.sawCls = false
+		Eval(program, program.StatementIter(), object.NewTermEnvironment(mt))
+
+		if !*mt.sawCls {
+			t.Errorf("No call to Cls() seen")
+		}
+	}
+}
 
 func TestEvalIntegerExpression(t *testing.T) {
 	tests := []struct {
@@ -41,7 +119,9 @@ func testEval(input string) object.Object {
 	if len(p.Errors()) > 0 {
 		return nil
 	}
-	return Eval(program, program.StatementIter(), object.NewEnvironment())
+
+	var mt mockTerm
+	return Eval(program, program.StatementIter(), object.NewTermEnvironment(mt))
 }
 
 func testIntegerObject(t *testing.T, obj object.Object, expected int16) bool {
@@ -504,6 +584,7 @@ func ExampleT_array() {
 		{`130 DIM A[20] : LET A[11] = 6 : PRINT A[11]`},
 		{`140 DIM M[10,10] : LET M[4,5] = 13 : PRINT M[4,5] : PRINT M[5,4]`},
 		{`150 DIM A[9,10], B[5,6] : LET B[4,5] = 12 : PRINT B[4,5]`},
+		{`160 DIM Y[12.5] : LET Y[1.5] = 5 : PRINT Y[1.5]`},
 	}
 
 	for _, tt := range tests {
@@ -528,6 +609,7 @@ func ExampleT_array() {
 	// 13
 	// 0
 	// 12
+	// 5
 }
 
 func ExampleT_strings() {

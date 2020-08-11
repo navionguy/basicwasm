@@ -45,7 +45,7 @@ func runLoop(env *object.Environment) {
 
 func execCommand(input string, env *object.Environment) {
 	l := lexer.New(input)
-	tk := l.NextToken()
+	tk := l.NextToken() // check if user is entering a line of code
 	if tk.Type == token.LINENUM {
 		// fresh line of code
 		env.Terminal().Print("LINENUM")

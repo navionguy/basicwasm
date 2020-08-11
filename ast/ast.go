@@ -600,3 +600,20 @@ func (pe *PrintStatement) String() string {
 
 	return out.String()
 }
+
+// ClsStatement command to clear screen
+type ClsStatement struct {
+	Token token.Token
+	Param int
+}
+
+func (cls *ClsStatement) statementNode()       {}
+func (cls *ClsStatement) TokenLiteral() string { return cls.Token.Literal }
+
+func (cls *ClsStatement) String() string {
+	if cls.Param == -1 {
+		return "CLS"
+	}
+
+	return fmt.Sprintf("CLS %d", cls.Param)
+}

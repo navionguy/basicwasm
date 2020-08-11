@@ -10,14 +10,12 @@ type Lexer struct {
 	position     int  // current position in input (points to current char)
 	readPosition int  // current reading position in input (after current char)
 	ch           byte // current char under examination
-	newLine      bool // flag that I'm at the start of a line
 }
 
 //New create a new lexer object
 func New(input string) *Lexer {
 	l := &Lexer{
 		input:    input,
-		newLine:  true,
 		position: -1,
 	}
 	return l
@@ -40,6 +38,8 @@ func (l *Lexer) NextToken() token.Token {
 	// Type tokens
 	case '\n':
 		tok = newToken(token.EOL, l.ch)
+		l.readChar()
+		return tok
 	case '$':
 		tok = newToken(token.TYPE_STR, l.ch)
 	case '%':
@@ -126,10 +126,6 @@ func (l *Lexer) NextToken() token.Token {
 			return tok
 		} else if isDigit(l.ch) {
 			tok.Type, tok.Literal = l.readNumber()
-			if l.newLine && (tok.Type == token.INT) {
-				tok.Type = token.LINENUM
-				l.newLine = false
-			}
 			return tok
 		} else {
 			tok = newToken(token.ILLEGAL, l.ch)
@@ -137,7 +133,6 @@ func (l *Lexer) NextToken() token.Token {
 	}
 
 	l.readChar()
-	l.newLine = false
 	return tok
 }
 
@@ -242,7 +237,6 @@ func isDigit(ch byte) bool {
 func (l *Lexer) skipWhitespace() {
 	for l.ch == ' ' || l.ch == '\t' || l.ch == '\n' {
 		if l.ch == '\n' {
-			l.newLine = true
 			return
 		}
 		l.readChar()

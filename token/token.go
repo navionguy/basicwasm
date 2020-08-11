@@ -57,6 +57,7 @@ const (
 	RBRACKET = "]"
 
 	// Keywords
+	CLS      = "CLS"
 	CLEAR    = "CLEAR"
 	COMMON   = "COMMON"
 	DIM      = "DIM"
@@ -84,6 +85,7 @@ type Token struct {
 }
 
 var keywords = map[string]TokenType{
+	"cls":    CLS,
 	"def":    FUNCTION,
 	"dim":    DIM,
 	"let":    LET,

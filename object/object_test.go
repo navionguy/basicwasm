@@ -34,7 +34,7 @@ func TestInteger(t *testing.T) {
 }
 
 func TestEnvironment(t *testing.T) {
-	env := NewEnvironment()
+	env := newEnvironment()
 	encenv := NewEnclosedEnvironment(env)
 
 	tests := []struct {

@@ -110,6 +110,11 @@ func (p *Parser) Errors() []string {
 func (p *Parser) nextToken() {
 	p.curToken = p.peekToken
 	p.peekToken = p.l.NextToken()
+
+	// If I see EOL followed by INT, that is actually a line number
+	if p.curTokenIs(token.EOL) && p.peekTokenIs(token.INT) {
+		p.peekToken.Type = token.LINENUM
+	}
 }
 
 // ParseProgram time to get busy
@@ -146,11 +151,13 @@ func (p *Parser) parseStatement() ast.Statement {
 			return stmt
 		}
 
-		// Newline signals a line number should follow
+		/* Newline signals a line number should follow
 		if !p.expectPeek(token.LINENUM) {
 			p.errors = append(p.errors, fmt.Sprintf("missing line number after %d", p.curLine))
 			return nil
-		}
+		}*/
+		return nil
+	case token.LINENUM:
 		return p.parseLineNumber()
 	case token.GOTO:
 		return p.parseGotoStatement()
@@ -164,6 +171,8 @@ func (p *Parser) parseStatement() ast.Statement {
 		return p.parseEndStatement()
 	case token.DIM:
 		return p.parseDimStatement()
+	case token.CLS:
+		return p.parseClsStatement()
 	default:
 		if strings.ContainsAny(p.peekToken.Literal, "=[$%!#") {
 			return p.parseImpliedLetStatement(p.curToken.Literal)
@@ -264,6 +273,18 @@ func (p *Parser) parseLineNumber() *ast.LineNumStmt {
 	}
 	stmt.Value = int16(tv)
 	p.curLine = int16(tv)
+
+	return stmt
+}
+
+func (p *Parser) parseClsStatement() *ast.ClsStatement {
+	defer untrace(trace("parseClsStatement"))
+	stmt := &ast.ClsStatement{Token: p.curToken, Param: -1}
+
+	if p.peekTokenIs(token.INT) {
+		p.nextToken()
+		stmt.Param, _ = strconv.Atoi(p.curToken.Literal)
+	}
 
 	return stmt
 }
