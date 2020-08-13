@@ -41,8 +41,10 @@ func TestExecCommand(t *testing.T) {
 	tests := []struct {
 		inp string
 	}{
+		{"CLS"},
 		{"LET X = 5"},
 		{"PRINT X"},
+		{"PRINT 45.2 / 3.4"},
 	}
 
 	var trm mockTerm

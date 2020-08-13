@@ -295,12 +295,7 @@ func (p *Parser) parsePrintStatement() *ast.PrintStatement {
 
 	for !p.chkEndOfStatement() {
 		p.nextToken()
-		switch p.curToken.Type {
-		case token.STRING:
-			stmt.Items = append(stmt.Items, p.parseStringLiteral())
-		case token.IDENT:
-			stmt.Items = append(stmt.Items, p.parseIdentifier())
-		}
+		stmt.Items = append(stmt.Items, p.parseExpression(LOWEST))
 
 		if p.peekTokenIs(token.COMMA) || p.peekTokenIs(token.SEMICOLON) {
 			p.nextToken()

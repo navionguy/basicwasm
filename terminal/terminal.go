@@ -46,6 +46,8 @@ func (t *Terminal) SoundBell() {
 // Cls clears the terminal of all text
 func (t *Terminal) Cls() {
 	t.term.Call("clear")
+	t.Locate(1, 1)       // set the cursor
+	t.Print("\x1B[80'~") // clear to end of line
 }
 
 // GetCursor retrieves the current cursor position
