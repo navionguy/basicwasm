@@ -26,7 +26,6 @@ const (
 	ASTERISK = "*"
 	SLASH    = "/"
 	BSLASH   = "\\"
-	MOD      = "MOD"
 
 	LT = "<"
 	GT = ">"
@@ -57,26 +56,27 @@ const (
 	RBRACKET = "]"
 
 	// Keywords
-	CLS      = "CLS"
-	CLEAR    = "CLEAR"
-	COMMON   = "COMMON"
-	DIM      = "DIM"
-	DEFINE   = "DEFINE"
-	FUNCTION = "DEF"
-	LET      = "LET"
-	TRUE     = "TRUE"
-	FALSE    = "FALSE"
-	IF       = "IF"
-	THEN     = "THEN"
-	ELSE     = "ELSE"
-	RETURN   = "RETURN"
-	GOTO     = "GOTO"
-	GOSUB    = "GOSUB"
-	LOCATE   = "LOCATE"
-	PRINT    = "PRINT"
-	USING    = "USING"
-	REM      = "REM"
-	END      = "END"
+	CLS    = "CLS"
+	CLEAR  = "CLEAR"
+	COMMON = "COMMON"
+	DEF    = "DEF"
+	DIM    = "DIM"
+	ELSE   = "ELSE"
+	END    = "END"
+	FALSE  = "FALSE"
+	GOSUB  = "GOSUB"
+	GOTO   = "GOTO"
+	IF     = "IF"
+	LET    = "LET"
+	LIST   = "LIST"
+	LOCATE = "LOCATE"
+	MOD    = "MOD"
+	PRINT  = "PRINT"
+	REM    = "REM"
+	RETURN = "RETURN"
+	THEN   = "THEN"
+	TRUE   = "TRUE"
+	USING  = "USING"
 )
 
 type Token struct {
@@ -85,24 +85,26 @@ type Token struct {
 }
 
 var keywords = map[string]TokenType{
+	"clear":  CLEAR,
 	"cls":    CLS,
-	"def":    FUNCTION,
+	"def":    DEF,
 	"dim":    DIM,
-	"let":    LET,
-	"true":   TRUE,
-	"false":  FALSE,
-	"if":     IF,
-	"then":   THEN,
 	"else":   ELSE,
-	"return": RETURN,
+	"end":    END,
+	"false":  FALSE,
 	"gosub":  GOSUB,
 	"goto":   GOTO,
-	"end":    END,
+	"if":     IF,
+	"let":    LET,
+	"list":   LIST,
 	"locate": LOCATE,
-	"clear":  CLEAR,
-	"print":  PRINT,
-	"using":  USING,
 	"mod":    MOD,
+	"print":  PRINT,
+	"rem":    REM,
+	"return": RETURN,
+	"then":   THEN,
+	"true":   TRUE,
+	"using":  USING,
 }
 
 func LookupIdent(ident string) TokenType {

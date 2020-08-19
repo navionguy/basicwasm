@@ -74,7 +74,7 @@ func New(l *lexer.Lexer) *Parser {
 	p.registerPrefix(token.LPAREN, p.parseGroupedExpression)
 	p.registerPrefix(token.IF, p.parseIfExpression)
 	p.registerPrefix(token.STRING, p.parseStringLiteral)
-	p.registerPrefix(token.FUNCTION, p.parseFunctionLiteral)
+	p.registerPrefix(token.DEF, p.parseFunctionLiteral)
 	p.registerPrefix(token.FLOAT, p.parseFloatingPointLiteral)
 	p.registerPrefix(token.FIXED, p.parseFixedPointLiteral)
 
@@ -141,6 +141,8 @@ func (p *Parser) parseStatement() ast.Statement {
 	switch p.curToken.Type {
 	case token.LET:
 		return p.parseLetStatement()
+	case token.END:
+		return p.parseEndStatement()
 	case token.EOL:
 		// EOF means that was the last line
 		if p.peekTokenIs(token.EOF) {
@@ -160,12 +162,12 @@ func (p *Parser) parseStatement() ast.Statement {
 		return p.parseGotoStatement()
 	case token.GOSUB:
 		return p.parseGosubStatement()
+	case token.REM:
+		return p.parseRemStatement()
 	case token.RETURN:
 		return p.parseReturnStatement()
 	case token.PRINT:
 		return p.parsePrintStatement()
-	case token.END:
-		return p.parseEndStatement()
 	case token.DIM:
 		return p.parseDimStatement()
 	case token.CLS:
@@ -382,6 +384,19 @@ func (p *Parser) parseGosubStatement() *ast.GosubStatement {
 		p.nextToken()
 	}
 
+	return stmt
+}
+
+// not a hard one to parse
+func (p *Parser) parseRemStatement() *ast.RemStatement {
+	stmt := &ast.RemStatement{Token: p.curToken, Comment: p.curToken.Literal}
+
+	for !p.peekTokenIs(token.LINENUM) && !p.peekTokenIs(token.EOF) {
+		p.nextToken()
+		stmt.Comment += " " + p.curToken.Literal
+	}
+
+	p.nextToken()
 	return stmt
 }
 

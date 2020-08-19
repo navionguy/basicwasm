@@ -21,7 +21,7 @@ func TestNextToken(t *testing.T) {
 	}{
 		{token.EOL, "\n"},
 		{token.INT, "10"},
-		{token.IDENT, "REM"},
+		{token.REM, "REM"},
 		{token.LET, "let"},
 		{token.IDENT, "five"},
 		{token.ASSIGN, "="}, //5

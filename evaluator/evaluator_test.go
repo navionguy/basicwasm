@@ -635,6 +635,7 @@ func ExampleT_errors() {
 	tests := []struct {
 		input string
 	}{
+		{`5 REM A comment to get started.`},
 		{`10 GOTO 200`},
 		{`20 LET X = FNBANG(32)`},
 		{`30 LET Y = 1.5 : LET X[Y] = 5 : PRINT X[Y]`},

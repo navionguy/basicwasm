@@ -105,6 +105,9 @@ func Eval(node ast.Node, code *ast.Code, env *object.Environment) object.Object 
 		env.Set(node.Token.Literal, obj)
 		return obj
 
+	case *ast.RemStatement:
+		return nil // nothing to be done
+
 	case *ast.CallExpression:
 		function := Eval(node.Function, code, env)
 		if isError(function) {
@@ -249,6 +252,7 @@ func evalGotoStatement(jmp string, code *ast.Code, env *object.Environment) obje
 
 	return &object.Integer{Value: int16(v)}
 }
+
 func evalPrintStatement(node *ast.PrintStatement, code *ast.Code, env *object.Environment) {
 	for i, item := range node.Items {
 

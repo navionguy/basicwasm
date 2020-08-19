@@ -341,6 +341,33 @@ func TestIdentifierExpression(t *testing.T) {
 	}
 }
 
+func TestRemStatement(t *testing.T) {
+	tests := []struct {
+		inp string
+		res string
+	}{
+		{inp: "10 REM A code comment", res: "REM A code comment"},
+		{inp: "20 REM", res: "REM"},
+		{inp: "30 ' Alternate form remark", res: "' Alternate form remark"},
+		{inp: "40 ' Once a remark : GOTO 20", res: "' Once a remark : GOTO 20"},
+	}
+
+	for _, tt := range tests {
+		l := lexer.New(tt.inp)
+		p := New(l)
+		prog := p.ParseProgram()
+		checkParserErrors(t, p)
+
+		itr := prog.StatementIter()
+		itr.Next()
+		stmt := itr.Value()
+
+		if strings.Compare(stmt.String(), tt.res) != 0 {
+			t.Fatalf("REM stmt expected %s, got %s", tt.res, stmt.String())
+		}
+	}
+}
+
 func TestStringLiteralExpression(t *testing.T) {
 	input := `10 "hello world"`
 	l := lexer.New(input)

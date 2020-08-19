@@ -147,6 +147,7 @@ func (cd *Code) findLine(lNum int16) (int, bool) {
 	return 0, false
 }
 
+// find the highest line number currently in Code
 func (cd *Code) maxLineNum() int16 {
 	// if array of code lines is empty
 	if len(cd.lines) == 1 {
@@ -155,7 +156,8 @@ func (cd *Code) maxLineNum() int16 {
 	return cd.lines[len(cd.lines)-1].lineNum
 }
 
-// Next iter over the statments
+// Next tries to move to the next statment
+// if I can't find one, returns false
 func (cd *Code) Next() bool {
 
 	if cd.currIndex > int16(len(cd.lines)-1) {
@@ -693,4 +695,38 @@ func (cls *ClsStatement) String() string {
 	}
 
 	return fmt.Sprintf("CLS %d", cls.Param)
+}
+
+// RemStatement command to clear screen
+type RemStatement struct {
+	Token   token.Token
+	Comment string
+}
+
+func (rem *RemStatement) statementNode() {}
+
+// TokenLiteral should return REM
+func (rem *RemStatement) TokenLiteral() string { return rem.Token.Literal }
+
+func (rem *RemStatement) String() string {
+
+	return fmt.Sprint(rem.Comment)
+}
+
+// ListStatement command to clear screen
+type ListStatement struct {
+	Token  token.Token
+	start  string
+	lrange string
+	stop   string
+}
+
+func (lst *ListStatement) statementNode() {}
+
+// TokenLiteral should return LIST
+func (lst *ListStatement) TokenLiteral() string { return lst.Token.Literal }
+
+func (lst *ListStatement) String() string {
+
+	return fmt.Sprintf("LIST %s%s%s", lst.start, lst.lrange, lst.stop)
 }
