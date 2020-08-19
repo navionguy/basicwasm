@@ -2,8 +2,8 @@ package ast
 
 import (
 	"bytes"
+	"errors"
 	"fmt"
-	"strconv"
 	"strings"
 
 	"github.com/navionguy/basicwasm/decimal"
@@ -28,106 +28,192 @@ type Expression interface {
 	expressionNode()
 }
 
-type line struct {
-	stmtIndx int16
-	Value    string
+type codeLine struct {
+	lineNum int16
+	stmts   []Statement
+	curStmt int16
 }
 
-type lines struct {
-	stmts   map[int16]line
-	current *Statement
-	lastAdd int16
+func (cl codeLine) String() string {
+	var out bytes.Buffer
+	for i := range cl.stmts {
+		out.WriteString(cl.stmts[i].String())
+	}
+	return out.String()
 }
 
 // Code allows iterating over the code lines subject to control transfer
 type Code struct {
-	statements []Statement
-	lines      map[int16]int16
-	currStmt   int16
-	nextStmt   int16
-	err        error
-	pg         *Program
+	lines     []codeLine // array of code lines sorted by ascending line number
+	currIndex int16      // index into lines
+	currLine  int16      // current line excuting
+	err       error
 }
 
 //Program holds the root of the AST (Abstract Syntax Tree)
 type Program struct {
-	code       Code
-	maxLineNum int16
+	code Code
 }
 
 // New setups internal state
 func (p *Program) New() {
 	var err error
 	p.code = Code{
-		statements: []Statement{},
-		currStmt:   0,
-		nextStmt:   1,
-		err:        err,
-		pg:         p,
+		lines:    []codeLine{},
+		currLine: 0,
+		err:      err,
 	}
-	p.code.lines = make(map[int16]int16)
+
+	p.code.lines = append(p.code.lines, codeLine{lineNum: 0, curStmt: 0})
 }
 
+// TokenLiteral returns string representation of the program
+func (p *Program) TokenLiteral() string { return p.code.Value().String() }
+
 // AddStatement adds a new statement to the AST
-func (p *Program) AddStatement(stmt Statement) string {
-	p.code.statements = append(p.code.statements, stmt)
+func (p *Program) AddStatement(stmt Statement) {
+	//p.code.statements = append(p.code.statements, stmt)
 
 	lNum, ok := stmt.(*LineNumStmt)
 
-	if !ok {
-		return ""
+	if ok {
+		// we are starting a new line
+		p.code.addLine(lNum.Value)
+		p.code.currLine = lNum.Value
 	}
 
-	lne, err := strconv.Atoi(lNum.Token.Literal)
-
-	if err != nil {
-		return fmt.Sprintf("invalid line number %s", lNum.Token.Literal)
-	}
-	line := int16(lne)
-
-	if line <= p.maxLineNum {
-		return fmt.Sprintf("line numbers not sequential after line %d", p.maxLineNum)
-	}
-
-	p.maxLineNum = line
-	p.code.lines[line] = int16(len(p.code.statements))
-	return ""
+	p.code.lines[p.code.currIndex].stmts = append(p.code.lines[p.code.currIndex].stmts, stmt)
 }
 
 // StatementIter lets them iterate over lines
 func (p *Program) StatementIter() *Code {
+	if p.code.currIndex != 0 {
+		p.code.currIndex = 1
+	}
+
 	return &p.code
+}
+
+// going to add, or possibly replace, a line of code
+func (cd *Code) addLine(lineNum int16) {
+	// create a new codeLine struct
+	nl := codeLine{
+		lineNum: lineNum,
+	}
+
+	// *most* of the time, adding to the end of the program
+	if lineNum > cd.maxLineNum() {
+		cd.lines = append(cd.lines, nl)
+		cd.currIndex = int16(len(cd.lines) - 1)
+		cd.currLine = lineNum
+		return
+	}
+
+	i, found := cd.findLine(lineNum)
+
+	if found {
+		cd.lines[i] = nl
+		cd.currIndex = int16(i)
+		cd.currLine = lineNum
+		return
+	}
+
+	// insert it into the array
+	cd.lines = append(cd.lines[:i], append([]codeLine{nl}, cd.lines[i:]...)...)
+	cd.currIndex = int16(i)
+	cd.currLine = lineNum
+}
+
+// tries to find the requested line number in the array of lines
+// returns index into lines and true if found
+// returns index to insert it and false if not found
+func (cd *Code) findLine(lNum int16) (int, bool) {
+	if len(cd.lines) == 0 {
+		return 0, false
+	}
+
+	// todo: come up with a clever way to do this faster
+	for i := range cd.lines {
+		if cd.lines[i].lineNum == lNum {
+			return i, true //found him!  Just replace with the new version
+		}
+
+		if cd.lines[i].lineNum > lNum {
+			return i, false // time to insert a new line
+		}
+	}
+
+	// line doesn't exist
+	return 0, false
+}
+
+func (cd *Code) maxLineNum() int16 {
+	// if array of code lines is empty
+	if len(cd.lines) == 1 {
+		return 0 //return zero
+	}
+	return cd.lines[len(cd.lines)-1].lineNum
 }
 
 // Next iter over the statments
 func (cd *Code) Next() bool {
-	if cd.nextStmt >= int16(len(cd.statements)) {
+
+	if cd.currIndex > int16(len(cd.lines)-1) {
 		return false
 	}
-	cd.currStmt = cd.nextStmt
-	cd.nextStmt++
+
+	line := &cd.lines[cd.currIndex]
+	line.curStmt++
+
+	if line.curStmt > int16(len(line.stmts)-1) {
+		line.curStmt = 0 // reset to start of the line
+		cd.currIndex++   // move to the next line
+
+		return (line.curStmt > int16(len(line.stmts)-1))
+	}
+
 	return true
 }
 
 // Value sends the next statement
 func (cd *Code) Value() Statement {
-	return cd.statements[cd.currStmt]
+	if cd.currIndex > int16(len(cd.lines)-1) {
+		return nil
+	}
+	line := &cd.lines[cd.currIndex]
+
+	if line.curStmt > int16(len(line.stmts)-1) {
+		if !cd.Next() {
+			return nil
+		}
+		rc := cd.Value()
+		return rc
+	}
+
+	rc := line.stmts[line.curStmt]
+	return rc
 }
 
 // Len tells caller how many statements I have, used for unit tests
 func (cd *Code) Len() int {
-	return len(cd.statements)
+	i := 0
+
+	for _, ln := range cd.lines {
+		i += len(ln.stmts)
+	}
+	return i
 }
 
 // Jump to the target line in the AST
-func (cd *Code) Jump(line int16) error {
-	val, ok := cd.lines[line]
-	if !ok {
-		cd.nextStmt = int16(len(cd.statements))
-		return fmt.Errorf("line %d does not exist", line)
+func (cd *Code) Jump(target int16) error {
+	i, ok := cd.findLine(target)
+
+	if ok {
+		cd.currIndex = int16(i)
+		return nil
 	}
-	cd.nextStmt = val
-	return nil
+
+	return errors.New("Undefined line number")
 }
 
 // Identifier holds the token for the identifier in the statement
@@ -145,15 +231,6 @@ func (i *Identifier) String() string  { return i.Value }
 // TokenLiteral returns literal value of the identifier
 func (i *Identifier) TokenLiteral() string {
 	return i.Token.Literal
-}
-
-//TokenLiteral returns the literal for the root token
-func (p *Program) TokenLiteral() string {
-	if len(p.code.statements) > 0 {
-		return p.code.statements[0].TokenLiteral()
-	} else {
-		return ""
-	}
 }
 
 type FunctionLiteral struct {
@@ -184,7 +261,7 @@ func (fl *FunctionLiteral) String() string {
 // String returns the program as a string
 func (p *Program) String() string {
 	var out bytes.Buffer
-	for _, s := range p.code.statements {
+	for _, s := range p.code.lines {
 		out.WriteString(s.String())
 	}
 	return out.String()

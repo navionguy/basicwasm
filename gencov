@@ -1,12 +1,4 @@
-go test ./ast -coverprofile=coverage.out
-go test ./decimal -coverprofile=decimal.out
-go test ./evaluator -coverprofile=evaluator.out
-go test ./fileserv -coverprofile=fileserv.out
-go test ./keybuffer -coverprofile=keybuffer.out
-go test ./lexer -coverprofile=lexer.out
-go test ./object -coverprofile=object.out
-go test ./parser -coverprofile=parser.out
-go test ./token -coverprofile=token.out
+./runtests
 #
 sed -e 1d decimal.out >>coverage.out
 sed -e 1d evaluator.out >>coverage.out

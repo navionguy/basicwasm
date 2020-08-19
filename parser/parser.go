@@ -128,14 +128,11 @@ func (p *Parser) ParseProgram() *ast.Program {
 	for !p.curTokenIs(token.EOF) {
 		stmt := p.parseStatement()
 		if stmt != nil {
-			err := program.AddStatement(stmt)
-
-			if len(err) > 0 {
-				p.errors = append(p.errors, err)
-			}
+			program.AddStatement(stmt)
 		}
 		p.nextToken()
 	}
+
 	return program
 }
 

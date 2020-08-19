@@ -650,7 +650,7 @@ func ExampleT_errors() {
 	}
 
 	// Output:
-	// line 200 does not exist at 10
+	// Undefined line number at 10
 	// identifier not found: FNBANG at 20
 	// 5
 	// index out of range at 40
