@@ -102,7 +102,7 @@ func (cd *Code) addLine(lineNum int) {
 	}
 
 	// *most* of the time, adding to the end of the program
-	if lineNum > cd.maxLineNum() {
+	if lineNum > cd.MaxLineNum() {
 		cd.lines = append(cd.lines, nl)
 		cd.currIndex = len(cd.lines) - 1
 		cd.currLine = lineNum
@@ -147,8 +147,8 @@ func (cd *Code) findLine(lNum int) (int, bool) {
 	return 0, false
 }
 
-// find the highest line number currently in Code
-func (cd *Code) maxLineNum() int {
+// MaxLineNum finds the highest line number currently in Code
+func (cd *Code) MaxLineNum() int {
 	// if array of code lines is empty
 	if len(cd.lines) == 1 {
 		return 0 //return zero

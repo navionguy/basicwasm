@@ -665,16 +665,124 @@ func ExampleT_list() {
 	src := `
 	10 rem This is a test program
 	20 print "Hello World!"
-	30 PRINT "And Goodbye Cruel World." : REM A trailing comment`
-	/*40 REM The end of the test program
+	30 PRINT "And Goodbye Cruel World." : REM A trailing comment
+	40 REM The end of the test program
 	50 PRINT A$
-	60 END`*/
+	60 END`
 
 	tests := []struct {
 		inp string
 		res string
 	}{
 		{inp: "LIST"},
+	}
+
+	l := lexer.New(src)
+	p := parser.New(l)
+	prog := p.ParseProgram()
+
+	for _, tt := range tests {
+		l := lexer.New(tt.inp)
+		p := parser.New(l)
+		p2 := p.ParseProgram()
+
+		var mt mockTerm
+		Eval(p2, prog.StatementIter(), object.NewTermEnvironment(mt))
+	}
+
+	// Output:
+	// 10 REM This is a test program
+	// 20 PRINT "Hello World!"
+	// 30 PRINT "And Goodbye Cruel World." : REM A trailing comment
+	// 40 REM The end of the test program
+	// 50 PRINT A$
+	// 60 END
+}
+
+func ExampleT_list2() {
+	src := `
+	10 rem This is a test program
+	20 print "Hello World!"
+	30 PRINT "And Goodbye Cruel World." : REM A trailing comment
+	40 REM The end of the test program
+	50 PRINT A$
+	60 END`
+
+	tests := []struct {
+		inp string
+		res string
+	}{
+		{inp: "LIST 20-"},
+	}
+
+	l := lexer.New(src)
+	p := parser.New(l)
+	prog := p.ParseProgram()
+
+	for _, tt := range tests {
+		l := lexer.New(tt.inp)
+		p := parser.New(l)
+		p2 := p.ParseProgram()
+
+		var mt mockTerm
+		Eval(p2, prog.StatementIter(), object.NewTermEnvironment(mt))
+	}
+
+	// Output:
+	// 20 PRINT "Hello World!"
+	// 30 PRINT "And Goodbye Cruel World." : REM A trailing comment
+	// 40 REM The end of the test program
+	// 50 PRINT A$
+	// 60 END
+}
+
+func ExampleT_list3() {
+	src := `
+	10 rem This is a test program
+	20 print "Hello World!"
+	30 PRINT "And Goodbye Cruel World." : REM A trailing comment
+	40 REM The end of the test program
+	50 PRINT A$
+	60 END`
+
+	tests := []struct {
+		inp string
+		res string
+	}{
+		{inp: "LIST 20"},
+	}
+
+	l := lexer.New(src)
+	p := parser.New(l)
+	prog := p.ParseProgram()
+
+	for _, tt := range tests {
+		l := lexer.New(tt.inp)
+		p := parser.New(l)
+		p2 := p.ParseProgram()
+
+		var mt mockTerm
+		Eval(p2, prog.StatementIter(), object.NewTermEnvironment(mt))
+	}
+
+	// Output:
+	// 20 PRINT "Hello World!"
+}
+
+func ExampleT_list4() {
+	src := `
+	10 rem This is a test program
+	20 print "Hello World!"
+	30 PRINT "And Goodbye Cruel World." : REM A trailing comment
+	40 REM The end of the test program
+	50 PRINT A$
+	60 END`
+
+	tests := []struct {
+		inp string
+		res string
+	}{
+		{inp: "LIST -30"},
 	}
 
 	l := lexer.New(src)

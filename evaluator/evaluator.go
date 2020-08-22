@@ -1,6 +1,7 @@
 package evaluator
 
 import (
+	"bytes"
 	"fmt"
 	"strconv"
 	"strings"
@@ -258,11 +259,20 @@ func evalGotoStatement(jmp string, code *ast.Code, env *object.Environment) obje
 }
 
 func evalListStatement(code *ast.Code, stmt *ast.ListStatement, env *object.Environment) {
+	var out bytes.Buffer
 	start := 0
-	//stop := 0
+	stop := code.MaxLineNum()
 
+	// figure out any limits to the listing
 	if len(stmt.Start) > 0 {
 		start, _ = strconv.Atoi(stmt.Start)
+		if len(stmt.Lrange) == 0 {
+			stop = start
+		}
+	}
+
+	if len(stmt.Stop) > 0 {
+		stop, _ = strconv.Atoi(stmt.Stop)
 	}
 
 	bMidLine := false
@@ -273,25 +283,30 @@ func evalListStatement(code *ast.Code, stmt *ast.ListStatement, env *object.Envi
 		lnm, ok := stmt.(*ast.LineNumStmt)
 
 		if ok {
-			if bList {
-				env.Terminal().Println("")
+			if lnm.Value > stop {
+				break
 			}
-			bList = (lnm.Value > start)
+
+			if bList {
+				env.Terminal().Println(strings.TrimRight(out.String(), " "))
+				out.Truncate(0)
+			}
+			bList = (lnm.Value >= start)
 			bMidLine = false
 		} else {
 			if bMidLine {
-				env.Terminal().Print(": ")
+				out.WriteString(": ")
 			}
 			bMidLine = true
 		}
 
 		if bList {
-			env.Terminal().Print(stmt.String())
+			out.WriteString(stmt.String())
 		}
 
 		bMore = code.Next()
 	}
-	env.Terminal().Println("")
+	env.Terminal().Println(out.String())
 }
 
 func evalPrintStatement(node *ast.PrintStatement, code *ast.Code, env *object.Environment) {
