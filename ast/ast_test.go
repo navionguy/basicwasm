@@ -88,12 +88,12 @@ func TestCodeMultiLines(t *testing.T) {
 
 func TestCodeAdd(t *testing.T) {
 	tests := []struct {
-		lines    []int16
-		expected []int16
+		lines    []int
+		expected []int
 	}{
-		{lines: []int16{10, 20, 30}, expected: []int16{10, 20, 30}},
-		{lines: []int16{10, 20, 30, 40, 20}, expected: []int16{10, 20, 30, 40}},
-		{lines: []int16{10, 20, 30, 40, 25}, expected: []int16{10, 20, 25, 30, 40}},
+		{lines: []int{10, 20, 30}, expected: []int{10, 20, 30}},
+		{lines: []int{10, 20, 30, 40, 20}, expected: []int{10, 20, 30, 40}},
+		{lines: []int{10, 20, 30, 40, 25}, expected: []int{10, 20, 25, 30, 40}},
 	}
 
 	for _, tt := range tests {
@@ -115,12 +115,12 @@ func TestCodeAdd(t *testing.T) {
 
 func TestCodeIterValue(t *testing.T) {
 	tests := []struct {
-		lines    []int16
-		expected []int16
+		lines    []int
+		expected []int
 	}{
-		{lines: []int16{10, 20, 30}, expected: []int16{10, 20, 30}},
-		{lines: []int16{10, 20, 30, 40, 20}, expected: []int16{10, 20, 30, 40}},
-		{lines: []int16{10, 20, 30, 40, 25}, expected: []int16{10, 20, 25, 30, 40}},
+		{lines: []int{10, 20, 30}, expected: []int{10, 20, 30}},
+		{lines: []int{10, 20, 30, 40, 20}, expected: []int{10, 20, 30, 40}},
+		{lines: []int{10, 20, 30, 40, 25}, expected: []int{10, 20, 25, 30, 40}},
 	}
 
 	for _, tt := range tests {

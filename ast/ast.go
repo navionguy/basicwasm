@@ -29,9 +29,9 @@ type Expression interface {
 }
 
 type codeLine struct {
-	lineNum int16
+	lineNum int
 	stmts   []Statement
-	curStmt int16
+	curStmt int
 }
 
 func (cl codeLine) String() string {
@@ -45,8 +45,8 @@ func (cl codeLine) String() string {
 // Code allows iterating over the code lines subject to control transfer
 type Code struct {
 	lines     []codeLine // array of code lines sorted by ascending line number
-	currIndex int16      // index into lines
-	currLine  int16      // current line excuting
+	currIndex int        // index into lines
+	currLine  int        // current line excuting
 	err       error
 }
 
@@ -95,7 +95,7 @@ func (p *Program) StatementIter() *Code {
 }
 
 // going to add, or possibly replace, a line of code
-func (cd *Code) addLine(lineNum int16) {
+func (cd *Code) addLine(lineNum int) {
 	// create a new codeLine struct
 	nl := codeLine{
 		lineNum: lineNum,
@@ -104,7 +104,7 @@ func (cd *Code) addLine(lineNum int16) {
 	// *most* of the time, adding to the end of the program
 	if lineNum > cd.maxLineNum() {
 		cd.lines = append(cd.lines, nl)
-		cd.currIndex = int16(len(cd.lines) - 1)
+		cd.currIndex = len(cd.lines) - 1
 		cd.currLine = lineNum
 		return
 	}
@@ -113,21 +113,21 @@ func (cd *Code) addLine(lineNum int16) {
 
 	if found {
 		cd.lines[i] = nl
-		cd.currIndex = int16(i)
+		cd.currIndex = i
 		cd.currLine = lineNum
 		return
 	}
 
 	// insert it into the array
 	cd.lines = append(cd.lines[:i], append([]codeLine{nl}, cd.lines[i:]...)...)
-	cd.currIndex = int16(i)
+	cd.currIndex = i
 	cd.currLine = lineNum
 }
 
 // tries to find the requested line number in the array of lines
 // returns index into lines and true if found
 // returns index to insert it and false if not found
-func (cd *Code) findLine(lNum int16) (int, bool) {
+func (cd *Code) findLine(lNum int) (int, bool) {
 	if len(cd.lines) == 0 {
 		return 0, false
 	}
@@ -148,7 +148,7 @@ func (cd *Code) findLine(lNum int16) (int, bool) {
 }
 
 // find the highest line number currently in Code
-func (cd *Code) maxLineNum() int16 {
+func (cd *Code) maxLineNum() int {
 	// if array of code lines is empty
 	if len(cd.lines) == 1 {
 		return 0 //return zero
@@ -160,18 +160,23 @@ func (cd *Code) maxLineNum() int16 {
 // if I can't find one, returns false
 func (cd *Code) Next() bool {
 
-	if cd.currIndex > int16(len(cd.lines)-1) {
+	if cd.currIndex > len(cd.lines)-1 {
 		return false
 	}
 
 	line := &cd.lines[cd.currIndex]
 	line.curStmt++
 
-	if line.curStmt > int16(len(line.stmts)-1) {
+	if line.curStmt > len(line.stmts)-1 {
 		line.curStmt = 0 // reset to start of the line
 		cd.currIndex++   // move to the next line
 
-		return (line.curStmt > int16(len(line.stmts)-1))
+		if cd.currIndex > len(cd.lines)-1 {
+			return false
+		}
+		line = &cd.lines[cd.currIndex]
+
+		return (line.curStmt <= len(line.stmts)-1)
 	}
 
 	return true
@@ -179,12 +184,12 @@ func (cd *Code) Next() bool {
 
 // Value sends the next statement
 func (cd *Code) Value() Statement {
-	if cd.currIndex > int16(len(cd.lines)-1) {
+	if cd.currIndex > len(cd.lines)-1 {
 		return nil
 	}
 	line := &cd.lines[cd.currIndex]
 
-	if line.curStmt > int16(len(line.stmts)-1) {
+	if line.curStmt > len(line.stmts)-1 {
 		if !cd.Next() {
 			return nil
 		}
@@ -207,13 +212,15 @@ func (cd *Code) Len() int {
 }
 
 // Jump to the target line in the AST
-func (cd *Code) Jump(target int16) error {
+func (cd *Code) Jump(target int) error {
 	i, ok := cd.findLine(target)
 
 	if ok {
-		cd.currIndex = int16(i)
+		cd.currIndex = i
 		return nil
 	}
+	// stop execution
+	cd.currIndex = cd.Len()
 
 	return errors.New("Undefined line number")
 }
@@ -232,7 +239,7 @@ func (i *Identifier) String() string  { return i.Value }
 
 // TokenLiteral returns literal value of the identifier
 func (i *Identifier) TokenLiteral() string {
-	return i.Token.Literal
+	return strings.ToUpper(i.Token.Literal)
 }
 
 type FunctionLiteral struct {
@@ -242,7 +249,7 @@ type FunctionLiteral struct {
 }
 
 func (fl *FunctionLiteral) expressionNode()      {}
-func (fl *FunctionLiteral) TokenLiteral() string { return fl.Token.Literal }
+func (fl *FunctionLiteral) TokenLiteral() string { return strings.ToUpper(fl.Token.Literal) }
 func (fl *FunctionLiteral) String() string {
 	var out bytes.Buffer
 
@@ -280,7 +287,7 @@ func (ls *LetStatement) statementNode() {}
 
 // TokenLiteral returns literal value of the statement
 func (ls *LetStatement) TokenLiteral() string {
-	return ls.Token.Literal
+	return strings.ToUpper(ls.Token.Literal)
 }
 func (ls *LetStatement) String() string {
 	var out bytes.Buffer
@@ -298,7 +305,7 @@ func (ls *LetStatement) String() string {
 // LineNumStmt holds the line number
 type LineNumStmt struct {
 	Token token.Token
-	Value int16
+	Value int
 }
 
 func (lns *LineNumStmt) statementNode() {}
@@ -322,7 +329,7 @@ func (es *ExpressionStatement) statementNode() {}
 
 // TokenLiteral returns my literal
 func (es *ExpressionStatement) TokenLiteral() string {
-	return es.Token.Literal
+	return strings.ToUpper(es.Token.Literal)
 }
 
 // String returns text version of my expression
@@ -332,27 +339,6 @@ func (es *ExpressionStatement) String() string {
 	}
 	return ""
 }
-
-/*type DimVar struct {
-	Name  Identifier // identifier like "A[]" or "DATAPAIRS[]"
-	DData []int      // size of each dimension
-}
-
-func (dv *DimVar) String() string {
-	var out bytes.Buffer
-
-	params := []string{}
-	for _, p := range dv.DData {
-		params = append(params, strconv.Itoa(p))
-	}
-
-	out.WriteString(dv.Name.String())
-	out.WriteString("[")
-	out.WriteString(strings.Join(params, ", "))
-	out.WriteString("] ")
-
-	return out.String()
-}*/
 
 // DimStatement holds the dimension data for an Identifier
 type DimStatement struct {
@@ -442,7 +428,13 @@ func (il *StringLiteral) expressionNode() {}
 func (il *StringLiteral) TokenLiteral() string { return il.Token.Literal }
 
 // String returns literal as a string
-func (il *StringLiteral) String() string { return il.Token.Literal }
+func (il *StringLiteral) String() string {
+	var out bytes.Buffer
+	out.WriteString("\"")
+	out.WriteString(il.Token.Literal)
+	out.WriteString("\"")
+	return out.String()
+}
 
 type IndexExpression struct {
 	Token token.Token // The [ token
@@ -451,7 +443,7 @@ type IndexExpression struct {
 }
 
 func (ie *IndexExpression) expressionNode()      {}
-func (ie *IndexExpression) TokenLiteral() string { return ie.Token.Literal }
+func (ie *IndexExpression) TokenLiteral() string { return strings.ToUpper(ie.Token.Literal) }
 func (ie *IndexExpression) String() string {
 	var out bytes.Buffer
 	out.WriteString("(")
@@ -519,15 +511,15 @@ type IfExpression struct {
 func (ie *IfExpression) expressionNode() {}
 
 // TokenLiteral returns my literal
-func (ie *IfExpression) TokenLiteral() string { return ie.Token.Literal }
+func (ie *IfExpression) TokenLiteral() string { return strings.ToUpper(ie.Token.Literal) }
 
 // String returns my string representation
 func (ie *IfExpression) String() string {
 	var out bytes.Buffer
 
-	out.WriteString("if")
+	out.WriteString("IF")
 	out.WriteString(ie.Condition.String())
-	out.WriteString("then")
+	out.WriteString("THEN")
 	out.WriteString(ie.Consequence.String())
 
 	if ie.Alternative != nil {
@@ -547,7 +539,7 @@ type BlockStatement struct {
 func (bs *BlockStatement) statementNode() {}
 
 // TokenLiteral returns my literal
-func (bs *BlockStatement) TokenLiteral() string { return bs.Token.Literal }
+func (bs *BlockStatement) TokenLiteral() string { return strings.ToUpper(bs.Token.Literal) }
 func (bs *BlockStatement) String() string {
 	var out bytes.Buffer
 
@@ -567,7 +559,7 @@ type ReturnStatement struct {
 func (rs *ReturnStatement) statementNode() {}
 
 // TokenLiteral should be RETURN
-func (rs *ReturnStatement) TokenLiteral() string { return rs.Token.Literal }
+func (rs *ReturnStatement) TokenLiteral() string { return strings.ToUpper(rs.Token.Literal) }
 func (rs *ReturnStatement) String() string {
 	var out bytes.Buffer
 
@@ -607,7 +599,7 @@ type GosubStatement struct {
 func (gsb *GosubStatement) statementNode() {}
 
 // TokenLiteral should return GOTO
-func (gsb *GosubStatement) TokenLiteral() string { return gsb.Token.Literal }
+func (gsb *GosubStatement) TokenLiteral() string { return strings.ToUpper(gsb.Token.Literal) }
 func (gsb *GosubStatement) String() string {
 	var out bytes.Buffer
 
@@ -624,7 +616,7 @@ type EndStatement struct {
 func (end *EndStatement) statementNode() {}
 
 // TokenLiteral is END
-func (end *EndStatement) TokenLiteral() string { return end.Token.Literal }
+func (end *EndStatement) TokenLiteral() string { return strings.ToUpper(end.Token.Literal) }
 
 // String just prettier TokenLiteral
 func (end *EndStatement) String() string {
@@ -640,7 +632,7 @@ type CallExpression struct {
 }
 
 func (ce *CallExpression) expressionNode()      {}
-func (ce *CallExpression) TokenLiteral() string { return ce.Token.Literal }
+func (ce *CallExpression) TokenLiteral() string { return strings.ToUpper(ce.Token.Literal) }
 func (ce *CallExpression) String() string {
 	var out bytes.Buffer
 
@@ -665,12 +657,12 @@ type PrintStatement struct {
 }
 
 func (pe *PrintStatement) statementNode()       {}
-func (pe *PrintStatement) TokenLiteral() string { return pe.Token.Literal }
+func (pe *PrintStatement) TokenLiteral() string { return strings.ToUpper(pe.Token.Literal) }
 
 func (pe *PrintStatement) String() string {
 	var out bytes.Buffer
 
-	out.WriteString(pe.Token.Literal)
+	out.WriteString(pe.TokenLiteral())
 	out.WriteString(" ")
 
 	for i, s := range pe.Items {
@@ -687,7 +679,7 @@ type ClsStatement struct {
 }
 
 func (cls *ClsStatement) statementNode()       {}
-func (cls *ClsStatement) TokenLiteral() string { return cls.Token.Literal }
+func (cls *ClsStatement) TokenLiteral() string { return strings.ToUpper(cls.Token.Literal) }
 
 func (cls *ClsStatement) String() string {
 	if cls.Param == -1 {
@@ -706,27 +698,27 @@ type RemStatement struct {
 func (rem *RemStatement) statementNode() {}
 
 // TokenLiteral should return REM
-func (rem *RemStatement) TokenLiteral() string { return rem.Token.Literal }
+func (rem *RemStatement) TokenLiteral() string { return strings.ToUpper(rem.Token.Literal) }
 
 func (rem *RemStatement) String() string {
-
-	return fmt.Sprint(rem.Comment)
+	rc := strings.TrimRight(rem.Comment, " ")
+	return fmt.Sprint(rc)
 }
 
 // ListStatement command to clear screen
 type ListStatement struct {
 	Token  token.Token
-	start  string
-	lrange string
-	stop   string
+	Start  string
+	Lrange string
+	Stop   string
 }
 
 func (lst *ListStatement) statementNode() {}
 
 // TokenLiteral should return LIST
-func (lst *ListStatement) TokenLiteral() string { return lst.Token.Literal }
+func (lst *ListStatement) TokenLiteral() string { return strings.ToUpper(lst.Token.Literal) }
 
 func (lst *ListStatement) String() string {
 
-	return fmt.Sprintf("LIST %s%s%s", lst.start, lst.lrange, lst.stop)
+	return fmt.Sprintf("LIST %s%s%s", lst.Start, lst.Lrange, lst.Stop)
 }

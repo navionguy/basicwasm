@@ -47,7 +47,7 @@ type Parser struct {
 
 	curToken  token.Token
 	peekToken token.Token
-	curLine   int16
+	curLine   int
 
 	prefixParseFns map[token.TokenType]prefixParseFn
 	infixParseFns  map[token.TokenType]infixParseFn
@@ -158,6 +158,8 @@ func (p *Parser) parseStatement() ast.Statement {
 		return nil
 	case token.LINENUM:
 		return p.parseLineNumber()
+	case token.LIST:
+		return p.parseListStatement()
 	case token.GOTO:
 		return p.parseGotoStatement()
 	case token.GOSUB:
@@ -178,6 +180,34 @@ func (p *Parser) parseStatement() ast.Statement {
 		}
 		return p.parseExpressionStatement()
 	}
+}
+
+// a questionable name for parsing a function definition
+func (p *Parser) parseBlockStatement() *ast.BlockStatement {
+	block := &ast.BlockStatement{Token: p.curToken}
+	block.Statements = []ast.Statement{}
+
+	for !p.curTokenIs(token.COLON) && !p.curTokenIs(token.EOF) {
+		stmt := p.parseStatement()
+		if stmt != nil {
+			block.Statements = append(block.Statements, stmt)
+		}
+		p.nextToken()
+	}
+
+	return block
+}
+
+func (p *Parser) parseClsStatement() *ast.ClsStatement {
+	defer untrace(trace("parseClsStatement"))
+	stmt := &ast.ClsStatement{Token: p.curToken, Param: -1}
+
+	if p.peekTokenIs(token.INT) {
+		p.nextToken()
+		stmt.Param, _ = strconv.Atoi(p.curToken.Literal)
+	}
+
+	return stmt
 }
 
 func (p *Parser) parseIntegerLiteral() ast.Expression {
@@ -270,21 +300,44 @@ func (p *Parser) parseLineNumber() *ast.LineNumStmt {
 	if err != nil {
 		p.generalError("Invalid line number")
 	}
-	stmt.Value = int16(tv)
-	p.curLine = int16(tv)
+	stmt.Value = tv
+	p.curLine = tv
 
 	return stmt
 }
 
-func (p *Parser) parseClsStatement() *ast.ClsStatement {
-	defer untrace(trace("parseClsStatement"))
-	stmt := &ast.ClsStatement{Token: p.curToken, Param: -1}
+// user wants to list part or all of the program
+func (p *Parser) parseListStatement() *ast.ListStatement {
+	defer untrace(trace("parseListStatement"))
+	stmt := &ast.ListStatement{Token: p.curToken, Start: "", Lrange: "", Stop: ""}
+
+	if !p.peekTokenIs(token.INT) && !p.peekTokenIs(token.MINUS) {
+		p.nextToken()
+		return stmt
+	}
 
 	if p.peekTokenIs(token.INT) {
 		p.nextToken()
-		stmt.Param, _ = strconv.Atoi(p.curToken.Literal)
+		stmt.Start = p.curToken.Literal
 	}
 
+	if !p.peekTokenIs(token.MINUS) {
+		p.nextToken()
+		return stmt
+	}
+
+	p.nextToken()
+	stmt.Lrange = p.curToken.Literal
+
+	if !p.peekTokenIs(token.INT) {
+		p.nextToken()
+		return stmt
+	}
+
+	p.nextToken()
+	stmt.Stop = p.curToken.Literal
+
+	p.nextToken()
 	return stmt
 }
 
@@ -309,7 +362,7 @@ func (p *Parser) parsePrintStatement() *ast.PrintStatement {
 }
 
 func (p *Parser) chkEndOfStatement() bool {
-	return p.peekTokenIs(token.COLON) || p.peekTokenIs(token.LINENUM) || p.peekTokenIs(token.EOF)
+	return p.peekTokenIs(token.COLON) || p.peekTokenIs(token.LINENUM) || p.peekTokenIs(token.EOF) || p.peekTokenIs(token.EOL)
 }
 
 func (p *Parser) parseLetStatement() *ast.LetStatement {
@@ -389,14 +442,12 @@ func (p *Parser) parseGosubStatement() *ast.GosubStatement {
 
 // not a hard one to parse
 func (p *Parser) parseRemStatement() *ast.RemStatement {
-	stmt := &ast.RemStatement{Token: p.curToken, Comment: p.curToken.Literal}
+	stmt := &ast.RemStatement{Token: p.curToken, Comment: strings.ToUpper(p.curToken.Literal)}
 
-	for !p.peekTokenIs(token.LINENUM) && !p.peekTokenIs(token.EOF) {
+	for !p.peekTokenIs(token.LINENUM) && !p.peekTokenIs(token.EOF) && !p.peekTokenIs(token.EOL) {
 		p.nextToken()
 		stmt.Comment += " " + p.curToken.Literal
 	}
-
-	p.nextToken()
 	return stmt
 }
 
@@ -587,21 +638,6 @@ func (p *Parser) parseIfOption() ast.Statement {
 	}
 
 	return exp
-}
-
-func (p *Parser) parseBlockStatement() *ast.BlockStatement {
-	block := &ast.BlockStatement{Token: p.curToken}
-	block.Statements = []ast.Statement{}
-
-	for !p.curTokenIs(token.COLON) && !p.curTokenIs(token.EOF) {
-		stmt := p.parseStatement()
-		if stmt != nil {
-			block.Statements = append(block.Statements, stmt)
-		}
-		p.nextToken()
-	}
-
-	return block
 }
 
 func (p *Parser) parseFunctionLiteral() ast.Expression {

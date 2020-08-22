@@ -34,8 +34,8 @@ func TestImpliedLetStatement(t *testing.T) {
 		expectedIdentifier string
 	}{
 		{token.LINENUM, "10"},
-		{"", "x"},
-		{"", "y"},
+		{"", "X"},
+		{"", "Y"},
 	}
 
 	itr := program.StatementIter()
@@ -75,9 +75,9 @@ func TestLetStatements(t *testing.T) {
 		expectedIdentifier string
 	}{
 		{token.LINENUM, "10"},
-		{token.LET, "x"},
-		{token.LET, "y$"},
-		{token.LET, "foobar%"},
+		{token.LET, "X"},
+		{token.LET, "Y$"},
+		{token.LET, "FOOBAR%"},
 		{token.LET, "BANG!"},
 		{token.LET, "POUND#"},
 	}
@@ -198,7 +198,7 @@ func TestLineNumbers(t *testing.T) {
 
 	tests := []struct {
 		expectedToken string
-		expectedValue int16
+		expectedValue int
 	}{
 		{token.LINENUM, 10},
 		{token.LINENUM, 20},
@@ -216,7 +216,7 @@ func TestLineNumbers(t *testing.T) {
 
 }
 
-func testLineNumber(t *testing.T, s ast.Statement, line int16) bool {
+func testLineNumber(t *testing.T, s ast.Statement, line int) bool {
 	lineStmt, ok := s.(*ast.LineNumStmt)
 	if !ok {
 		t.Errorf("s not *ast.LineNumStmt. got=%T", s)
@@ -249,7 +249,7 @@ func TestDimStatement(t *testing.T) {
 	tests := []struct {
 		input   string
 		stmtNum int
-		lineNum int16
+		lineNum int
 		numIDs  int8
 		dims    []dimensions
 	}{
@@ -336,8 +336,8 @@ func TestIdentifierExpression(t *testing.T) {
 	if ident.Value != "FOOBAR" {
 		t.Errorf("ident.Value not %s. got=%s", "FOOBAR", ident.Value)
 	}
-	if ident.TokenLiteral() != "foobar" {
-		t.Errorf("ident.TokenLiteral not %s. got=%s", "foobar", ident.TokenLiteral())
+	if ident.TokenLiteral() != "FOOBAR" {
+		t.Errorf("ident.TokenLiteral not %s. got=%s", "FOOBAR", ident.TokenLiteral())
 	}
 }
 
@@ -550,7 +550,7 @@ func TestParsingInfixExpressions(t *testing.T) {
 		leftValue  int16
 		operator   string
 		rightValue int16
-		lineNum    int16
+		lineNum    int
 	}{
 		{"10 5 + 5", 5, "+", 5, 10},
 		{"20 5 - 5", 5, "-", 5, 20},
@@ -836,8 +836,8 @@ func TestReturnStatements(t *testing.T) {
 		if !ok {
 			t.Fatalf("stmt not *ast.ReturnStatement. got=%T", stmt)
 		}
-		if returnStmt.TokenLiteral() != "return" {
-			t.Fatalf("returnStmt.TokenLiteral not 'return', got %q", returnStmt.TokenLiteral())
+		if returnStmt.TokenLiteral() != "RETURN" {
+			t.Fatalf("returnStmt.TokenLiteral not 'RETURN', got %q", returnStmt.TokenLiteral())
 		}
 		if returnStmt.ReturnTo != tt.expectedValue {
 			t.Fatalf("got return to %T, expected %T", returnStmt.ReturnTo, tt.expectedValue)
@@ -1070,4 +1070,79 @@ func testIfResult(t *testing.T, rt string, exp string, stmt ast.Statement) bool 
 	}
 
 	return true
+}
+
+func TestListStatement(t *testing.T) {
+	tests := []struct {
+		inp string
+		res *ast.ListStatement
+	}{
+		{"LIST", &ast.ListStatement{
+			Token:  token.Token{Type: token.LIST, Literal: "LIST"},
+			Start:  "",
+			Lrange: "",
+			Stop:   "",
+		}},
+		{"LIST 50", &ast.ListStatement{
+			Token:  token.Token{Type: token.LIST, Literal: "LIST"},
+			Start:  "50",
+			Lrange: "",
+			Stop:   "",
+		}},
+		{"LIST 50-", &ast.ListStatement{
+			Token:  token.Token{Type: token.LIST, Literal: "LIST"},
+			Start:  "50",
+			Lrange: "-",
+			Stop:   "",
+		}},
+		{"LIST 50-100", &ast.ListStatement{
+			Token:  token.Token{Type: token.LIST, Literal: "LIST"},
+			Start:  "50",
+			Lrange: "-",
+			Stop:   "100",
+		}},
+		{"LIST -100", &ast.ListStatement{
+			Token:  token.Token{Type: token.LIST, Literal: "LIST"},
+			Start:  "",
+			Lrange: "-",
+			Stop:   "100",
+		}},
+		{"LIST -", &ast.ListStatement{ // this is actually valid, same as "LIST"
+			Token:  token.Token{Type: token.LIST, Literal: "LIST"},
+			Start:  "",
+			Lrange: "-",
+			Stop:   "",
+		}},
+	}
+
+	for _, tt := range tests {
+		l := lexer.New(tt.inp)
+		p := New(l)
+		prg := p.ParseProgram()
+
+		itr := prg.StatementIter()
+		stmt := itr.Value()
+
+		if strings.Compare(stmt.TokenLiteral(), tt.res.TokenLiteral()) != 0 {
+			t.Fatalf("Parse(%s), expected Literal %s, got %s", tt.inp, tt.res.TokenLiteral(), stmt.TokenLiteral())
+		}
+
+		cmd, ok := stmt.(*ast.ListStatement)
+
+		if !ok {
+			t.Fatalf("stmt failed to conver to ListStatement")
+		}
+
+		if strings.Compare(tt.res.Start, cmd.Start) != 0 {
+			t.Fatalf("Parse(%s), expected Start = %s, got %s", tt.inp, tt.res.Start, cmd.Start)
+		}
+
+		if strings.Compare(tt.res.Lrange, cmd.Lrange) != 0 {
+			t.Fatalf("Parse(%s), expected Lrange = %s, got %s", tt.inp, tt.res.Lrange, cmd.Lrange)
+		}
+
+		if strings.Compare(tt.res.Stop, cmd.Stop) != 0 {
+			t.Fatalf("Parse(%s), expected Stop = %s, got %s", tt.inp, tt.res.Stop, cmd.Stop)
+		}
+	}
 }

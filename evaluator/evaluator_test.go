@@ -661,6 +661,41 @@ func ExampleT_errors() {
 	// type mis-match at 80
 }
 
+func ExampleT_list() {
+	src := `
+	10 rem This is a test program
+	20 print "Hello World!"
+	30 PRINT "And Goodbye Cruel World." : REM A trailing comment`
+	/*40 REM The end of the test program
+	50 PRINT A$
+	60 END`*/
+
+	tests := []struct {
+		inp string
+		res string
+	}{
+		{inp: "LIST"},
+	}
+
+	l := lexer.New(src)
+	p := parser.New(l)
+	prog := p.ParseProgram()
+
+	for _, tt := range tests {
+		l := lexer.New(tt.inp)
+		p := parser.New(l)
+		p2 := p.ParseProgram()
+
+		var mt mockTerm
+		Eval(p2, prog.StatementIter(), object.NewTermEnvironment(mt))
+	}
+
+	// Output:
+	// 10 REM This is a test program
+	// 20 PRINT "Hello World!"
+	// 30 PRINT "And Goodbye Cruel World." : REM A trailing comment
+}
+
 func TestBuiltinFunctions(t *testing.T) {
 	tests := []struct {
 		input    string

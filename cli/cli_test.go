@@ -41,7 +41,8 @@ func TestExecCommand(t *testing.T) {
 	tests := []struct {
 		inp string
 	}{
-		{"CLS"},
+		{"10 CLS"},
+		{"LIST"},
 		{"LET X = 5"},
 		{"PRINT X"},
 		{"PRINT 45.2 / 3.4"},

@@ -46,19 +46,24 @@ func runLoop(env *object.Environment) {
 func execCommand(input string, env *object.Environment) {
 	l := lexer.New(input)
 	tk := l.NextToken() // check if user is entering a line of code
-	if tk.Type == token.LINENUM {
-		// fresh line of code
-		env.Terminal().Print("LINENUM")
-	} else {
-		p := parser.New(l)
-		program := p.ParseProgram()
+	tk = l.NextToken()
+	bExc := true //assume we are going to evaluate the program
 
-		if len(p.Errors()) > 0 {
-			for _, m := range p.Errors() {
-				env.Terminal().Println(m)
-			}
-			return
+	if (tk.Type == token.LINENUM) || (tk.Type == token.INT) {
+		// fresh line of code
+		bExc = false
+	}
+	p := parser.New(l)
+	program := p.ParseProgram()
+
+	if len(p.Errors()) > 0 {
+		for _, m := range p.Errors() {
+			env.Terminal().Println(m)
 		}
+		return
+	}
+
+	if bExc {
 		evaluator.Eval(program, program.StatementIter(), env)
 	}
 

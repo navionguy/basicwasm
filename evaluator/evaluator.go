@@ -35,11 +35,6 @@ func Eval(node ast.Node, code *ast.Code, env *object.Environment) object.Object 
 	case *ast.ExpressionStatement:
 		return Eval(node.Expression, code, env)
 
-	case *ast.LineNumStmt:
-		ln := &object.Integer{Value: node.Value}
-		env.Set(token.LINENUM, ln)
-		return ln
-
 	case *ast.LetStatement:
 		val := Eval(node.Value, code, env)
 		if isError(val) {
@@ -52,11 +47,20 @@ func Eval(node ast.Node, code *ast.Code, env *object.Environment) object.Object 
 		}
 		return saveVariable(code, env, node.Name, val)
 
+	case *ast.LineNumStmt:
+		ln := &object.IntDbl{Value: node.Value}
+		env.Set(token.LINENUM, ln)
+		return ln
+
+	case *ast.ListStatement:
+		evalListStatement(code, node, env)
+		return nil
+
 	case *ast.GotoStatement:
 		return evalGotoStatement(strings.Trim(node.Goto, " "), code, env)
 
 	case *ast.EndStatement:
-		code.Jump(int16(code.Len()))
+		code.Jump(code.Len())
 		return &object.Integer{Value: 0}
 
 	case *ast.PrintStatement:
@@ -242,7 +246,7 @@ func evalGotoStatement(jmp string, code *ast.Code, env *object.Environment) obje
 	if err != nil {
 		return newError(env, "invalid line number: %s", jmp)
 	}
-	v2 := int16(v)
+	v2 := v
 
 	err = code.Jump(v2)
 
@@ -251,6 +255,43 @@ func evalGotoStatement(jmp string, code *ast.Code, env *object.Environment) obje
 	}
 
 	return &object.Integer{Value: int16(v)}
+}
+
+func evalListStatement(code *ast.Code, stmt *ast.ListStatement, env *object.Environment) {
+	start := 0
+	//stop := 0
+
+	if len(stmt.Start) > 0 {
+		start, _ = strconv.Atoi(stmt.Start)
+	}
+
+	bMidLine := false
+	bList := false
+	for bMore := true; bMore; {
+		stmt := code.Value()
+
+		lnm, ok := stmt.(*ast.LineNumStmt)
+
+		if ok {
+			if bList {
+				env.Terminal().Println("")
+			}
+			bList = (lnm.Value > start)
+			bMidLine = false
+		} else {
+			if bMidLine {
+				env.Terminal().Print(": ")
+			}
+			bMidLine = true
+		}
+
+		if bList {
+			env.Terminal().Print(stmt.String())
+		}
+
+		bMore = code.Next()
+	}
+	env.Terminal().Println("")
 }
 
 func evalPrintStatement(node *ast.PrintStatement, code *ast.Code, env *object.Environment) {
@@ -727,7 +768,7 @@ func newError(env *object.Environment, format string, a ...interface{}) *object.
 		tk = &object.Integer{Value: -1}
 	}
 
-	msg := fmt.Sprintf(format, a...) + fmt.Sprintf(" at %d", tk.(*object.Integer).Value)
+	msg := fmt.Sprintf(format, a...) + fmt.Sprintf(" at %d", tk.(*object.IntDbl).Value)
 
 	return &object.Error{Message: msg}
 }

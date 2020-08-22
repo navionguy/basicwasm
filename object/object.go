@@ -134,6 +134,17 @@ func (i *Integer) Type() ObjectType { return INTEGER_OBJ }
 // Inspect returns value as a string
 func (i *Integer) Inspect() string { return fmt.Sprintf("%d", i.Value) }
 
+// IntDbl values
+type IntDbl struct {
+	Value int
+}
+
+// Type returns my type
+func (id *IntDbl) Type() ObjectType { return INTEGER_DBL }
+
+// Inspect returns value as a string
+func (id *IntDbl) Inspect() string { return fmt.Sprintf("%d", id.Value) }
+
 // Single precision floats
 type FloatSgl struct {
 	Value float32
