@@ -42,7 +42,8 @@ func (mt mockTerm) Read(col, row, len int) string {
 }
 
 type Expector struct {
-	exp []string
+	failed bool
+	exp    []string
 }
 
 func (ep *Expector) chkExpectations(msg string) {
@@ -51,6 +52,7 @@ func (ep *Expector) chkExpectations(msg string) {
 	}
 	if strings.Compare(msg, ep.exp[0]) != 0 {
 		fmt.Print(("unexpected this is ->"))
+		ep.failed = true
 	}
 	ep.exp = ep.exp[1:]
 }
@@ -65,6 +67,7 @@ func TestExecCommand(t *testing.T) {
 		{"LET X = 5", []string{"OK"}},
 		{"PRINT X", []string{"5", "", "OK"}},
 		{"PRINT 45.2 / 3.4", []string{"13.29412", "", "OK"}},
+		{"CLS : LIST", []string{"10 CLS", "OK"}},
 	}
 
 	var trm mockTerm
@@ -74,5 +77,8 @@ func TestExecCommand(t *testing.T) {
 	for _, tt := range tests {
 		eChk.exp = tt.exp
 		execCommand(tt.inp, env)
+		if eChk.failed {
+			t.Fatalf("didn't expect that!")
+		}
 	}
 }

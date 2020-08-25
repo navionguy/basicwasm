@@ -36,7 +36,20 @@ func runLoop(env *object.Environment) {
 			env.Terminal().Print("\r\n")
 			execCommand(env.Terminal().Read(0, row, 80), env)
 			//fmt.Println(term.Read(0, row, 80))
+		case 0x7F:
+			row, col := env.Terminal().GetCursor()
+
+			/*if col > 0 {
+				col--
+			}*/
+			env.Terminal().Locate(row+1, col)
+			env.Terminal().Print("\x1b[P")
+			//env.Terminal().Print("\b\a")
 		default:
+			/*var msg []byte
+			msg = append(msg, k)
+			hex := hex.EncodeToString(msg)
+			env.Terminal().Print(hex)*/
 			env.Terminal().Print(string(k))
 			//cmd = append(cmd, k)
 			//fmt.Printf("%s\n", hex.EncodeToString(cmd[len(cmd)-1:]))
@@ -65,12 +78,16 @@ func execCommand(input string, env *object.Environment) {
 	}
 
 	if bExc {
-		cmd := env.Program.CmdLineIter().Value()
-		evaluator.Eval(cmd, env.Program.StatementIter(), env)
+		iter := env.Program.CmdLineIter()
+		for iter.Value() != nil {
+			cmd := iter.Value()
+			evaluator.Eval(cmd, env.Program.StatementIter(), env)
+			iter.Next()
+		}
 		env.Program.CmdComplete()
+		env.Terminal().Println("OK")
 	}
 
-	env.Terminal().Println("OK")
 }
 
 func checkForLineNum(input string) bool {

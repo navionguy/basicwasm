@@ -230,6 +230,8 @@ func (p *Parser) parseClsStatement() *ast.ClsStatement {
 		stmt.Param, _ = strconv.Atoi(p.curToken.Literal)
 	}
 
+	p.nextToken()
+
 	return stmt
 }
 
