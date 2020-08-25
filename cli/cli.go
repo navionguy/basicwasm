@@ -1,6 +1,8 @@
 package cli
 
 import (
+	"strconv"
+	"strings"
 	"time"
 
 	"github.com/navionguy/basicwasm/evaluator"
@@ -8,7 +10,6 @@ import (
 	"github.com/navionguy/basicwasm/lexer"
 	"github.com/navionguy/basicwasm/object"
 	"github.com/navionguy/basicwasm/parser"
-	"github.com/navionguy/basicwasm/token"
 )
 
 //Start begins interacting with the user
@@ -45,16 +46,16 @@ func runLoop(env *object.Environment) {
 
 func execCommand(input string, env *object.Environment) {
 	l := lexer.New(input)
-	tk := l.NextToken() // check if user is entering a line of code
-	tk = l.NextToken()
 	bExc := true //assume we are going to evaluate the program
+	p := parser.New(l)
 
-	if (tk.Type == token.LINENUM) || (tk.Type == token.INT) {
+	if checkForLineNum(input) {
 		// fresh line of code
 		bExc = false
+		p.ParseProgram(env)
+	} else {
+		p.ParseCmd(env)
 	}
-	p := parser.New(l)
-	program := p.ParseProgram()
 
 	if len(p.Errors()) > 0 {
 		for _, m := range p.Errors() {
@@ -64,8 +65,21 @@ func execCommand(input string, env *object.Environment) {
 	}
 
 	if bExc {
-		evaluator.Eval(program, program.StatementIter(), env)
+		cmd := env.Program.CmdLineIter().Value()
+		evaluator.Eval(cmd, env.Program.StatementIter(), env)
+		env.Program.CmdComplete()
 	}
 
 	env.Terminal().Println("OK")
+}
+
+func checkForLineNum(input string) bool {
+	lnm := strings.Split(input, " ")
+	if len(lnm) == 0 {
+		return false
+	}
+
+	_, ok := strconv.Atoi(lnm[0])
+
+	return ok == nil
 }

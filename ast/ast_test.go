@@ -106,7 +106,7 @@ func TestCodeAdd(t *testing.T) {
 		}
 
 		for i, ln := range tt.expected {
-			if cd.lines[i+1].lineNum != ln { // offset by one do to command line slot at 0
+			if cd.lines[i].lineNum != ln { // offset by one do to command line slot at 0
 				t.Fatalf("test %d, got %d, expected %d", i, cd.lines[i+1].lineNum, ln)
 			}
 		}

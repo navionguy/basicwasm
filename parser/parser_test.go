@@ -8,6 +8,7 @@ import (
 
 	"github.com/navionguy/basicwasm/ast"
 	"github.com/navionguy/basicwasm/lexer"
+	"github.com/navionguy/basicwasm/object"
 	"github.com/navionguy/basicwasm/token"
 )
 
@@ -17,7 +18,9 @@ func TestImpliedLetStatement(t *testing.T) {
 	l := lexer.New(input)
 	p := New(l)
 	fmt.Println("TestImpliedLetStatements Parsing")
-	program := p.ParseProgram()
+	env := &object.Environment{}
+	p.ParseProgram(env)
+	program := env.Program
 
 	checkParserErrors(t, p)
 
@@ -58,7 +61,9 @@ func TestLetStatements(t *testing.T) {
 	l := lexer.New(input)
 	p := New(l)
 	fmt.Println("TestLetStatements Parsing")
-	program := p.ParseProgram()
+	env := &object.Environment{}
+	p.ParseProgram(env)
+	program := env.Program
 
 	checkParserErrors(t, p)
 
@@ -154,7 +159,9 @@ func TestLetWithTypes(t *testing.T) {
 	for _, tt := range tests {
 		l := lexer.New(tt.input)
 		p := New(l)
-		program := p.ParseProgram()
+		env := &object.Environment{}
+		p.ParseProgram(env)
+		program := env.Program
 
 		checkParserErrors(t, p)
 
@@ -184,7 +191,9 @@ func TestLineNumbers(t *testing.T) {
 	l := lexer.New(input)
 	p := New(l)
 	fmt.Println("TestLineNumbers Parsing")
-	program := p.ParseProgram()
+	env := &object.Environment{}
+	p.ParseProgram(env)
+	program := env.Program
 
 	checkParserErrors(t, p)
 
@@ -261,7 +270,9 @@ func TestDimStatement(t *testing.T) {
 	for _, tt := range tests {
 		l := lexer.New(tt.input)
 		p := New(l)
-		program := p.ParseProgram()
+		env := &object.Environment{}
+		p.ParseProgram(env)
+		program := env.Program
 		checkParserErrors(t, p)
 		iter := program.StatementIter()
 		if iter.Len() != tt.stmtNum {
@@ -316,7 +327,9 @@ func TestIdentifierExpression(t *testing.T) {
 	input := "10 foobar"
 	l := lexer.New(input)
 	p := New(l)
-	program := p.ParseProgram()
+	env := &object.Environment{}
+	p.ParseProgram(env)
+	program := env.Program
 	checkParserErrors(t, p)
 	if program.StatementIter().Len() != 2 {
 		t.Fatalf("program has not enough statements. got=%d", program.StatementIter().Len())
@@ -355,10 +368,12 @@ func TestRemStatement(t *testing.T) {
 	for _, tt := range tests {
 		l := lexer.New(tt.inp)
 		p := New(l)
-		prog := p.ParseProgram()
+		env := &object.Environment{}
+		p.ParseProgram(env)
+		program := env.Program
 		checkParserErrors(t, p)
 
-		itr := prog.StatementIter()
+		itr := program.StatementIter()
 		itr.Next()
 		stmt := itr.Value()
 
@@ -372,7 +387,9 @@ func TestStringLiteralExpression(t *testing.T) {
 	input := `10 "hello world"`
 	l := lexer.New(input)
 	p := New(l)
-	program := p.ParseProgram()
+	env := &object.Environment{}
+	p.ParseProgram(env)
+	program := env.Program
 	checkParserErrors(t, p)
 	iter := program.StatementIter()
 
@@ -397,7 +414,9 @@ func TestIntegerLiteralExpression(t *testing.T) {
 	input := "10 5"
 	l := lexer.New(input)
 	p := New(l)
-	program := p.ParseProgram()
+	env := &object.Environment{}
+	p.ParseProgram(env)
+	program := env.Program
 	checkParserErrors(t, p)
 	if program.StatementIter().Len() != 2 {
 		t.Fatalf("program has not enough statements. got=%d", program.StatementIter().Len())
@@ -499,7 +518,9 @@ func TestParsingPrefixExpressions(t *testing.T) {
 	for _, tt := range prefixTests {
 		l := lexer.New(tt.input)
 		p := New(l)
-		program := p.ParseProgram()
+		env := &object.Environment{}
+		p.ParseProgram(env)
+		program := env.Program
 		checkParserErrors(t, p)
 		if program.StatementIter().Len() != 2 {
 			t.Fatalf("program.Statements does not contain %d statements. got=%d\n", 2, program.StatementIter().Len())
@@ -563,7 +584,9 @@ func TestParsingInfixExpressions(t *testing.T) {
 	for _, tt := range infixTests {
 		l := lexer.New(tt.input)
 		p := New(l)
-		program := p.ParseProgram()
+		env := &object.Environment{}
+		p.ParseProgram(env)
+		program := env.Program
 		checkParserErrors(t, p)
 		if program.StatementIter().Len() != 2 {
 			t.Fatalf("program.Statements does not contain %d statements. got=%d\n", 2, program.StatementIter().Len())
@@ -622,7 +645,9 @@ func TestOperatorPrecedenceParsing(t *testing.T) {
 	for _, tt := range tests {
 		l := lexer.New(tt.input)
 		p := New(l)
-		program := p.ParseProgram()
+		env := &object.Environment{}
+		p.ParseProgram(env)
+		program := env.Program
 		checkParserErrors(t, p)
 		actual := program.String()
 		if actual != tt.expected {
@@ -652,7 +677,9 @@ func TestParsingIndexExpressions(t *testing.T) {
 	for _, tt := range tests {
 		l := lexer.New(tt.input)
 		p := New(l)
-		program := p.ParseProgram()
+		env := &object.Environment{}
+		p.ParseProgram(env)
+		program := env.Program
 		checkParserErrors(t, p)
 		iter := program.StatementIter()
 		if iter.Len() < 2 {
@@ -700,7 +727,9 @@ func TestIfExpression(t *testing.T) {
 	for _, tt := range tests {
 		l := lexer.New(tt.input)
 		p := New(l)
-		program := p.ParseProgram()
+		env := &object.Environment{}
+		p.ParseProgram(env)
+		program := env.Program
 		checkParserErrors(t, p)
 
 		if program.StatementIter().Len() != 2 {
@@ -748,7 +777,9 @@ func TestGotoStatements(t *testing.T) {
 	for _, tt := range tests {
 		l := lexer.New(tt.input)
 		p := New(l)
-		program := p.ParseProgram()
+		env := &object.Environment{}
+		p.ParseProgram(env)
+		program := env.Program
 		checkParserErrors(t, p)
 
 		if program.StatementIter().Len() != tt.expStmts {
@@ -784,7 +815,9 @@ func TestGosubStatements(t *testing.T) {
 	for _, tt := range tests {
 		l := lexer.New(tt.input)
 		p := New(l)
-		program := p.ParseProgram()
+		env := &object.Environment{}
+		p.ParseProgram(env)
+		program := env.Program
 		checkParserErrors(t, p)
 
 		if program.StatementIter().Len() != tt.expStmts {
@@ -822,7 +855,9 @@ func TestReturnStatements(t *testing.T) {
 	for _, tt := range tests {
 		l := lexer.New(tt.input)
 		p := New(l)
-		program := p.ParseProgram()
+		env := &object.Environment{}
+		p.ParseProgram(env)
+		program := env.Program
 		checkParserErrors(t, p)
 
 		if program.StatementIter().Len() != tt.expStmts {
@@ -865,7 +900,9 @@ func TestFunctionApplication(t *testing.T) {
 	for i, tt := range tests {
 		l := lexer.New(tt.input)
 		p := New(l)
-		program := p.ParseProgram()
+		env := &object.Environment{}
+		p.ParseProgram(env)
+		program := env.Program
 
 		if len(p.errors) != tt.errCount {
 			t.Fatalf("expected %d errors, got %d instead on test %d", tt.errCount, len(p.errors), i)
@@ -888,7 +925,9 @@ func TestEndStatements(t *testing.T) {
 	for _, tt := range tests {
 		l := lexer.New(tt.input)
 		p := New(l)
-		program := p.ParseProgram()
+		env := &object.Environment{}
+		p.ParseProgram(env)
+		program := env.Program
 		checkParserErrors(t, p)
 
 		if program.StatementIter().Len() != tt.expStmts {
@@ -921,14 +960,16 @@ func TestCls(t *testing.T) {
 		l := lexer.New(tt.input)
 		//l.NextToken()
 		p := New(l)
-		program := p.ParseProgram()
+		env := &object.Environment{}
+		p.ParseCmd(env)
+		program := env.Program
 		checkParserErrors(t, p)
 
-		if program.StatementIter().Len() != 1 {
+		if program.CmdLineIter().Len() != 1 {
 			t.Fatalf("program.Statements does not contain single command")
 		}
 
-		iter := program.StatementIter()
+		iter := program.CmdLineIter()
 		stmt := iter.Value()
 		clsStmt, ok := stmt.(*ast.ClsStatement)
 		if !ok {
@@ -959,7 +1000,9 @@ func TestPrintStatements(t *testing.T) {
 	for _, tt := range tests {
 		l := lexer.New(tt.input)
 		p := New(l)
-		program := p.ParseProgram()
+		env := &object.Environment{}
+		p.ParseProgram(env)
+		program := env.Program
 
 		if program.StatementIter().Len() != tt.expStmts {
 			t.Fatalf("program.Statements does not contain %d statements. got=%d", tt.expStmts, program.StatementIter().Len())
@@ -1118,9 +1161,11 @@ func TestListStatement(t *testing.T) {
 	for _, tt := range tests {
 		l := lexer.New(tt.inp)
 		p := New(l)
-		prg := p.ParseProgram()
+		env := &object.Environment{}
+		p.ParseCmd(env)
+		program := env.Program
 
-		itr := prg.StatementIter()
+		itr := program.CmdLineIter()
 		stmt := itr.Value()
 
 		if strings.Compare(stmt.TokenLiteral(), tt.res.TokenLiteral()) != 0 {

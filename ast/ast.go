@@ -52,19 +52,43 @@ type Code struct {
 
 //Program holds the root of the AST (Abstract Syntax Tree)
 type Program struct {
-	code Code
+	code    *Code
+	cmdLine *Code
 }
 
 // New setups internal state
 func (p *Program) New() {
 	var err error
-	p.code = Code{
+	p.code = &Code{
+		lines:    []codeLine{},
+		currLine: 0,
+		err:      err,
+	}
+	p.cmdLine = &Code{
 		lines:    []codeLine{},
 		currLine: 0,
 		err:      err,
 	}
 
-	p.code.lines = append(p.code.lines, codeLine{lineNum: 0, curStmt: 0})
+	//p.code.lines = append(p.code.lines, codeLine{lineNum: 0, curStmt: 0})
+	//p.cmdLine.lines = append(p.cmdLine.lines, codeLine{lineNum: 0, curStmt: 0})
+	p.code.lines = nil
+	p.cmdLine.lines = nil
+}
+
+// Parsed lets me know the parser has finished and I should expect the next input from the command line
+func (p *Program) Parsed() {
+	p.code.lines[0].curStmt = 0
+}
+
+// CmdParsed gets the command line ready to execute
+func (p *Program) CmdParsed() {
+	p.cmdLine.lines[0].curStmt = 0
+}
+
+// CmdComplete execution is complete, empty the command line
+func (p *Program) CmdComplete() {
+	p.cmdLine.lines = nil
 }
 
 // TokenLiteral returns string representation of the program
@@ -82,16 +106,33 @@ func (p *Program) AddStatement(stmt Statement) {
 		p.code.currLine = lNum.Value
 	}
 
+	if len(p.code.lines) == 0 {
+		p.code.err = errors.New("invalid line number")
+	}
+
 	p.code.lines[p.code.currIndex].stmts = append(p.code.lines[p.code.currIndex].stmts, stmt)
+}
+
+// AddCmdStmt adds a statement to the command line
+// he only ever has one line
+func (p *Program) AddCmdStmt(stmt Statement) {
+	if len(p.cmdLine.lines) == 0 {
+		p.cmdLine.addLine((0))
+	}
+	p.cmdLine.lines[0].stmts = append(p.cmdLine.lines[0].stmts, stmt)
 }
 
 // StatementIter lets them iterate over lines
 func (p *Program) StatementIter() *Code {
-	if p.code.currIndex != 0 {
-		p.code.currIndex = 1
-	}
+	p.code.currIndex = 0
 
-	return &p.code
+	return p.code
+}
+
+// CmdLineIter iterates over the command line
+func (p *Program) CmdLineIter() *Code {
+	p.cmdLine.lines[0].curStmt = 0
+	return p.cmdLine
 }
 
 // going to add, or possibly replace, a line of code
@@ -150,7 +191,7 @@ func (cd *Code) findLine(lNum int) (int, bool) {
 // MaxLineNum finds the highest line number currently in Code
 func (cd *Code) MaxLineNum() int {
 	// if array of code lines is empty
-	if len(cd.lines) == 1 {
+	if len(cd.lines) == 0 {
 		return 0 //return zero
 	}
 	return cd.lines[len(cd.lines)-1].lineNum

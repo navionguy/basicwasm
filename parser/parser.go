@@ -8,6 +8,7 @@ import (
 	"github.com/navionguy/basicwasm/ast"
 	"github.com/navionguy/basicwasm/decimal"
 	"github.com/navionguy/basicwasm/lexer"
+	"github.com/navionguy/basicwasm/object"
 	"github.com/navionguy/basicwasm/token"
 )
 
@@ -117,23 +118,45 @@ func (p *Parser) nextToken() {
 	}
 }
 
-// ParseProgram time to get busy
-func (p *Parser) ParseProgram() *ast.Program {
+// ParseProgram time to get busy and build the Abstract Syntax Tree
+// The program object holds the code and he lives in the environment
+func (p *Parser) ParseProgram(env *object.Environment) {
 	defer untrace(trace("ParseProgram"))
 
-	program := &ast.Program{}
-	//program.Statements = []ast.Statement{}
-	program.New()
+	if env.Program == nil {
+		env.Program = &ast.Program{}
+		env.Program.New() // make sure to initialize the new program
+	}
 
 	for !p.curTokenIs(token.EOF) {
 		stmt := p.parseStatement()
 		if stmt != nil {
-			program.AddStatement(stmt)
+			env.Program.AddStatement(stmt)
 		}
 		p.nextToken()
 	}
 
-	return program
+	env.Program.Parsed()
+}
+
+// ParseCmd is used to parse out a command entered directly
+func (p *Parser) ParseCmd(env *object.Environment) {
+	defer untrace(trace("ParseCmd"))
+
+	if env.Program == nil {
+		env.Program = &ast.Program{}
+		env.Program.New() // make sure to initialize the new program
+	}
+
+	for !p.curTokenIs(token.EOF) {
+		stmt := p.parseStatement()
+		if stmt != nil {
+			env.Program.AddCmdStmt(stmt)
+		}
+		p.nextToken()
+	}
+
+	env.Program.CmdParsed()
 }
 
 func (p *Parser) parseStatement() ast.Statement {

@@ -260,8 +260,9 @@ func evalGotoStatement(jmp string, code *ast.Code, env *object.Environment) obje
 
 func evalListStatement(code *ast.Code, stmt *ast.ListStatement, env *object.Environment) {
 	var out bytes.Buffer
+	cd := env.Program.StatementIter()
 	start := 0
-	stop := code.MaxLineNum()
+	stop := cd.MaxLineNum()
 
 	// figure out any limits to the listing
 	if len(stmt.Start) > 0 {
@@ -278,7 +279,7 @@ func evalListStatement(code *ast.Code, stmt *ast.ListStatement, env *object.Envi
 	bMidLine := false
 	bList := false
 	for bMore := true; bMore; {
-		stmt := code.Value()
+		stmt := cd.Value()
 
 		lnm, ok := stmt.(*ast.LineNumStmt)
 
@@ -304,7 +305,7 @@ func evalListStatement(code *ast.Code, stmt *ast.ListStatement, env *object.Envi
 			out.WriteString(stmt.String())
 		}
 
-		bMore = code.Next()
+		bMore = cd.Next()
 	}
 	env.Terminal().Println(out.String())
 }

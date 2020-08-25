@@ -2,6 +2,7 @@ package cli
 
 import (
 	"fmt"
+	"strings"
 	"testing"
 
 	"github.com/navionguy/basicwasm/object"
@@ -11,6 +12,7 @@ type mockTerm struct {
 	row    int
 	col    int
 	strVal string
+	expChk *Expector
 }
 
 func (mt mockTerm) Cls() {
@@ -18,10 +20,12 @@ func (mt mockTerm) Cls() {
 }
 
 func (mt mockTerm) Print(msg string) {
+	mt.expChk.chkExpectations(msg)
 	fmt.Print(msg)
 }
 
 func (mt mockTerm) Println(msg string) {
+	mt.expChk.chkExpectations(msg)
 	fmt.Println(msg)
 }
 
@@ -37,21 +41,38 @@ func (mt mockTerm) Read(col, row, len int) string {
 	return mt.strVal
 }
 
+type Expector struct {
+	exp []string
+}
+
+func (ep *Expector) chkExpectations(msg string) {
+	if len(ep.exp) == 0 {
+		return // no expectations
+	}
+	if strings.Compare(msg, ep.exp[0]) != 0 {
+		fmt.Print(("unexpected this is ->"))
+	}
+	ep.exp = ep.exp[1:]
+}
+
 func TestExecCommand(t *testing.T) {
 	tests := []struct {
 		inp string
+		exp []string
 	}{
-		{"10 CLS"},
-		{"LIST"},
-		{"LET X = 5"},
-		{"PRINT X"},
-		{"PRINT 45.2 / 3.4"},
+		{inp: "10 CLS", exp: []string{"OK"}},
+		{"LIST", []string{"10 CLS", "OK"}},
+		{"LET X = 5", []string{"OK"}},
+		{"PRINT X", []string{"5", "", "OK"}},
+		{"PRINT 45.2 / 3.4", []string{"13.29412", "", "OK"}},
 	}
 
 	var trm mockTerm
-
+	var eChk Expector
+	trm.expChk = &eChk
 	env := object.NewTermEnvironment(trm)
 	for _, tt := range tests {
+		eChk.exp = tt.exp
 		execCommand(tt.inp, env)
 	}
 }

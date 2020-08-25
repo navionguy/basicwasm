@@ -58,7 +58,12 @@ func NewEnclosedEnvironment(outer *Environment) *Environment {
 // NewEnvironment creates a place to store variables
 func newEnvironment() *Environment {
 	s := make(map[string]Object)
-	return &Environment{store: s}
+	e := &Environment{store: s}
+	if e.Program == nil {
+		e.Program = &ast.Program{}
+	}
+	e.Program.New()
+	return e
 }
 
 // NewTermEnvironment creates an environment with a terminal front-end
@@ -70,9 +75,10 @@ func NewTermEnvironment(term Console) *Environment {
 
 // Environment holds my variables and possible an outer environment
 type Environment struct {
-	store map[string]Object
-	outer *Environment
-	term  Console
+	store   map[string]Object
+	outer   *Environment
+	Program *ast.Program
+	term    Console
 }
 
 // Get attempts to retrieve an object from the environment
