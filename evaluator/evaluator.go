@@ -151,13 +151,13 @@ func evalStatements(stmts *ast.Program, code *ast.Code, env *object.Environment)
 	var result object.Object
 
 	// get an iterator across the program statements
-	iter := stmts.StatementIter()
+	//iter := stmts.StatementIter()
 	// make sure there are some
-	t := iter.Len()
+	t := code.Len()
 	ok := t > 0
 	// loop until you run out of code
-	for ; ok; ok = iter.Next() {
-		result = Eval(iter.Value(), code, env)
+	for ; ok; ok = code.Next() {
+		result = Eval(code.Value(), code, env)
 
 		err, ok := result.(*object.Error)
 

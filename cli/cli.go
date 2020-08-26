@@ -5,6 +5,7 @@ import (
 	"strings"
 	"time"
 
+	"github.com/navionguy/basicwasm/ast"
 	"github.com/navionguy/basicwasm/evaluator"
 	"github.com/navionguy/basicwasm/keybuffer"
 	"github.com/navionguy/basicwasm/lexer"
@@ -81,13 +82,41 @@ func execCommand(input string, env *object.Environment) {
 		iter := env.Program.CmdLineIter()
 		for iter.Value() != nil {
 			cmd := iter.Value()
-			evaluator.Eval(cmd, env.Program.StatementIter(), env)
+			srcIter := env.Program.StatementIter()
+			evaluator.Eval(cmd, srcIter, env)
+
+			// see if cmd is trying to start execution
+			switch cmd.(type) {
+			case *ast.GotoStatement:
+				stmt := &ast.Program{}
+				strt, err := strconv.Atoi(cmd.(*ast.GotoStatement).Goto)
+
+				if err != nil {
+					giveError(err, env)
+					return
+				}
+				err = srcIter.Jump(strt)
+
+				if err != nil {
+					giveError(err, env)
+					return
+				}
+				evaluator.Eval(stmt, srcIter, env)
+				break
+			}
 			iter.Next()
 		}
 		env.Program.CmdComplete()
 		env.Terminal().Println("OK")
 	}
 
+}
+
+func giveError(err error, env *object.Environment) {
+	env.Terminal().Println(err.Error())
+	env.Terminal().Println("OK")
+	env.Program.CmdComplete()
+	return
 }
 
 func checkForLineNum(input string) bool {
