@@ -1,6 +1,7 @@
 package cli
 
 import (
+	"fmt"
 	"strconv"
 	"strings"
 	"time"
@@ -45,7 +46,13 @@ func runLoop(env *object.Environment) {
 			}*/
 			env.Terminal().Locate(row+1, col)
 			env.Terminal().Print("\x1b[P")
-			//env.Terminal().Print("\b\a")
+		//env.Terminal().Print("\b\a")
+		case 0x03: // ctrl-c
+			env.Terminal().Println("")
+			if env.GetAuto() != nil {
+				env.SetAuto(nil)
+				prompt(env)
+			}
 		default:
 			/*var msg []byte
 			msg = append(msg, k)
@@ -107,9 +114,31 @@ func execCommand(input string, env *object.Environment) {
 			iter.Next()
 		}
 		env.Program.CmdComplete()
-		env.Terminal().Println("OK")
+		prompt(env)
+	} else {
+		if env.GetAuto() != nil {
+			prompt(env)
+		}
 	}
 
+}
+
+func prompt(env *object.Environment) {
+	auto := env.GetAuto()
+
+	if auto == nil {
+		env.Terminal().Println("OK")
+		return
+	}
+
+	fill := " "
+	if env.Program.StatementIter().Exists(auto.Start) {
+		fill = "*"
+	}
+
+	env.Terminal().Print(fmt.Sprintf("%d%s", auto.Start, fill))
+	auto.Start += auto.Increment
+	env.SetAuto(auto)
 }
 
 func giveError(err error, env *object.Environment) {

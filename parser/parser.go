@@ -49,6 +49,7 @@ type Parser struct {
 	curToken  token.Token
 	peekToken token.Token
 	curLine   int
+	env       *object.Environment
 
 	prefixParseFns map[token.TokenType]prefixParseFn
 	infixParseFns  map[token.TokenType]infixParseFn
@@ -122,6 +123,7 @@ func (p *Parser) nextToken() {
 // The program object holds the code and he lives in the environment
 func (p *Parser) ParseProgram(env *object.Environment) {
 	defer untrace(trace("ParseProgram"))
+	p.env = env
 
 	if env.Program == nil {
 		env.Program = &ast.Program{}
@@ -142,6 +144,7 @@ func (p *Parser) ParseProgram(env *object.Environment) {
 // ParseCmd is used to parse out a command entered directly
 func (p *Parser) ParseCmd(env *object.Environment) {
 	defer untrace(trace("ParseCmd"))
+	p.env = env
 
 	if env.Program == nil {
 		env.Program = &ast.Program{}
@@ -162,8 +165,10 @@ func (p *Parser) ParseCmd(env *object.Environment) {
 func (p *Parser) parseStatement() ast.Statement {
 	defer untrace(trace("parseStatement"))
 	switch p.curToken.Type {
-	case token.LET:
-		return p.parseLetStatement()
+	case token.AUTO:
+		return p.parseAutoCommand()
+	case token.CLS:
+		return p.parseClsStatement()
 	case token.END:
 		return p.parseEndStatement()
 	case token.EOL:
@@ -179,6 +184,8 @@ func (p *Parser) parseStatement() ast.Statement {
 			return nil
 		}*/
 		return nil
+	case token.LET:
+		return p.parseLetStatement()
 	case token.LINENUM:
 		return p.parseLineNumber()
 	case token.LIST:
@@ -191,18 +198,50 @@ func (p *Parser) parseStatement() ast.Statement {
 		return p.parseRemStatement()
 	case token.RETURN:
 		return p.parseReturnStatement()
+	case token.RUN:
+		return p.parseRunCommand()
+	case token.TROFF:
+		return p.parseTroffCommand()
+	case token.TRON:
+		return p.parseTronCommand()
 	case token.PRINT:
 		return p.parsePrintStatement()
 	case token.DIM:
 		return p.parseDimStatement()
-	case token.CLS:
-		return p.parseClsStatement()
 	default:
 		if strings.ContainsAny(p.peekToken.Literal, "=[$%!#") {
 			return p.parseImpliedLetStatement(p.curToken.Literal)
 		}
 		return p.parseExpressionStatement()
 	}
+}
+
+func (p *Parser) parseAutoCommand() *ast.AutoCommand {
+	auto := &ast.AutoCommand{Token: p.curToken, Start: -1, Increment: 10, Curr: false}
+
+	// check for the starting line number
+	if p.peekTokenIs(token.INT) {
+		p.nextToken()
+		auto.Start, _ = strconv.Atoi(p.curToken.Literal)
+	}
+
+	// check for '.' to start with the current line number
+	if p.peekTokenIs(token.PERIOD) {
+		p.nextToken()
+		auto.Curr = true
+	}
+
+	// did he specify an increment value?
+	if p.peekTokenIs(token.COMMA) {
+		p.nextToken()
+		if p.peekTokenIs(token.INT) {
+			p.nextToken()
+			auto.Increment, _ = strconv.Atoi(p.curToken.Literal)
+		}
+	}
+	p.nextToken()
+
+	return auto
 }
 
 // a questionable name for parsing a function definition
@@ -316,8 +355,10 @@ func (p *Parser) parseStringLiteral() ast.Expression {
 
 func (p *Parser) parseLineNumber() *ast.LineNumStmt {
 	defer untrace(trace("parseLineNumber"))
+
+	// rebrand it a line number
 	stmt := &ast.LineNumStmt{Token: p.curToken}
-	stmt.Token.Literal = p.curToken.Literal // rebrand it a line number
+	stmt.Token.Literal = p.curToken.Literal
 
 	var err error
 	tv, err := strconv.Atoi(p.curToken.Literal)
@@ -327,6 +368,25 @@ func (p *Parser) parseLineNumber() *ast.LineNumStmt {
 	}
 	stmt.Value = tv
 	p.curLine = tv
+
+	// little detour here, if I see linenum*EOL AND auto is on
+	// user has decided *not* to overwrite an existing line
+	// I should return nil
+	//
+	// if I see linenum*statement AND auto is on
+	// user has decided to overwrite an existing line
+	// I should consume and ignore the asterisk
+
+	if p.peekTokenIs(token.ASTERISK) && (p.env.GetAuto() != nil) {
+		p.nextToken()
+
+		if p.peekTokenIs(token.EOL) || p.peekTokenIs(token.EOF) {
+			return stmt
+		}
+
+		// consume the asteriskdon.h
+		p.nextToken()
+	}
 
 	return stmt
 }
@@ -498,6 +558,31 @@ func (p *Parser) parseReturnStatement() *ast.ReturnStatement {
 	}
 
 	return stmt
+}
+
+// Run commands come in two forms
+// RUN [line number][,r]
+// RUN filename[,r]
+func (p *Parser) parseRunCommand() *ast.RunCommand {
+	cmd := &ast.RunCommand{Token: p.curToken}
+
+	// check for line number to start at
+	if p.peekTokenIs(token.INT) {
+		p.nextToken()
+		cmd.StartLine, _ = strconv.Atoi(p.curToken.Literal)
+	} else if p.peekTokenIs(token.STRING) { // check for file to load
+		p.nextToken()
+		cmd.LoadFile = p.curToken.Literal
+	}
+
+	if p.peekTokenIs(token.COMMA) {
+		p.nextToken()
+		if p.peekTokenIs(token.IDENT) {
+
+		}
+	}
+
+	return cmd
 }
 
 func (p *Parser) parseEndStatement() *ast.EndStatement {
@@ -826,6 +911,22 @@ func (p *Parser) parseInfixExpression(left ast.Expression) ast.Expression {
 	p.nextToken()
 	expression.Right = p.parseExpression(precedence)
 	return expression
+}
+
+// Trace Off, no parameters so nothing much to do
+func (p *Parser) parseTroffCommand() *ast.TroffCommand {
+	stmt := &ast.TroffCommand{Token: p.curToken}
+	p.nextToken()
+
+	return stmt
+}
+
+// Trace On, no parameters so nothing much to do
+func (p *Parser) parseTronCommand() *ast.TronCommand {
+	stmt := &ast.TronCommand{Token: p.curToken}
+	p.nextToken()
+
+	return stmt
 }
 
 func (p *Parser) peekPrecedence() int {

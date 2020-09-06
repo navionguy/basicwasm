@@ -56,6 +56,7 @@ const (
 	RBRACKET = "]"
 
 	// Keywords
+	AUTO   = "AUTO"
 	CLS    = "CLS"
 	CLEAR  = "CLEAR"
 	COMMON = "COMMON"
@@ -74,7 +75,10 @@ const (
 	PRINT  = "PRINT"
 	REM    = "REM"
 	RETURN = "RETURN"
+	RUN    = "RUN"
 	THEN   = "THEN"
+	TRON   = "TRON"
+	TROFF  = "TROFF"
 	TRUE   = "TRUE"
 	USING  = "USING"
 )
@@ -85,6 +89,7 @@ type Token struct {
 }
 
 var keywords = map[string]TokenType{
+	"auto":   AUTO,
 	"clear":  CLEAR,
 	"cls":    CLS,
 	"def":    DEF,
@@ -102,7 +107,10 @@ var keywords = map[string]TokenType{
 	"print":  PRINT,
 	"rem":    REM,
 	"return": RETURN,
+	"run":    RUN,
 	"then":   THEN,
+	"tron":   TRON,
+	"troff":  TROFF,
 	"true":   TRUE,
 	"using":  USING,
 }

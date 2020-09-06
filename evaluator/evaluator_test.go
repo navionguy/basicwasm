@@ -55,6 +55,50 @@ func (mt mockTerm) Read(col, row, len int) string {
 	return *mt.strVal
 }
 
+func TestAutoCommand(t *testing.T) {
+	tests := []struct {
+		inp  string
+		strt int
+		step int
+		curr bool
+	}{
+		{inp: "AUTO", strt: 10, step: 10, curr: false},
+		{inp: "AUTO 500", strt: 500, step: 10, curr: false},
+		{inp: "AUTO 500, 50", strt: 500, step: 50, curr: false},
+		{inp: "AUTO ., 50", strt: 10, step: 50, curr: true},
+	}
+
+	for _, tt := range tests {
+
+		var mt mockTerm
+		initMockTerm(&mt)
+		env := object.NewTermEnvironment(mt)
+		l := lexer.New(tt.inp)
+		p := parser.New(l)
+		p.ParseCmd(env)
+
+		Eval(env.Program, env.Program.CmdLineIter(), env)
+
+		aut := env.GetAuto()
+
+		if aut == nil {
+			t.Fatalf("TestAutoCommand environment doesn't have an auto struct")
+		}
+
+		if tt.strt != aut.Start {
+			t.Fatalf("TestAutoCommand expected start = %d, got %d", tt.strt, aut.Start)
+		}
+
+		if tt.step != aut.Increment {
+			t.Fatalf("TestAutoCommand expected step = %d, got %d", tt.step, aut.Increment)
+		}
+
+		if tt.curr != aut.Curr {
+			t.Fatalf("TestAutoCommand expected curr = %t, got %t", tt.curr, aut.Curr)
+		}
+	}
+}
+
 func TestClsStatement(t *testing.T) {
 	tests := []struct {
 		input string
@@ -69,7 +113,6 @@ func TestClsStatement(t *testing.T) {
 		initMockTerm(&mt)
 		env := object.NewTermEnvironment(mt)
 		p.ParseCmd(env)
-		cmd := env.Program.CmdLineIter().Value()
 
 		if len(p.Errors()) > 0 {
 			for _, er := range p.Errors() {
@@ -78,7 +121,7 @@ func TestClsStatement(t *testing.T) {
 			return
 		}
 
-		Eval(cmd, env.Program.CmdLineIter(), env)
+		Eval(env.Program, env.Program.CmdLineIter(), env)
 
 		if !*mt.sawCls {
 			t.Errorf("No call to Cls() seen")
@@ -319,6 +362,38 @@ func TestFunctionApplication(t *testing.T) {
 	}
 	for _, tt := range tests {
 		testIntegerObject(t, testEval(tt.input), tt.expected)
+	}
+}
+
+func TestTronTroffCommands(t *testing.T) {
+	tests := []struct {
+		inp string
+		trc bool
+	}{
+		{"TRON", true},
+		{"TRON : TROFF", false},
+	}
+
+	for _, tt := range tests {
+		var mt mockTerm
+		initMockTerm(&mt)
+		env := object.NewTermEnvironment(mt)
+		l := lexer.New(tt.inp)
+		p := parser.New(l)
+		p.ParseCmd(env)
+
+		if len(p.Errors()) > 0 {
+			for _, er := range p.Errors() {
+				fmt.Println(er)
+			}
+			return
+		}
+
+		Eval(env.Program, env.Program.CmdLineIter(), env)
+
+		if env.GetTrace() != tt.trc {
+			t.Errorf("TestTronTroffCommands trace expected %t, got %t", tt.trc, env.GetTrace())
+		}
 	}
 }
 
@@ -695,9 +770,8 @@ func ExampleT_list() {
 		l := lexer.New(tt.inp)
 		p := parser.New(l)
 		p.ParseCmd(env)
-		cmd := env.Program.CmdLineIter().Value()
 
-		Eval(cmd, prog.CmdLineIter(), env)
+		Eval(env.Program, prog.CmdLineIter(), env)
 	}
 
 	// Output:
@@ -737,9 +811,8 @@ func ExampleT_list2() {
 		l := lexer.New(tt.inp)
 		p := parser.New(l)
 		p.ParseCmd(env)
-		cmd := env.Program.CmdLineIter().Value()
 
-		Eval(cmd, prog.CmdLineIter(), env)
+		Eval(env.Program, prog.CmdLineIter(), env)
 	}
 
 	// Output:
@@ -778,9 +851,8 @@ func ExampleT_list3() {
 		l := lexer.New(tt.inp)
 		p := parser.New(l)
 		p.ParseCmd(env)
-		cmd := env.Program.CmdLineIter().Value()
 
-		Eval(cmd, prog.CmdLineIter(), env)
+		Eval(env.Program, prog.CmdLineIter(), env)
 	}
 
 	// Output:
@@ -798,7 +870,6 @@ func ExampleT_list4() {
 
 	tests := []struct {
 		inp string
-		res string
 	}{
 		{inp: "LIST -30"},
 	}
@@ -815,15 +886,45 @@ func ExampleT_list4() {
 		l := lexer.New(tt.inp)
 		p := parser.New(l)
 		p.ParseCmd(env)
-		cmd := env.Program.CmdLineIter().Value()
 
-		Eval(cmd, prog.CmdLineIter(), env)
+		Eval(env.Program, prog.CmdLineIter(), env)
 	}
 
 	// Output:
 	// 10 REM This is a test program
 	// 20 PRINT "Hello World!"
 	// 30 PRINT "And Goodbye Cruel World." : REM A trailing comment
+}
+
+func ExampleT_Run() {
+	src := `
+	10 REM This is a test program
+	20 PRINT "Hello World!"`
+
+	tests := []struct {
+		inp string
+	}{
+		{"RUN"},
+	}
+
+	l := lexer.New(src)
+	p := parser.New(l)
+	var mt mockTerm
+	initMockTerm(&mt)
+	env := object.NewTermEnvironment(mt)
+	p.ParseProgram(env)
+	prog := env.Program
+
+	for _, tt := range tests {
+		l := lexer.New(tt.inp)
+		p := parser.New(l)
+		p.ParseCmd(env)
+
+		Eval(env.Program, prog.CmdLineIter(), env)
+	}
+
+	// Output:
+	// Hello World!
 }
 
 func TestBuiltinFunctions(t *testing.T) {

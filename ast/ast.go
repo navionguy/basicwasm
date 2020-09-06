@@ -165,6 +165,11 @@ func (cd *Code) addLine(lineNum int) {
 	cd.currLine = lineNum
 }
 
+// CurLine returns the current executing line number or zero if there isn't one
+func (cd *Code) CurLine() int {
+	return cd.currLine
+}
+
 // tries to find the requested line number in the array of lines
 // returns index into lines and true if found
 // returns index to insert it and false if not found
@@ -216,6 +221,7 @@ func (cd *Code) Next() bool {
 			return false
 		}
 		line = &cd.lines[cd.currIndex]
+		line.curStmt = 0
 
 		return (line.curStmt <= len(line.stmts)-1)
 	}
@@ -250,6 +256,13 @@ func (cd *Code) Len() int {
 		i += len(ln.stmts)
 	}
 	return i
+}
+
+// Exists just tell you if I could find it
+func (cd *Code) Exists(target int) bool {
+	_, ok := cd.findLine(target)
+
+	return ok
 }
 
 // Jump to the target line in the AST
@@ -666,13 +679,51 @@ func (end *EndStatement) String() string {
 	return out.String()
 }
 
+// AutoCommand turns on automatic line numbering during entry
+// it comes in two forms
+// AUTO [line number][,[increment]]
+// AUTO .[,[increment]] where the '.' indicates start at current line
+type AutoCommand struct {
+	Token     token.Token
+	Start     int
+	Increment int
+	Curr      bool
+}
+
+func (ac *AutoCommand) statementNode() {}
+
+// TokenLiteral returns my token literal
+func (ac *AutoCommand) TokenLiteral() string { return strings.ToUpper(ac.Token.Literal) }
+func (ac *AutoCommand) String() string {
+	var out bytes.Buffer
+
+	out.WriteString("RUN")
+
+	if ac.Start != -1 {
+		out.WriteString(fmt.Sprintf(" %d", ac.Start))
+	}
+
+	if ac.Curr {
+		out.WriteString(" .")
+	}
+
+	if ac.Increment != -1 {
+		out.WriteString(fmt.Sprintf(", %d", ac.Increment))
+	}
+
+	return out.String()
+}
+
+// CallExpression is used when calling built in functions
 type CallExpression struct {
 	Token     token.Token // The '(' token
 	Function  Expression  // Identifier or FunctionLiteral
 	Arguments []Expression
 }
 
-func (ce *CallExpression) expressionNode()      {}
+func (ce *CallExpression) expressionNode() {}
+
+// TokenLiteral returns my token literal
 func (ce *CallExpression) TokenLiteral() string { return strings.ToUpper(ce.Token.Literal) }
 func (ce *CallExpression) String() string {
 	var out bytes.Buffer
@@ -690,36 +741,15 @@ func (ce *CallExpression) String() string {
 	return out.String()
 }
 
-// PrintStatement holds everything to control the output
-type PrintStatement struct {
-	Token      token.Token
-	Items      []Expression
-	Seperators []string
-}
-
-func (pe *PrintStatement) statementNode()       {}
-func (pe *PrintStatement) TokenLiteral() string { return strings.ToUpper(pe.Token.Literal) }
-
-func (pe *PrintStatement) String() string {
-	var out bytes.Buffer
-
-	out.WriteString(pe.TokenLiteral())
-	out.WriteString(" ")
-
-	for i, s := range pe.Items {
-		out.WriteString(s.String() + pe.Seperators[i])
-	}
-
-	return out.String()
-}
-
 // ClsStatement command to clear screen
 type ClsStatement struct {
 	Token token.Token
 	Param int
 }
 
-func (cls *ClsStatement) statementNode()       {}
+func (cls *ClsStatement) statementNode() {}
+
+// TokenLiteral returns my token literal
 func (cls *ClsStatement) TokenLiteral() string { return strings.ToUpper(cls.Token.Literal) }
 
 func (cls *ClsStatement) String() string {
@@ -728,22 +758,6 @@ func (cls *ClsStatement) String() string {
 	}
 
 	return fmt.Sprintf("CLS %d", cls.Param)
-}
-
-// RemStatement command to clear screen
-type RemStatement struct {
-	Token   token.Token
-	Comment string
-}
-
-func (rem *RemStatement) statementNode() {}
-
-// TokenLiteral should return REM
-func (rem *RemStatement) TokenLiteral() string { return strings.ToUpper(rem.Token.Literal) }
-
-func (rem *RemStatement) String() string {
-	rc := strings.TrimRight(rem.Comment, " ")
-	return fmt.Sprint(rc)
 }
 
 // ListStatement command to clear screen
@@ -763,3 +777,92 @@ func (lst *ListStatement) String() string {
 
 	return fmt.Sprintf("LIST %s%s%s", lst.Start, lst.Lrange, lst.Stop)
 }
+
+// PrintStatement holds everything to control the output
+type PrintStatement struct {
+	Token      token.Token
+	Items      []Expression
+	Seperators []string
+}
+
+func (pe *PrintStatement) statementNode() {}
+
+// TokenLiteral returns my token literal
+func (pe *PrintStatement) TokenLiteral() string { return strings.ToUpper(pe.Token.Literal) }
+
+func (pe *PrintStatement) String() string {
+	var out bytes.Buffer
+
+	out.WriteString(pe.TokenLiteral())
+	out.WriteString(" ")
+
+	for i, s := range pe.Items {
+		out.WriteString(s.String() + pe.Seperators[i])
+	}
+
+	return out.String()
+}
+
+// RemStatement holds a comment about the program
+type RemStatement struct {
+	Token   token.Token
+	Comment string
+}
+
+func (rem *RemStatement) statementNode() {}
+
+// TokenLiteral should return REM
+func (rem *RemStatement) TokenLiteral() string { return strings.ToUpper(rem.Token.Literal) }
+
+func (rem *RemStatement) String() string {
+	rc := strings.TrimRight(rem.Comment, " ")
+	return fmt.Sprint(rc)
+}
+
+// RunCommand clears all variables and starts execution
+// RUN linenum starts execution at linenum
+type RunCommand struct {
+	Token     token.Token
+	StartLine int
+	LoadFile  string
+}
+
+func (run *RunCommand) statementNode() {}
+
+// TokenLiteral should return RUN
+func (run *RunCommand) TokenLiteral() string { return strings.ToUpper(run.Token.Literal) }
+
+func (run *RunCommand) String() string {
+	if run.StartLine != 0 {
+		return fmt.Sprintf("RUN %d", run.StartLine)
+	}
+
+	if len(run.LoadFile) > 0 {
+		return fmt.Sprintf("RUN %s", run.LoadFile)
+	}
+	return "RUN"
+}
+
+// TroffCommand turns off tracing
+type TroffCommand struct {
+	Token token.Token
+}
+
+func (tof *TroffCommand) statementNode() {}
+
+// TokenLiteral returns my token literal
+func (tof *TroffCommand) TokenLiteral() string { return strings.ToUpper(tof.Token.Literal) }
+
+func (tof *TroffCommand) String() string { return tof.TokenLiteral() }
+
+// TronCommand turns on tracing
+type TronCommand struct {
+	Token token.Token
+}
+
+func (ton *TronCommand) statementNode() {}
+
+// TokenLiteral returns my token literal
+func (ton *TronCommand) TokenLiteral() string { return strings.ToUpper(ton.Token.Literal) }
+
+func (ton *TronCommand) String() string { return ton.TokenLiteral() }

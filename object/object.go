@@ -79,6 +79,8 @@ type Environment struct {
 	outer   *Environment
 	Program *ast.Program
 	term    Console
+	autoOn  *ast.AutoCommand
+	traceOn bool
 }
 
 // Get attempts to retrieve an object from the environment
@@ -99,6 +101,26 @@ func (e *Environment) Set(name string, val Object) Object {
 // Terminal allows access to the termianl console
 func (e *Environment) Terminal() Console {
 	return e.term
+}
+
+// SetTrace turns it on or off
+func (e *Environment) SetTrace(on bool) {
+	e.traceOn = on
+}
+
+// GetTrace returns true if we are tracing
+func (e *Environment) GetTrace() bool {
+	return e.traceOn
+}
+
+// SetAuto saves the line numbering parameters
+func (e *Environment) SetAuto(auto *ast.AutoCommand) {
+	e.autoOn = auto
+}
+
+// GetAuto returns the line numbering parameters
+func (e *Environment) GetAuto() *ast.AutoCommand {
+	return e.autoOn
 }
 
 type Array struct {

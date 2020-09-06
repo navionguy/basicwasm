@@ -12,6 +12,62 @@ import (
 	"github.com/navionguy/basicwasm/token"
 )
 
+func TestAutoCommand(t *testing.T) {
+	tests := []struct {
+		inp   string
+		start int
+		step  int
+		curr  bool
+	}{
+		{"AUTO", -1, 10, false},
+		{"AUTO 20", 20, 10, false},
+		{"AUTO , 20", -1, 20, false},
+		{"AUTO ., 20", -1, 20, true},
+		{"AUTO .", -1, 10, true},
+	}
+
+	fmt.Println("TestAutoCommand Parsing")
+	for _, tt := range tests {
+		l := lexer.New(tt.inp)
+		p := New(l)
+		env := &object.Environment{}
+		p.ParseCmd(env)
+		program := env.Program
+
+		checkParserErrors(t, p)
+
+		itr := program.CmdLineIter()
+
+		if itr.Len() != 1 {
+			t.Fatal("program.Cmd does not contain single command")
+		}
+
+		stmt := itr.Value()
+
+		if stmt.TokenLiteral() != token.AUTO {
+			t.Fatal("TestAutoCommand didn't get an Auto command")
+		}
+
+		atc := stmt.(*ast.AutoCommand)
+
+		if atc == nil {
+			t.Fatal("TestAutoCommand couldn't extract AutoCommand object")
+		}
+
+		if atc.Start != tt.start {
+			t.Fatalf("TestAutoCommand got start = %d, expected %d", atc.Start, tt.start)
+		}
+
+		if atc.Increment != tt.step {
+			t.Fatalf("TestAutoCommand got increment = %d, expected %d", atc.Increment, tt.step)
+		}
+
+		if atc.Curr != tt.curr {
+			t.Fatalf("TestAutoCommand got curr = %t, expected %t", atc.Curr, tt.curr)
+		}
+	}
+}
+
 func TestImpliedLetStatement(t *testing.T) {
 	input := `10 x = 5: y = 20`
 
@@ -25,7 +81,7 @@ func TestImpliedLetStatement(t *testing.T) {
 	checkParserErrors(t, p)
 
 	if program == nil {
-		t.Fatalf("ParseProgram() returned nil")
+		t.Fatal("ParseProgram() returned nil")
 	}
 
 	if program.StatementIter().Len() != 3 {
@@ -407,6 +463,39 @@ func TestStringLiteralExpression(t *testing.T) {
 
 	if literal.Value != "hello world" {
 		t.Errorf("literal.Value not %q. got=%q", "hello world", literal.Value)
+	}
+}
+
+func TestTronTroffCommands(t *testing.T) {
+	tests := []struct {
+		inp string
+		tok string
+	}{
+		{"TRON", token.TRON},
+		{"TROFF", token.TROFF},
+	}
+
+	fmt.Println("TestTronTroffCommands Parsing")
+	for _, tt := range tests {
+		l := lexer.New(tt.inp)
+		p := New(l)
+		env := &object.Environment{}
+		p.ParseCmd(env)
+		program := env.Program
+
+		checkParserErrors(t, p)
+
+		itr := program.CmdLineIter()
+
+		if itr.Len() != 1 {
+			t.Fatal("program.Cmd does not contain single command")
+		}
+
+		stmt := itr.Value()
+
+		if stmt.TokenLiteral() != tt.tok {
+			t.Fatalf("TestTronTroffCommands didn't get an %s command", tt.inp)
+		}
 	}
 }
 
@@ -877,6 +966,55 @@ func TestReturnStatements(t *testing.T) {
 		if returnStmt.ReturnTo != tt.expectedValue {
 			t.Fatalf("got return to %T, expected %T", returnStmt.ReturnTo, tt.expectedValue)
 			return
+		}
+	}
+}
+
+func TestRunCommand(t *testing.T) {
+	tests := []struct {
+		inp   string
+		start int
+		file  string
+	}{
+		{"RUN", 0, ""},
+		{"RUN 20", 20, ""},
+		{"RUN \"TESTFILE.BAS\"", 0, "TESTFILE.BAS"},
+	}
+
+	fmt.Println("TestRunCommand Parsing")
+	for _, tt := range tests {
+		l := lexer.New(tt.inp)
+		p := New(l)
+		env := &object.Environment{}
+		p.ParseCmd(env)
+		program := env.Program
+
+		checkParserErrors(t, p)
+
+		itr := program.CmdLineIter()
+
+		if itr.Len() != 1 {
+			t.Fatal("program.Cmd does not contain single command")
+		}
+
+		stmt := itr.Value()
+
+		if stmt.TokenLiteral() != token.RUN {
+			t.Fatal("TestRunCommand didn't get an Run command")
+		}
+
+		atc := stmt.(*ast.RunCommand)
+
+		if atc == nil {
+			t.Fatal("TestRunCommand couldn't extract AutoCommand object")
+		}
+
+		if atc.StartLine != tt.start {
+			t.Fatalf("TestRunCommand got start = %d, expected %d", atc.StartLine, tt.start)
+		}
+
+		if atc.LoadFile != tt.file {
+			t.Fatalf("TestRunCommand got LoadFile = %s, expected %s", atc.LoadFile, tt.file)
 		}
 	}
 }

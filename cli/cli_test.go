@@ -69,6 +69,7 @@ func TestExecCommand(t *testing.T) {
 		{"PRINT 45.2 / 3.4", []string{"13.29412", "", "OK"}},
 		{"CLS : LIST", []string{"10 CLS", "OK"}},
 		{"GOTO 10", []string{"OK"}},
+		{"AUTO 10", []string{"10*"}},
 	}
 
 	var trm mockTerm

@@ -24,6 +24,9 @@ func Eval(node ast.Node, code *ast.Code, env *object.Environment) object.Object 
 	case *ast.Program:
 		return evalStatements(node, code, env)
 
+	case *ast.AutoCommand:
+		evalAutoCommand(node, code, env)
+
 	case *ast.ClsStatement:
 		evalClsStatement(node, code, env)
 
@@ -51,6 +54,9 @@ func Eval(node ast.Node, code *ast.Code, env *object.Environment) object.Object 
 	case *ast.LineNumStmt:
 		ln := &object.IntDbl{Value: node.Value}
 		env.Set(token.LINENUM, ln)
+		if env.GetTrace() {
+			env.Terminal().Print(fmt.Sprintf("[%d]", node.Value))
+		}
 		return ln
 
 	case *ast.ListStatement:
@@ -113,6 +119,9 @@ func Eval(node ast.Node, code *ast.Code, env *object.Environment) object.Object 
 	case *ast.RemStatement:
 		return nil // nothing to be done
 
+	case *ast.RunCommand:
+		return evalRunCommand(node, code, env)
+
 	case *ast.CallExpression:
 		function := Eval(node.Function, code, env)
 		if isError(function) {
@@ -125,9 +134,34 @@ func Eval(node ast.Node, code *ast.Code, env *object.Environment) object.Object 
 		}
 
 		return applyFunction(function, args, code, env)
+
+	case *ast.TroffCommand:
+		evalTroffCommand(env)
+
+	case *ast.TronCommand:
+		evalTronCommand(env)
 	}
 
 	return nil
+}
+
+// evaluate the parameters to the auto command and determine the starting
+// line number.  Once it is ready, save it into the environment for operating
+func evalAutoCommand(cmd *ast.AutoCommand, code *ast.Code, env *object.Environment) {
+
+	// if no start specified, assume 10 for know
+	if cmd.Start == -1 {
+		cmd.Start = 10
+	}
+
+	// does he want to start with the current line #, and do I have one?
+	cl := code.CurLine()
+	if cmd.Curr && (cl != 0) {
+		cmd.Start = cl
+	}
+
+	// we just poke him into the environment
+	env.SetAuto(cmd)
 }
 
 func evalBlockStatement(block *ast.BlockStatement, code *ast.Code, env *object.Environment) object.Object {
@@ -162,10 +196,34 @@ func evalStatements(stmts *ast.Program, code *ast.Code, env *object.Environment)
 		err, ok := result.(*object.Error)
 
 		if ok {
-			fmt.Println(err.Message)
+			env.Terminal().Println(err.Message)
 		}
 	}
 	return result
+}
+
+// actually run the program
+// ToDo: implement loading a program by name
+// ToDo: close open data files (as soon as I support data files)
+func evalRunCommand(run *ast.RunCommand, code *ast.Code, env *object.Environment) object.Object {
+	// ToDo: need to clear the variable space
+	if run.StartLine > 0 {
+		code.Jump(run.StartLine)
+	}
+
+	pcode := env.Program.StatementIter()
+
+	return Eval(env.Program, pcode, env)
+}
+
+// turn off tracing
+func evalTroffCommand(env *object.Environment) {
+	env.SetTrace(false)
+}
+
+// turn on tracing
+func evalTronCommand(env *object.Environment) {
+	env.SetTrace(true)
 }
 
 func evalClsStatement(cls *ast.ClsStatement, code *ast.Code, env *object.Environment) {
