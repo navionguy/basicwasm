@@ -131,7 +131,9 @@ func (p *Program) StatementIter() *Code {
 
 // CmdLineIter iterates over the command line
 func (p *Program) CmdLineIter() *Code {
-	p.cmdLine.lines[0].curStmt = 0
+	if p.cmdLine.Len() > 0 {
+		p.cmdLine.lines[0].curStmt = 0
+	}
 	return p.cmdLine
 }
 

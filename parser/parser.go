@@ -142,8 +142,15 @@ func (p *Parser) ParseProgram(env *object.Environment) {
 }
 
 // ParseCmd is used to parse out a command entered directly
+//
 func (p *Parser) ParseCmd(env *object.Environment) {
 	defer untrace(trace("ParseCmd"))
+
+	if p.peekTokenIs(token.LINENUM) {
+		p.ParseProgram(env)
+		return
+	}
+
 	p.env = env
 
 	if env.Program == nil {
@@ -160,6 +167,7 @@ func (p *Parser) ParseCmd(env *object.Environment) {
 	}
 
 	env.Program.CmdParsed()
+	return
 }
 
 func (p *Parser) parseStatement() ast.Statement {

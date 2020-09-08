@@ -67,16 +67,15 @@ func runLoop(env *object.Environment) {
 
 func execCommand(input string, env *object.Environment) {
 	l := lexer.New(input)
-	bExc := true //assume we are going to evaluate the program
 	p := parser.New(l)
 
-	if checkForLineNum(input) {
+	/*if checkForLineNum(input) {
 		// fresh line of code
 		bExc = false
 		p.ParseProgram(env)
-	} else {
-		p.ParseCmd(env)
-	}
+	} else {*/
+	p.ParseCmd(env)
+	//}
 
 	if len(p.Errors()) > 0 {
 		for _, m := range p.Errors() {
@@ -85,41 +84,44 @@ func execCommand(input string, env *object.Environment) {
 		return
 	}
 
-	if bExc {
-		iter := env.Program.CmdLineIter()
-		for iter.Value() != nil {
-			cmd := iter.Value()
-			srcIter := env.Program.StatementIter()
-			evaluator.Eval(cmd, srcIter, env)
+	iter := env.Program.CmdLineIter()
 
-			// see if cmd is trying to start execution
-			switch cmd.(type) {
-			case *ast.GotoStatement:
-				stmt := &ast.Program{}
-				strt, err := strconv.Atoi(cmd.(*ast.GotoStatement).Goto)
-
-				if err != nil {
-					giveError(err, env)
-					return
-				}
-				err = srcIter.Jump(strt)
-
-				if err != nil {
-					giveError(err, env)
-					return
-				}
-				evaluator.Eval(stmt, srcIter, env)
-				break
-			}
-			iter.Next()
-		}
-		env.Program.CmdComplete()
-		prompt(env)
-	} else {
+	// if command line is empty, nothing to execute
+	if iter.Len() == 0 {
 		if env.GetAuto() != nil {
 			prompt(env)
 		}
+		return
 	}
+
+	for iter.Value() != nil {
+		cmd := iter.Value()
+		srcIter := env.Program.StatementIter()
+		evaluator.Eval(cmd, srcIter, env)
+
+		// see if cmd is trying to start execution
+		switch cmd.(type) {
+		case *ast.GotoStatement:
+			stmt := &ast.Program{}
+			strt, err := strconv.Atoi(cmd.(*ast.GotoStatement).Goto)
+
+			if err != nil {
+				giveError(err, env)
+				return
+			}
+			err = srcIter.Jump(strt)
+
+			if err != nil {
+				giveError(err, env)
+				return
+			}
+			evaluator.Eval(stmt, srcIter, env)
+			break
+		}
+		iter.Next()
+	}
+	env.Program.CmdComplete()
+	prompt(env)
 
 }
 
