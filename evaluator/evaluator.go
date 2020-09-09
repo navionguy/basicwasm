@@ -125,7 +125,8 @@ func Eval(node ast.Node, code *ast.Code, env *object.Environment) object.Object 
 	case *ast.CallExpression:
 		function := Eval(node.Function, code, env)
 		if isError(function) {
-			return function
+			// looking up the function failed, must be undefined
+			return newError(env, "Undefined user function")
 		}
 
 		args := evalExpressions(node.Arguments, code, env)
@@ -629,7 +630,8 @@ func evalIdentifier(node *ast.Identifier, code *ast.Code, env *object.Environmen
 		return builtin
 	}
 
-	return newError(env, "identifier not found: "+node.Value)
+	return newError(env, "Syntax error")
+	//return newError(env, "identifier not found: "+node.Value)
 }
 
 func evalIndexArray(index []*ast.IndexExpression, array, newVal object.Object, code *ast.Code, env *object.Environment) object.Object {
@@ -836,13 +838,12 @@ func parseVarName(name string) (string, bool) {
 }
 
 func newError(env *object.Environment, format string, a ...interface{}) *object.Error {
+	msg := fmt.Sprintf(format, a...)
 	tk, ok := env.Get(token.LINENUM)
 
-	if !ok {
-		tk = &object.Integer{Value: -1}
+	if ok {
+		msg += fmt.Sprintf(" in %d", tk.(*object.IntDbl).Value)
 	}
-
-	msg := fmt.Sprintf(format, a...) + fmt.Sprintf(" at %d", tk.(*object.IntDbl).Value)
 
 	return &object.Error{Message: msg}
 }

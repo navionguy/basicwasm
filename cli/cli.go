@@ -3,7 +3,6 @@ package cli
 import (
 	"fmt"
 	"strconv"
-	"strings"
 	"time"
 
 	"github.com/navionguy/basicwasm/ast"
@@ -97,7 +96,16 @@ func execCommand(input string, env *object.Environment) {
 	for iter.Value() != nil {
 		cmd := iter.Value()
 		srcIter := env.Program.StatementIter()
-		evaluator.Eval(cmd, srcIter, env)
+		obj := evaluator.Eval(cmd, srcIter, env)
+
+		err, ok := obj.(*object.Error)
+
+		if ok {
+			env.Terminal().Println(err.Message)
+			env.Program.CmdComplete()
+			prompt(env)
+			return
+		}
 
 		// see if cmd is trying to start execution
 		switch cmd.(type) {
@@ -148,15 +156,4 @@ func giveError(err error, env *object.Environment) {
 	env.Terminal().Println("OK")
 	env.Program.CmdComplete()
 	return
-}
-
-func checkForLineNum(input string) bool {
-	lnm := strings.Split(input, " ")
-	if len(lnm) == 0 {
-		return false
-	}
-
-	_, ok := strconv.Atoi(lnm[0])
-
-	return ok == nil
 }

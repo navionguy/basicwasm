@@ -276,11 +276,11 @@ func TestErrorHandling(t *testing.T) {
 	}{
 		{
 			"10 foobar",
-			"identifier not found: FOOBAR at 10",
+			"Syntax error in 10",
 		},
 		{
 			`10 "Hello" - "World"`,
-			"unknown operator: STRING - STRING at 10",
+			"unknown operator: STRING - STRING in 10",
 		},
 	}
 
@@ -680,7 +680,7 @@ func ExampleT_array() {
 	// Hello
 	// Goodbye
 	//
-	// ERROR: identifier not found: Y$[] at 70
+	// ERROR: Syntax error in 70
 	// 5
 	// 5
 	// 0.000000E+00
@@ -732,14 +732,14 @@ func ExampleT_errors() {
 	}
 
 	// Output:
-	// Undefined line number at 10
-	// identifier not found: FNBANG at 20
+	// Undefined line number in 10
+	// Undefined user function in 20
 	// 5
-	// index out of range at 40
-	// Subscript out of range at 50
-	// type mis-match at 60
-	// unsupport negative on STRING at 70
-	// type mis-match at 80
+	// index out of range in 40
+	// Subscript out of range in 50
+	// type mis-match in 60
+	// unsupport negative on STRING in 70
+	// type mis-match in 80
 }
 
 func ExampleT_list() {
@@ -935,8 +935,8 @@ func TestBuiltinFunctions(t *testing.T) {
 		{`10 LEN("")`, 0},
 		{`20 LEN("four")`, 4},
 		{`30 LEN("hello world")`, 11},
-		{`40 LEN(1)`, "argument to `len` not supported, got INTEGER at 40"},
-		{`50 LEN("one", "two")`, "wrong number of arguments. got=2, want=1 at 50"},
+		{`40 LEN(1)`, "argument to `len` not supported, got INTEGER in 40"},
+		{`50 LEN("one", "two")`, "wrong number of arguments. got=2, want=1 in 50"},
 		{`70 LEN("four" / "five")`, &object.Error{}},
 	}
 	for _, tt := range tests {

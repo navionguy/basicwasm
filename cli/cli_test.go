@@ -64,6 +64,7 @@ func TestExecCommand(t *testing.T) {
 	}{
 		{inp: "10 CLS", exp: []string{"OK"}},
 		{"LIST", []string{"10 CLS", "OK"}},
+		{"nerf", []string{"Syntax error", "OK"}},
 		{"LET X = 5", []string{"OK"}},
 		{"PRINT X", []string{"5", "", "OK"}},
 		{"PRINT 45.2 / 3.4", []string{"13.29412", "", "OK"}},
