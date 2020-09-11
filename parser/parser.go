@@ -344,7 +344,7 @@ func (p *Parser) parseFloatingPointLiteral() ast.Expression {
 
 func (p *Parser) parseDoubleFloatingPointLiteral(newTokLit string) ast.Expression {
 	defer untrace(trace("parseDoubleFloatingPointLiteral"))
-	lit := &ast.FLoatDoubleLiteral{Token: p.curToken}
+	lit := &ast.FloatDoubleLiteral{Token: p.curToken}
 	value, err := strconv.ParseFloat(newTokLit, 64)
 	if err != nil {
 		msg := fmt.Sprintf("could not parse %s as float at line %d", p.curToken.Literal, p.curLine)
@@ -374,7 +374,7 @@ func (p *Parser) parseLineNumber() *ast.LineNumStmt {
 	if err != nil {
 		p.generalError("Invalid line number")
 	}
-	stmt.Value = tv
+	stmt.Value = int32(tv)
 	p.curLine = tv
 
 	// little detour here, if I see linenum*EOL AND auto is on

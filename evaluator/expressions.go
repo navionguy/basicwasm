@@ -1,6 +1,8 @@
 package evaluator
 
 import (
+	"fmt"
+
 	"github.com/navionguy/basicwasm/decimal"
 	"github.com/navionguy/basicwasm/object"
 )
@@ -106,11 +108,12 @@ func fixType(x interface{}) object.Object {
 			return &object.Integer{Value: int16(i)}
 		}
 
-		// too big, convert to float
-		if i == int(float32(i)) {
-			return &object.FloatSgl{Value: float32(i)}
+		// too big, convert to IntDbl
+		if i == int(int32(i)) {
+			return &object.IntDbl{Value: int32(i)}
 		}
 	}
+
 	f, ok := x.(float64)
 
 	if ok {
@@ -118,6 +121,13 @@ func fixType(x interface{}) object.Object {
 		if f == float64(i) {
 			return &object.Integer{Value: i}
 		}
+
+		fxd := tryFixed(f)
+
+		if fxd != nil {
+			return fxd
+		}
+
 		if f == float64(float32(f)) {
 			return &object.FloatSgl{Value: float32(f)}
 		}
@@ -131,4 +141,17 @@ func fixType(x interface{}) object.Object {
 	}
 
 	return &object.Error{Message: "unknown type"}
+}
+
+func tryFixed(val float64) object.Object {
+	dec, err := decimal.NewFromString(fmt.Sprintf("%f", val))
+
+	if err != nil {
+		// can't convert him, give up
+		return nil
+	}
+
+	fxd := &object.Fixed{Value: dec.Round(-7)}
+
+	return fxd
 }

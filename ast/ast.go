@@ -102,8 +102,8 @@ func (p *Program) AddStatement(stmt Statement) {
 
 	if ok {
 		// we are starting a new line
-		p.code.addLine(lNum.Value)
-		p.code.currLine = lNum.Value
+		p.code.addLine(int(lNum.Value))
+		p.code.currLine = int(lNum.Value)
 	}
 
 	if len(p.code.lines) == 0 {
@@ -361,7 +361,7 @@ func (ls *LetStatement) String() string {
 // LineNumStmt holds the line number
 type LineNumStmt struct {
 	Token token.Token
-	Value int
+	Value int32
 }
 
 func (lns *LineNumStmt) statementNode() {}
@@ -434,24 +434,33 @@ func (il *IntegerLiteral) TokenLiteral() string { return il.Token.Literal }
 // String returns value as an integer
 func (il *IntegerLiteral) String() string { return fmt.Sprintf("%d", il.Value) }
 
+// DblIntegerLiteral holds a 32bit integer
 type DblIntegerLiteral struct {
 	Token token.Token
 	Value int32
 }
 
-func (dil *DblIntegerLiteral) expressionNode()      {}
-func (dil *DblIntegerLiteral) TokenLiteral() string { return dil.Token.Literal }
-func (dil *DblIntegerLiteral) String() string       { return fmt.Sprintf("%d", dil.Value) }
+func (dil *DblIntegerLiteral) expressionNode() {}
 
-// Fixed Point number
+// TokenLiteral returns literal value
+func (dil *DblIntegerLiteral) TokenLiteral() string { return dil.Token.Literal }
+
+// String returns value as an integer
+func (dil *DblIntegerLiteral) String() string { return fmt.Sprintf("%d!", dil.Value) }
+
+// FixedLiteral is a Fixed Point number
 type FixedLiteral struct {
 	Token token.Token
 	Value decimal.Decimal
 }
 
-func (fl *FixedLiteral) expressionNode()      {}
+func (fl *FixedLiteral) expressionNode() {}
+
+// TokenLiteral returns literal value
 func (fl *FixedLiteral) TokenLiteral() string { return fl.Token.Literal }
-func (fl *FixedLiteral) String() string       { return fl.Value.String() }
+
+// String returns value as an integer
+func (fl *FixedLiteral) String() string { return fl.Value.String() }
 
 // FloatSingleLiteral holds a single precision floating point eg. "123.45"
 type FloatSingleLiteral struct {
@@ -459,18 +468,27 @@ type FloatSingleLiteral struct {
 	Value float32
 }
 
-func (fs *FloatSingleLiteral) expressionNode()      {}
-func (fs *FloatSingleLiteral) TokenLiteral() string { return fs.Token.Literal }
-func (fs *FloatSingleLiteral) String() string       { return fs.Token.Literal }
+func (fs *FloatSingleLiteral) expressionNode() {}
 
-type FLoatDoubleLiteral struct {
+// TokenLiteral returns literal value
+func (fs *FloatSingleLiteral) TokenLiteral() string { return fs.Token.Literal }
+
+// String returns value as an integer
+func (fs *FloatSingleLiteral) String() string { return fs.Token.Literal }
+
+// FloatDoubleLiteral 64 bit floating point number
+type FloatDoubleLiteral struct {
 	Token token.Token
 	Value float64
 }
 
-func (fd *FLoatDoubleLiteral) expressionNode()      {}
-func (fd *FLoatDoubleLiteral) TokenLiteral() string { return fd.Token.Literal }
-func (fd *FLoatDoubleLiteral) String() string       { return fd.Token.Literal }
+func (fd *FloatDoubleLiteral) expressionNode() {}
+
+// TokenLiteral returns literal value
+func (fd *FloatDoubleLiteral) TokenLiteral() string { return fd.Token.Literal }
+
+// String returns value as an integer
+func (fd *FloatDoubleLiteral) String() string { return fd.Token.Literal }
 
 // StringLiteral holds an StringLiteral eg. "Hello World"
 type StringLiteral struct {

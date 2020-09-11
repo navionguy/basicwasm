@@ -263,7 +263,7 @@ func TestLineNumbers(t *testing.T) {
 
 	tests := []struct {
 		expectedToken string
-		expectedValue int
+		expectedValue int32
 	}{
 		{token.LINENUM, 10},
 		{token.LINENUM, 20},
@@ -281,7 +281,7 @@ func TestLineNumbers(t *testing.T) {
 
 }
 
-func testLineNumber(t *testing.T, s ast.Statement, line int) bool {
+func testLineNumber(t *testing.T, s ast.Statement, line int32) bool {
 	lineStmt, ok := s.(*ast.LineNumStmt)
 	if !ok {
 		t.Errorf("s not *ast.LineNumStmt. got=%T", s)
@@ -314,7 +314,7 @@ func TestDimStatement(t *testing.T) {
 	tests := []struct {
 		input   string
 		stmtNum int
-		lineNum int
+		lineNum int32
 		numIDs  int8
 		dims    []dimensions
 	}{
@@ -565,7 +565,7 @@ func TestNumericConversion(t *testing.T) {
 		}, ""},
 		{"624537", token.INT, func(p *Parser) ast.Expression {
 			return p.parseIntegerLiteral()
-		}, "624537"},
+		}, "624537!"},
 	}
 
 	for _, tt := range tests {
@@ -660,7 +660,7 @@ func TestParsingInfixExpressions(t *testing.T) {
 		leftValue  int16
 		operator   string
 		rightValue int16
-		lineNum    int
+		lineNum    int32
 	}{
 		{"10 5 + 5", 5, "+", 5, 10},
 		{"20 5 - 5", 5, "-", 5, 20},

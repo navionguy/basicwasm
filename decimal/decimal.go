@@ -82,7 +82,7 @@ func (d *Decimal) String() string {
 	if d.exp < 0 {
 		form = fmt.Sprintf("%%.%df", abs(d.exp))
 	}
-	return strings.TrimRight(fmt.Sprintf(form, float64(d.value)*math.Pow(10, float64(d.exp))), "0")
+	return strings.TrimRight(strings.TrimRight(fmt.Sprintf(form, float64(d.value)*math.Pow(10, float64(d.exp))), "0"), ".")
 }
 
 // Neg returns the negative value from that passed
@@ -283,8 +283,8 @@ func (d Decimal) rescale(exp int) Decimal {
 //
 // Example:
 //
-// 	   NewFromFloat(5.45).Round(1).String() // output: "5.5"
-// 	   NewFromFloat(545).Round(-1).String() // output: "550"
+// 	   NewFromString("5.45").Round(-1).String() // output: "5.5"
+// 	   NewFromString("545").Round(1).String() // output: "550"
 //
 func (d Decimal) Round(places int) Decimal {
 	rc := Decimal{value: d.value, exp: places}

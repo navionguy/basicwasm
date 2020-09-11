@@ -164,7 +164,7 @@ func (i *Integer) Inspect() string { return fmt.Sprintf("%d", i.Value) }
 
 // IntDbl values
 type IntDbl struct {
-	Value int
+	Value int32
 }
 
 // Type returns my type

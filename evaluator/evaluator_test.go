@@ -477,8 +477,8 @@ func ExampleT_int() {
 		testEval(tt.input)
 	}
 	// Output:
-	// 3.306000E+04
-	// 1.092233E+04
+	// 33060
+	// 10922.33
 	// 2
 	// 0
 	// 1
@@ -624,10 +624,10 @@ func ExampleT_floatDbl() {
 	// Output:
 	// 2.359880E+14
 	// -23186
-	// 2.350314E+04
-	// 2.035850E+04
-	// 7.050000E+04
-	// 5.253191E-03
+	// 23503.14
+	// 20358.5
+	// 70500
+	// 0.005253
 	// 1
 	// 0
 	// 0
@@ -935,8 +935,8 @@ func TestBuiltinFunctions(t *testing.T) {
 		{`10 LEN("")`, 0},
 		{`20 LEN("four")`, 4},
 		{`30 LEN("hello world")`, 11},
-		{`40 LEN(1)`, "argument to `len` not supported, got INTEGER in 40"},
-		{`50 LEN("one", "two")`, "wrong number of arguments. got=2, want=1 in 50"},
+		{`40 LEN(1)`, "Type mismatch in 40"},
+		{`50 LEN("one", "two")`, "Syntax error in 50"},
 		{`70 LEN("four" / "five")`, &object.Error{}},
 	}
 	for _, tt := range tests {

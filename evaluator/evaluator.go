@@ -77,6 +77,9 @@ func Eval(node ast.Node, code *ast.Code, env *object.Environment) object.Object 
 	case *ast.IntegerLiteral:
 		return &object.Integer{Value: node.Value}
 
+	case *ast.DblIntegerLiteral:
+		return &object.IntDbl{Value: node.Value}
+
 	case *ast.FixedLiteral:
 		val, err := decimal.NewFromString(node.Value.String())
 
@@ -88,7 +91,7 @@ func Eval(node ast.Node, code *ast.Code, env *object.Environment) object.Object 
 	case *ast.FloatSingleLiteral:
 		return &object.FloatSgl{Value: node.Value}
 
-	case *ast.FLoatDoubleLiteral:
+	case *ast.FloatDoubleLiteral:
 		return &object.FloatDbl{Value: node.Value}
 
 	case *ast.StringLiteral:
@@ -343,7 +346,7 @@ func evalListStatement(code *ast.Code, stmt *ast.ListStatement, env *object.Envi
 		lnm, ok := stmt.(*ast.LineNumStmt)
 
 		if ok {
-			if lnm.Value > stop {
+			if int(lnm.Value) > stop {
 				break
 			}
 
@@ -351,7 +354,7 @@ func evalListStatement(code *ast.Code, stmt *ast.ListStatement, env *object.Envi
 				env.Terminal().Println(strings.TrimRight(out.String(), " "))
 				out.Truncate(0)
 			}
-			bList = (lnm.Value >= start)
+			bList = (int(lnm.Value) >= start)
 			bMidLine = false
 		} else {
 			if bMidLine {
