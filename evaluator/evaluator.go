@@ -403,6 +403,9 @@ func evalMinusPrefixOperatorExpression(right object.Object, env *object.Environm
 	case object.INTEGER_OBJ:
 		value := right.(*object.Integer).Value
 		return &object.Integer{Value: -value}
+	case object.INTEGER_DBL:
+		value := right.(*object.IntDbl).Value
+		return &object.IntDbl{Value: -value}
 	case object.FIXED_OBJ:
 		value := right.(*object.Fixed).Value
 		return &object.Fixed{Value: value.Neg()}

@@ -14,6 +14,16 @@ func compareObjects(inp string, evald object.Object, want interface{}, t *testin
 		testIntegerObject(t, evald, int16(exp))
 	case *object.Integer:
 		testIntegerObject(t, evald, int16(exp.Value))
+	case *object.IntDbl:
+		id, ok := evald.(*object.IntDbl)
+
+		if !ok {
+			t.Fatalf("object is not IntegerDbl from %s, got %T", inp, evald)
+		}
+
+		if id.Value != exp.Value {
+			t.Fatalf("at %s, expected %d, got %d", inp, exp.Value, id.Value)
+		}
 	case *object.Fixed:
 		fx, ok := evald.(*object.Fixed)
 
@@ -84,6 +94,7 @@ func TestAbs(t *testing.T) {
 		{`80 ABS(-8.05D+4)`, &object.FloatDbl{Value: float64(80500)}},
 		{`90 ABS( "Foo" )`, &object.String{Value: "Foo"}},
 		{`100 ABS( "Foo", "Bar" )`, &object.Error{Message: "Syntax error in 100"}},
+		{`110 ABS(-32769)`, &object.IntDbl{Value: 32769}},
 	}
 
 	for _, tt := range tests {
@@ -111,7 +122,76 @@ func TestAsc(t *testing.T) {
 }
 
 func TestAtn(t *testing.T) {
+	// build the decimal
+	rc10 := decimal.New(1249046, -6)
+	rc20 := decimal.New(1279477, -6)
+	rc70 := decimal.New(1570766, -6)
 
+	tests := []struct {
+		inp string
+		exp interface{}
+	}{
+		{`10 ATN(3)`, &object.Fixed{Value: rc10}},
+		{`20 ATN(3.335)`, &object.Fixed{Value: rc20}},
+		{`30 ATN(3.335E+0)`, &object.Fixed{Value: rc20}},
+		{`40 ATN(3.335D+0)`, &object.Fixed{Value: rc20}},
+		{`50 ATN(3, 33)`, &object.Error{Message: "Syntax error in 50"}},
+		{`60 ATN("Fred")`, &object.Error{Message: "Type mismatch in 60"}},
+		{`70 ATN(32769)`, &object.Fixed{Value: rc70}},
+	}
+
+	for _, tt := range tests {
+		evald := testEval(tt.inp)
+
+		compareObjects(tt.inp, evald, tt.exp, t)
+	}
+}
+
+func TestCdbl(t *testing.T) {
+
+	tests := []struct {
+		inp string
+		exp interface{}
+	}{
+		{`10 CDBL(32767)`, &object.IntDbl{Value: 32767}},
+		{`20 CDBL(3.335)`, &object.FloatDbl{Value: float64(3.335)}},
+		{`30 CDBL(7.3350E+1)`, &object.FloatDbl{Value: float64(73.3499984741211)}},
+		{`40 CDBL(3.1234D+2)`, &object.FloatDbl{Value: float64(312.34)}},
+		{`50 CDBL(3, 33)`, &object.Error{Message: "Syntax error in 50"}},
+		{`60 CDBL("Fred")`, &object.Error{Message: "Type mismatch in 60"}},
+		{`70 CDBL(32769)`, &object.IntDbl{Value: 32769}},
+	}
+
+	for _, tt := range tests {
+		evald := testEval(tt.inp)
+
+		compareObjects(tt.inp, evald, tt.exp, t)
+	}
+}
+
+func TestCint(t *testing.T) {
+
+	tests := []struct {
+		inp string
+		exp interface{}
+	}{
+		{`10 CINT(46)`, &object.Integer{Value: 46}},
+		{`20 CINT(3.335)`, &object.Integer{Value: 3}},
+		{`30 CINT(3.678335)`, &object.Integer{Value: 4}},
+		{`40 CINT(-3.678335)`, &object.Integer{Value: -4}},
+		{`50 CINT(7.3350E+1)`, &object.Integer{Value: 73}},
+		{`60 CINT(3.1234D+2)`, &object.Integer{Value: 312}},
+		{`70 CINT(3, 33)`, &object.Error{Message: "Syntax error in 70"}},
+		{`80 CINT("Fred")`, &object.Error{Message: "Type mismatch in 80"}},
+		{`90 CINT(32768)`, &object.Error{Message: "Overflow in 90"}},
+		{`100 CINT(-32769)`, &object.Error{Message: "Overflow in 100"}},
+	}
+
+	for _, tt := range tests {
+		evald := testEval(tt.inp)
+
+		compareObjects(tt.inp, evald, tt.exp, t)
+	}
 }
 
 func TestLen(t *testing.T) {

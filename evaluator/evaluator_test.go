@@ -154,6 +154,21 @@ func TestEvalIntegerExpression(t *testing.T) {
 	}
 }
 
+func TestDblInetegerExpression(t *testing.T) {
+	tests := []struct {
+		inp string
+		exp int32
+	}{
+		{"10 99999", 99999},
+		{"20 -99999", -99999},
+	}
+
+	for _, tt := range tests {
+		evald := testEval(tt.inp)
+		testIntDblObject(t, evald, tt.exp)
+	}
+}
+
 func testEval(input string) object.Object {
 	l := lexer.New(input)
 	p := parser.New(l)
@@ -174,6 +189,19 @@ func testIntegerObject(t *testing.T, obj object.Object, expected int16) bool {
 	result, ok := obj.(*object.Integer)
 	if !ok {
 		t.Errorf("object is not Integer. got=%T (%+v)", obj, obj)
+		return false
+	}
+	if result.Value != expected {
+		t.Errorf("object has wrong value. got=%d, want=%d", result.Value, expected)
+		return false
+	}
+	return true
+}
+
+func testIntDblObject(t *testing.T, obj object.Object, expected int32) bool {
+	result, ok := obj.(*object.IntDbl)
+	if !ok {
+		t.Errorf("object is not IntDbl. got=%T (%+v)", obj, obj)
 		return false
 	}
 	if result.Value != expected {
