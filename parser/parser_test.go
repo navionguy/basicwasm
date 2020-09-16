@@ -242,12 +242,14 @@ func TestLetWithTypes(t *testing.T) {
 }
 
 func TestLineNumbers(t *testing.T) {
-	input := "10\n20\n30"
+	input := "10\n20\n30*"
+	tk := token.Token{Type: token.AUTO, Literal: "AUTO"}
 
 	l := lexer.New(input)
 	p := New(l)
 	fmt.Println("TestLineNumbers Parsing")
 	env := &object.Environment{}
+	env.SetAuto(&ast.AutoCommand{Token: tk, Start: 30, Increment: 10})
 	p.ParseProgram(env)
 	program := env.Program
 
@@ -500,33 +502,40 @@ func TestTronTroffCommands(t *testing.T) {
 }
 
 func TestIntegerLiteralExpression(t *testing.T) {
-	input := "10 5"
-	l := lexer.New(input)
-	p := New(l)
-	env := &object.Environment{}
-	p.ParseProgram(env)
-	program := env.Program
-	checkParserErrors(t, p)
-	if program.StatementIter().Len() != 2 {
-		t.Fatalf("program has not enough statements. got=%d", program.StatementIter().Len())
+	intTok := token.Token{Type: token.INT, Literal: "5"}
+	dblTok := token.Token{Type: token.INTD, Literal: "65999"}
+	fltTok := token.Token{Type: token.FLOAT, Literal: "4294967295"}
+
+	tests := []struct {
+		inp   string
+		stmts int
+		lit   interface{}
+	}{
+		{`10 5`, 2, &ast.IntegerLiteral{Value: 5, Token: intTok}},
+		{`20 65999#`, 2, &ast.DblIntegerLiteral{Value: 65999, Token: dblTok}},
+		{`30 4294967295`, 2, &ast.FloatSingleLiteral{Token: fltTok, Value: 4294967295}},
 	}
 
-	iter := program.StatementIter()
-	iter.Next()
-	step := iter.Value()
-	stmt, ok := step.(*ast.ExpressionStatement)
-	if !ok {
-		t.Fatalf("program.Statements[1] is not ast.ExpressionStatement. got=%T", step)
-	}
-	literal, ok := stmt.Expression.(*ast.IntegerLiteral)
-	if !ok {
-		t.Fatalf("exp not *ast.IntegerLiteral. got=%T", stmt.Expression)
-	}
-	if literal.Value != 5 {
-		t.Errorf("literal.Value not %d. got=%d", 5, literal.Value)
-	}
-	if literal.TokenLiteral() != "5" {
-		t.Errorf("literal.TokenLiteral not %s. got=%s", "5", literal.TokenLiteral())
+	for _, tt := range tests {
+		l := lexer.New(tt.inp)
+		p := New(l)
+		env := &object.Environment{}
+		p.ParseProgram(env)
+		program := env.Program
+		checkParserErrors(t, p)
+		if program.StatementIter().Len() != tt.stmts {
+			t.Fatalf("program has not enough statements. got=%d", program.StatementIter().Len())
+		}
+
+		iter := program.StatementIter()
+		iter.Next()
+		step := iter.Value()
+		stmt, ok := step.(*ast.ExpressionStatement)
+		if !ok {
+			t.Fatalf("program.Statements[1] is not ast.ExpressionStatement. got=%T", step)
+		}
+
+		compareStatements(tt.inp, tt.lit, stmt, t)
 	}
 }
 
@@ -1034,6 +1043,7 @@ func TestFunctionApplication(t *testing.T) {
 		{"80 DEF FNMUL(x,y)", 1},
 		{"90 DEF FNMUL(x,y = x * y", 1},
 		{"100 DEF FNMUL() = x * y", 0},
+		{"110 MKD$(65999)", 0},
 	}
 	for i, tt := range tests {
 		l := lexer.New(tt.input)
@@ -1326,6 +1336,39 @@ func TestListStatement(t *testing.T) {
 
 		if strings.Compare(tt.res.Stop, cmd.Stop) != 0 {
 			t.Fatalf("Parse(%s), expected Stop = %s, got %s", tt.inp, tt.res.Stop, cmd.Stop)
+		}
+	}
+}
+
+func compareStatements(inp string, got interface{}, want interface{}, t *testing.T) {
+	switch wantVal := want.(type) {
+	case *ast.IntegerLiteral:
+		gotInt, ok := got.(*ast.IntegerLiteral)
+
+		if !ok {
+			t.Fatalf("got incorrect statement from %s, got %T, wanted %T", inp, got, want)
+		}
+
+		if gotInt.Value != wantVal.Value {
+			t.Fatalf("bad value from %s, got %d, wanted %d", inp, gotInt.Value, wantVal.Value)
+		}
+
+		if gotInt.Token.Literal != wantVal.Token.Literal {
+			t.Fatalf("unexpected token from %s, got %s, expected %s", inp, gotInt.Token.Literal, wantVal.Token.Literal)
+		}
+	case *ast.DblIntegerLiteral:
+		gotInt, ok := got.(*ast.DblIntegerLiteral)
+
+		if !ok {
+			t.Fatalf("got incorrect statement from %s, got %T, wanted %T", inp, got, want)
+		}
+
+		if gotInt.Value != wantVal.Value {
+			t.Fatalf("bad value from %s, got %d, wanted %d", inp, gotInt.Value, wantVal.Value)
+		}
+
+		if gotInt.Token.Literal != wantVal.Token.Literal {
+			t.Fatalf("unexpected token from %s, got %s, expected %s", inp, gotInt.Token.Literal, wantVal.Token.Literal)
 		}
 	}
 }

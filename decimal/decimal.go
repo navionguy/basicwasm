@@ -46,7 +46,7 @@ func NewFromString(src string) (Decimal, error) {
 	dec.value, err = strconv.Atoi(parts[0])
 
 	if err != nil {
-		return dec, err
+		dec.value = 0
 	}
 
 	if len(parts) == 2 {

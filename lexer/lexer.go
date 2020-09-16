@@ -183,7 +183,7 @@ func (l *Lexer) readNumber() (token.TokenType, string) {
 		case '0', '1', '2', '3', '4', '5', '6', '7', '8', '9':
 			l.readChar()
 		case '.':
-			err, tt = l.chgType(tt, token.INT, token.FIXED)
+			_, tt = l.chgType(tt, token.INT, token.FIXED)
 			l.readChar()
 		case 'e', 'E', 'd', 'D':
 			err, tt = l.chgType(tt, token.FIXED, token.FLOAT)
@@ -194,6 +194,9 @@ func (l *Lexer) readNumber() (token.TokenType, string) {
 			if (l.ch == '-') || (l.ch == '+') {
 				l.readChar()
 			}
+		case '#':
+			_, tt = l.chgType(tt, token.INT, token.INTD)
+			l.readChar()
 		default:
 			err = true
 		}

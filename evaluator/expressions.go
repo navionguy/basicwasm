@@ -101,6 +101,18 @@ var typeConverters = map[string]expression{
 }
 
 func fixType(x interface{}) object.Object {
+	i16, ok := x.(int16)
+
+	if ok {
+		return &object.Integer{Value: i16}
+	}
+
+	i32, ok := x.(int32)
+
+	if ok {
+		return &object.IntDbl{Value: i32}
+	}
+
 	i, ok := x.(int)
 
 	if ok {
@@ -112,6 +124,15 @@ func fixType(x interface{}) object.Object {
 		if i == int(int32(i)) {
 			return &object.IntDbl{Value: int32(i)}
 		}
+
+		fx := tryFixed(float64(i))
+
+		if fx != nil {
+			return fx
+		}
+
+		// int larger than 32 bits, make him a float
+		return &object.FloatDbl{Value: float64(i)}
 	}
 
 	f, ok := x.(float64)
@@ -144,7 +165,7 @@ func fixType(x interface{}) object.Object {
 }
 
 func tryFixed(val float64) object.Object {
-	dec, err := decimal.NewFromString(fmt.Sprintf("%f", val))
+	dec, err := decimal.NewFromString(fmt.Sprintf("%.8f", val))
 
 	if err != nil {
 		// can't convert him, give up

@@ -9,6 +9,10 @@ import (
 )
 
 func compareObjects(inp string, evald object.Object, want interface{}, t *testing.T) {
+	if evald == nil {
+		t.Fatalf("got nil return value!")
+	}
+
 	switch exp := want.(type) {
 	case int:
 		testIntegerObject(t, evald, int16(exp))
@@ -64,6 +68,22 @@ func compareObjects(inp string, evald object.Object, want interface{}, t *testin
 		if strings.Compare(def.Value, exp.Value) != 0 {
 			t.Fatalf("%s got %s, expected %s", inp, def.Value, exp.Value)
 		}
+	case *object.BStr:
+		bs, ok := evald.(*object.BStr)
+
+		if !ok {
+			t.Fatalf("object is not a BStr from %s, got %T", inp, evald)
+		}
+
+		if len(bs.Value) != len(exp.Value) {
+			t.Fatalf("expected length %d, got length %d", len(exp.Value), len(bs.Value))
+		}
+
+		for i := range exp.Value {
+			if exp.Value[i] != bs.Value[i] {
+				t.Fatalf("difference in byte %d, expected %x, got %x", i, int(exp.Value[i]), int(bs.Value[i]))
+			}
+		}
 	case *object.Error:
 		err, ok := evald.(*object.Error)
 
@@ -92,9 +112,10 @@ func TestAbs(t *testing.T) {
 		{`60 ABS(-6.05E+4)`, &object.FloatSgl{Value: float32(60500)}},
 		{`70 ABS(7.05D+4)`, &object.FloatDbl{Value: float64(70500)}},
 		{`80 ABS(-8.05D+4)`, &object.FloatDbl{Value: float64(80500)}},
-		{`90 ABS( "Foo" )`, &object.String{Value: "Foo"}},
-		{`100 ABS( "Foo", "Bar" )`, &object.Error{Message: "Syntax error in 100"}},
+		{`90 ABS( "Foo" )`, &object.Error{Message: syntaxErr + " in 90"}},
+		{`100 ABS( "Foo", "Bar" )`, &object.Error{Message: syntaxErr + " in 100"}},
 		{`110 ABS(-32769)`, &object.IntDbl{Value: 32769}},
+		{`120 X% = -40 : ABS(X%)`, &object.Integer{Value: 40}},
 	}
 
 	for _, tt := range tests {
@@ -110,8 +131,11 @@ func TestAsc(t *testing.T) {
 		exp interface{}
 	}{
 		{`10 ASC("Alpha")`, 65},
-		{`20 ASC("")`, &object.Error{Message: "Illegal Function Call in 20"}},
-		{`30 ASC("FRED", "Joe")`, &object.Error{Message: "Syntax error in 30"}},
+		{`20 ASC("")`, &object.Error{Message: illegalFuncCallErr + " in 20"}},
+		{`30 ASC("FRED", "Joe")`, &object.Error{Message: syntaxErr + " in 30"}},
+		{`40 A$ = "Alpha" : ASC(A$)`, 65},
+		{`50 A$ = MKI$(2251) : ASC(A$)`, 8},
+		{`60 ASC(3)`, &object.Error{Message: syntaxErr + " in 60"}},
 	}
 
 	for _, tt := range tests {
@@ -135,9 +159,10 @@ func TestAtn(t *testing.T) {
 		{`20 ATN(3.335)`, &object.Fixed{Value: rc20}},
 		{`30 ATN(3.335E+0)`, &object.Fixed{Value: rc20}},
 		{`40 ATN(3.335D+0)`, &object.Fixed{Value: rc20}},
-		{`50 ATN(3, 33)`, &object.Error{Message: "Syntax error in 50"}},
-		{`60 ATN("Fred")`, &object.Error{Message: "Type mismatch in 60"}},
+		{`50 ATN(3, 33)`, &object.Error{Message: syntaxErr + " in 50"}},
+		{`60 ATN("Fred")`, &object.Error{Message: typeMismatchErr + " in 60"}},
 		{`70 ATN(32769)`, &object.Fixed{Value: rc70}},
+		{`80 X% = 3 : ATN(X%)`, &object.Fixed{Value: rc10}},
 	}
 
 	for _, tt := range tests {
@@ -157,9 +182,10 @@ func TestCdbl(t *testing.T) {
 		{`20 CDBL(3.335)`, &object.FloatDbl{Value: float64(3.335)}},
 		{`30 CDBL(7.3350E+1)`, &object.FloatDbl{Value: float64(73.3499984741211)}},
 		{`40 CDBL(3.1234D+2)`, &object.FloatDbl{Value: float64(312.34)}},
-		{`50 CDBL(3, 33)`, &object.Error{Message: "Syntax error in 50"}},
-		{`60 CDBL("Fred")`, &object.Error{Message: "Type mismatch in 60"}},
+		{`50 CDBL(3, 33)`, &object.Error{Message: syntaxErr + " in 50"}},
+		{`60 CDBL("Fred")`, &object.Error{Message: typeMismatchErr + " in 60"}},
 		{`70 CDBL(32769)`, &object.IntDbl{Value: 32769}},
+		{`80 X% = 500 : CDBL(X%)`, &object.IntDbl{Value: 500}},
 	}
 
 	for _, tt := range tests {
@@ -169,22 +195,199 @@ func TestCdbl(t *testing.T) {
 	}
 }
 
+func TestChr(t *testing.T) {
+	tests := []struct {
+		inp string
+		exp interface{}
+	}{
+		{`10 CHR$(3, 33)`, &object.Error{Message: syntaxErr + " in 10"}},
+		{`20 CHR$("Fred")`, &object.Error{Message: typeMismatchErr + " in 20"}},
+		{`30 CHR$(320)`, &object.Error{Message: illegalFuncCallErr + " in 30"}},
+		{`40 CHR$(-32)`, &object.Error{Message: illegalFuncCallErr + " in 40"}},
+		{`50 CHR$(41)`, &object.String{Value: ")"}},
+		{`60 CHR$(41#)`, &object.String{Value: ")"}},
+		{`70 CHR$(41.3)`, &object.String{Value: ")"}},
+		{`80 CHR$(40.5)`, &object.String{Value: ")"}},
+		{`90 CHR$(4.13E+01)`, &object.String{Value: ")"}},
+		{`100 CHR$(4.05E+01)`, &object.String{Value: ")"}},
+		{`110 CHR$(4.13D+01)`, &object.String{Value: ")"}},
+		{`120 CHR$(4.05D+01)`, &object.String{Value: ")"}},
+		{`130 X% = 41 : CHR$(X%)`, &object.String{Value: ")"}},
+	}
+
+	for _, tt := range tests {
+		evald := testEval(tt.inp)
+
+		compareObjects(tt.inp, evald, tt.exp, t)
+	}
+}
 func TestCint(t *testing.T) {
 
 	tests := []struct {
 		inp string
 		exp interface{}
 	}{
-		{`10 CINT(46)`, &object.Integer{Value: 46}},
+		{`10 CINT(46)`, &object.Error{Message: syntaxErr + " in 10"}},
 		{`20 CINT(3.335)`, &object.Integer{Value: 3}},
 		{`30 CINT(3.678335)`, &object.Integer{Value: 4}},
 		{`40 CINT(-3.678335)`, &object.Integer{Value: -4}},
 		{`50 CINT(7.3350E+1)`, &object.Integer{Value: 73}},
 		{`60 CINT(3.1234D+2)`, &object.Integer{Value: 312}},
-		{`70 CINT(3, 33)`, &object.Error{Message: "Syntax error in 70"}},
-		{`80 CINT("Fred")`, &object.Error{Message: "Type mismatch in 80"}},
-		{`90 CINT(32768)`, &object.Error{Message: "Overflow in 90"}},
-		{`100 CINT(-32769)`, &object.Error{Message: "Overflow in 100"}},
+		{`70 CINT(3, 33)`, &object.Error{Message: syntaxErr + " in 70"}},
+		{`80 CINT("Fred")`, &object.Error{Message: typeMismatchErr + " in 80"}},
+		{`90 CINT(32768)`, &object.Error{Message: overflowErr + " in 90"}},
+		{`100 CINT(-32769)`, &object.Error{Message: overflowErr + " in 100"}},
+		{`110 X! = -3.678335 : CINT(X!)`, &object.Integer{Value: -4}},
+	}
+
+	for _, tt := range tests {
+		evald := testEval(tt.inp)
+
+		compareObjects(tt.inp, evald, tt.exp, t)
+	}
+}
+
+func TestCos(t *testing.T) {
+	rc10, _ := decimal.NewFromString("-.4321779")
+	rc20, _ := decimal.NewFromString("-.981355")
+	rc30, _ := decimal.NewFromString("-.8593790")
+
+	rc50, _ := decimal.NewFromString("-.4594971")
+	rc60, _ := decimal.NewFromString("-.2459203")
+
+	rc90, _ := decimal.NewFromString("0.3729378")
+	rc100, _ := decimal.NewFromString("-.579265")
+
+	tests := []struct {
+		inp string
+		exp interface{}
+	}{
+		{`10 COS(46)`, &object.Fixed{Value: rc10}},
+		{`20 COS(3.335)`, &object.Fixed{Value: rc20}},
+		{`30 COS(3.678335)`, &object.Fixed{Value: rc30}},
+		{`40 COS(-3.678335)`, &object.Fixed{Value: rc30}},
+		{`50 COS(7.3350E+1)`, &object.Fixed{Value: rc50}},
+		{`60 COS(3.1234D+2)`, &object.Fixed{Value: rc60}},
+		{`70 COS(3, 33)`, &object.Error{Message: syntaxErr + " in 70"}},
+		{`80 COS("Fred")`, &object.Error{Message: typeMismatchErr + " in 80"}},
+		{`90 COS(32768)`, &object.Fixed{Value: rc90}},
+		{`100 COS(-32769)`, &object.Fixed{Value: rc100}},
+		{`110 X% = 46 : COS(X%)`, &object.Fixed{Value: rc10}},
+	}
+
+	for _, tt := range tests {
+		evald := testEval(tt.inp)
+
+		compareObjects(tt.inp, evald, tt.exp, t)
+	}
+}
+
+func TestCsng(t *testing.T) {
+	rc20, _ := decimal.NewFromString("3.335")
+	rc30, _ := decimal.NewFromString("3.678335")
+	rc40, _ := decimal.NewFromString("-3.678335")
+	rc50 := &object.FloatSgl{Value: float32(73.350)}
+	rc60 := &object.FloatSgl{Value: float32(312.34)}
+
+	rc90 := &object.IntDbl{Value: 32768}
+	rc100 := &object.IntDbl{Value: -32769}
+
+	tests := []struct {
+		inp string
+		exp interface{}
+	}{
+		{`10 CSNG(46)`, &object.Integer{Value: 46}},
+		{`20 CSNG(3.335)`, &object.Fixed{Value: rc20}},
+		{`30 CSNG(3.678335)`, &object.Fixed{Value: rc30}},
+		{`40 CSNG(-3.678335)`, &object.Fixed{Value: rc40}},
+		{`50 CSNG(7.3350E+1)`, rc50},
+		{`60 CSNG(3.1234D+2)`, rc60},
+		{`70 CSNG(3, 33)`, &object.Error{Message: syntaxErr + " in 70"}},
+		{`80 CSNG("Fred")`, &object.Error{Message: typeMismatchErr + " in 80"}},
+		{`90 CSNG(32768)`, rc90},
+		{`100 CSNG(-32769)`, rc100},
+		{`110 X% = 46 : CSNG(X%)`, &object.Integer{Value: 46}},
+	}
+
+	for _, tt := range tests {
+		evald := testEval(tt.inp)
+
+		compareObjects(tt.inp, evald, tt.exp, t)
+	}
+}
+
+func TestCvd(t *testing.T) {
+
+	tests := []struct {
+		inp string
+		exp interface{}
+	}{
+		{`10 CVD("ABCD", "EFGH")`, &object.Error{Message: syntaxErr + " in 10"}},
+		{`20 CVD("ABCD")`, &object.Error{Message: illegalFuncCallErr + " in 20"}},
+		{`30 CVD(123)`, &object.Error{Message: typeMismatchErr + " in 30"}},
+		{`40 CVD("........")`, &object.FloatDbl{Value: 3327647950551526912}},
+		{`50 A$ = MKD$(-12) : CVD(A$)`, &object.Integer{Value: -12}},
+	}
+
+	for _, tt := range tests {
+		evald := testEval(tt.inp)
+
+		compareObjects(tt.inp, evald, tt.exp, t)
+	}
+}
+
+func TestCvi(t *testing.T) {
+	tests := []struct {
+		inp string
+		exp interface{}
+	}{
+		{`10 CVI("ABCD", "EFGH")`, &object.Error{Message: syntaxErr + " in 10"}},
+		{`20 CVI("ABCD")`, &object.Error{Message: illegalFuncCallErr + " in 20"}},
+		{`30 CVI(123)`, &object.Error{Message: typeMismatchErr + " in 30"}},
+		{`40 Y$ = MKI$(35) : CVI(Y$)`, &object.Integer{Value: 35}},
+		{`50 Y$ = MKS$(65999) : CVI(Y$)`, &object.Integer{Value: 463}},
+		{`60 CVI("..")`, &object.Integer{Value: 11822}},
+	}
+
+	for _, tt := range tests {
+		evald := testEval(tt.inp)
+
+		compareObjects(tt.inp, evald, tt.exp, t)
+	}
+}
+
+func TestCvs(t *testing.T) {
+	tests := []struct {
+		inp string
+		exp interface{}
+	}{
+		{`10 CVS("ABCD", "EFGH")`, &object.Error{Message: syntaxErr + " in 10"}},
+		{`20 CVS("ABCDEF")`, &object.Error{Message: illegalFuncCallErr + " in 20"}},
+		{`30 CVS(123)`, &object.Error{Message: typeMismatchErr + " in 30"}},
+		{`40 Y$ = MKS$(35) : CVS(Y$)`, &object.IntDbl{Value: 35}},
+		{`50 CVS("..")`, &object.IntDbl{Value: 11822}},
+	}
+
+	for _, tt := range tests {
+		evald := testEval(tt.inp)
+
+		compareObjects(tt.inp, evald, tt.exp, t)
+	}
+}
+
+func TestExp(t *testing.T) {
+	tests := []struct {
+		inp string
+		exp interface{}
+	}{
+		{`10 EXP(2, 3)`, &object.Error{Message: syntaxErr + " in 10"}},
+		{`20 EXP("ABCDEF")`, &object.Error{Message: typeMismatchErr + " in 20"}},
+		{`30 EXP(123)`, &object.Error{Message: overflowErr + " in 30"}},
+		{`40 Y% = 35 : EXP(Y%)`, &object.FloatSgl{Value: 1586013445029888}},
+		{`50 Y = 38999 : EXP(Y)`, &object.Error{Message: overflowErr + " in 50"}},
+		{`60 Y = 3.8999 : EXP(Y)`, &object.FloatSgl{Value: 49.397511}},
+		{`70 Y = 3.8999E+00 : EXP(Y)`, &object.FloatSgl{Value: 49.397507}},
+		{`80 Y = 3.8999D+00 : EXP(Y)`, &object.FloatSgl{Value: 49.397511}},
 	}
 
 	for _, tt := range tests {
@@ -199,13 +402,75 @@ func TestLen(t *testing.T) {
 		inp string
 		exp interface{}
 	}{
+		{`5 Y$ = "Test" : LEN(Y$)`, 4},
 		{`10 LEN("")`, 0},
 		{`20 LEN("four")`, 4},
 		{`30 LEN("hello world")`, 11},
-		{`40 LEN(1)`, &object.Error{Message: "Type mismatch in 40"}},
-		{`50 LEN("one", "two")`, &object.Error{Message: "Syntax error in 50"}},
+		{`40 LEN(1)`, &object.Error{Message: typeMismatchErr + " in 40"}},
+		{`50 LEN("one", "two")`, &object.Error{Message: syntaxErr + " in 50"}},
 		{`70 LEN("four" / "five")`, &object.Error{Message: "unknown operator: STRING / STRING in 70"}},
 	}
+	for _, tt := range tests {
+		evald := testEval(tt.inp)
+
+		compareObjects(tt.inp, evald, tt.exp, t)
+	}
+}
+
+func TestMKD(t *testing.T) {
+	tests := []struct {
+		inp string
+		exp interface{}
+	}{
+		{`10 MKD$("..")`, &object.Error{Message: typeMismatchErr + " in 10"}},
+		{`20 MKD$(1, 2)`, &object.Error{Message: syntaxErr + " in 20"}},
+		{`30 MKD$(35)`, &object.BStr{Value: []byte{0x23, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00}}},
+	}
+
+	for _, tt := range tests {
+		evald := testEval(tt.inp)
+
+		compareObjects(tt.inp, evald, tt.exp, t)
+	}
+}
+
+func TestMKI(t *testing.T) {
+	tests := []struct {
+		inp string
+		exp interface{}
+	}{
+		{`10 MKI$("..")`, &object.Error{Message: typeMismatchErr + " in 10"}},
+		{`20 MKI$(1, 2)`, &object.Error{Message: syntaxErr + " in 20"}},
+		{`30 MKI$(35)`, &object.BStr{Value: []byte{0x23, 0x00}}},
+		{`40 MKI$(-35)`, &object.BStr{Value: []byte{0xdd, 0xff}}},
+		{`50 MKI$(35.3)`, &object.BStr{Value: []byte{0x23, 0x00}}},
+		{`60 MKI$(-32769)`, &object.Error{Message: overflowErr + " in 60"}},
+		{`70 MKI$(32768)`, &object.Error{Message: overflowErr + " in 70"}},
+		{`80 MKI$(3.53E+01)`, &object.BStr{Value: []byte{0x23, 0x00}}},
+		{`90 MKI$(3.53D+01)`, &object.BStr{Value: []byte{0x23, 0x00}}},
+	}
+
+	for _, tt := range tests {
+		evald := testEval(tt.inp)
+
+		compareObjects(tt.inp, evald, tt.exp, t)
+	}
+}
+
+func TestMKS(t *testing.T) {
+	tests := []struct {
+		inp string
+		exp interface{}
+	}{
+		{`10 MKS$("..")`, &object.Error{Message: typeMismatchErr + " in 10"}},
+		{`20 MKS$(1, 2)`, &object.Error{Message: syntaxErr + " in 20"}},
+		{`30 MKS$(35)`, &object.BStr{Value: []byte{0x23, 0x00, 0x00, 0x00}}},
+		{`40 MKS$(-35)`, &object.BStr{Value: []byte{0xdd, 0xff, 0xff, 0xff}}},
+		{`50 MKS$(35.3)`, &object.BStr{Value: []byte{0x23, 0x00, 0x00, 0x00}}},
+		{`60 MKS$(3.53E+01)`, &object.BStr{Value: []byte{0x23, 0x00, 0x00, 0x00}}},
+		{`70 MKS$(3.53D+01)`, &object.BStr{Value: []byte{0x23, 0x00, 0x00, 0x00}}},
+	}
+
 	for _, tt := range tests {
 		evald := testEval(tt.inp)
 

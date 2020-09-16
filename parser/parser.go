@@ -2,6 +2,7 @@ package parser
 
 import (
 	"fmt"
+	"math"
 	"strconv"
 	"strings"
 
@@ -14,6 +15,7 @@ import (
 
 const (
 	_ int = iota
+	// LOWEST defines the bottom of the priority stack
 	LOWEST
 	EQUALS      // ==
 	LESSGREATER // > or <
@@ -72,6 +74,7 @@ func New(l *lexer.Lexer) *Parser {
 	p.prefixParseFns = make(map[token.TokenType]prefixParseFn)
 	p.registerPrefix(token.IDENT, p.parseIdentifier)
 	p.registerPrefix(token.INT, p.parseIntegerLiteral)
+	p.registerPrefix(token.INTD, p.parseIntDoubleLiteral)
 	p.registerPrefix(token.MINUS, p.parsePrefixExpression)
 	p.registerPrefix(token.LPAREN, p.parseGroupedExpression)
 	p.registerPrefix(token.IF, p.parseIfExpression)
@@ -218,7 +221,15 @@ func (p *Parser) parseStatement() ast.Statement {
 		return p.parseDimStatement()
 	default:
 		if strings.ContainsAny(p.peekToken.Literal, "=[$%!#") {
-			return p.parseImpliedLetStatement(p.curToken.Literal)
+			stmt := p.parseImpliedLetStatement(p.curToken.Literal)
+
+			if !p.peekTokenIs(token.LPAREN) {
+				return stmt
+			}
+			// yikes!  It is actually a function call
+			// recover the full name
+
+			p.curToken = token.Token{Type: token.IDENT, Literal: stmt.Name.Value}
 		}
 		return p.parseExpressionStatement()
 	}
@@ -292,18 +303,44 @@ func (p *Parser) parseIntegerLiteral() ast.Expression {
 		return nil
 	}
 
-	if (value > 32767) || (value < -32768) {
-		return p.parseDoubleIntegerLiteral(value)
+	if (value > math.MaxInt16) || (value < math.MinInt16) {
+		return p.buildDoubleIIntegerLiteral(value)
 	}
 
 	lit.Value = int16(value)
 	return lit
 }
 
-func (p *Parser) parseDoubleIntegerLiteral(value int) ast.Expression {
-	defer untrace(trace("parseDoubleIntegerLiteral"))
-	lit := &ast.DblIntegerLiteral{Token: p.curToken}
-	lit.Value = int32(value)
+func (p *Parser) parseIntDoubleLiteral() ast.Expression {
+	defer untrace(trace("parseIntDoubleLiteral"))
+
+	value, err := strconv.Atoi(strings.TrimRight(p.curToken.Literal, "#"))
+
+	if err != nil {
+		msg := fmt.Sprintf("could not parse %q as integer in line %d", p.curToken.Literal, p.curLine)
+		p.errors = append(p.errors, msg)
+		return nil
+	}
+
+	return p.buildDoubleIIntegerLiteral(value)
+}
+
+func (p *Parser) buildDoubleIIntegerLiteral(value int) ast.Expression {
+	defer untrace(trace("buildDoubleIIntegerLiteral"))
+
+	// make sure it will fit in in32
+	if (value >= math.MinInt32) && (value <= math.MaxInt32) {
+		tk := token.Token{Type: token.INTD, Literal: strconv.Itoa(value)}
+		lit := &ast.DblIntegerLiteral{Token: tk}
+		lit.Value = int32(value)
+		return lit
+	}
+
+	// Interestingly, basic willingly lost precision in this case
+	fv := float32(value)
+	tk := token.Token{Type: token.FLOAT, Literal: strconv.Itoa(value)}
+	lit := &ast.FloatSingleLiteral{Token: tk, Value: fv}
+
 	return lit
 }
 
@@ -392,7 +429,7 @@ func (p *Parser) parseLineNumber() *ast.LineNumStmt {
 			return stmt
 		}
 
-		// consume the asteriskdon.h
+		// consume the asterisk
 		p.nextToken()
 	}
 
@@ -479,6 +516,11 @@ func (p *Parser) parseImpliedLetStatement(id string) *ast.LetStatement {
 	}
 	stmt := &ast.LetStatement{Token: tk}
 	stmt.Name = p.innerParseIdentifier()
+
+	if p.peekTokenIs(token.LPAREN) {
+		// whoops, it's a function identifier
+		return stmt
+	}
 
 	return p.finishParseLetStatment(stmt)
 }
@@ -648,6 +690,12 @@ func (p *Parser) innerParseIdentifier() *ast.Identifier {
 		}
 	}
 
+	// is this a string intrinsic call?
+	if p.peekTokenIs("(") && strings.ContainsAny(exp.Token.Literal, "$") {
+		exp.Token.Literal += "("
+		return exp
+	}
+
 	// type might also be an array
 	if p.peekTokenIs("[") && strings.ContainsAny(exp.Token.Literal, "$%!#") {
 		exp.Token.Literal = exp.Token.Literal + "[]"
@@ -656,6 +704,7 @@ func (p *Parser) innerParseIdentifier() *ast.Identifier {
 		exp2 := p.innerParseIdentifier()
 		exp.Index = exp2.Index
 	}
+
 	return exp
 }
 

@@ -10,6 +10,7 @@ const (
 	EOL     = "EOL"
 
 	// Identifiers + literals
+	BSTR    = "BSTR"  //string of bytes
 	IDENT   = "IDENT" // add, foobar, x, y, ...
 	LINENUM = "####"  // 10, 15, 20, ...
 	INT     = "INT"   // -32768 to 32767

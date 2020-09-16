@@ -1,10 +1,30 @@
 package object
 
 import (
+	"strings"
 	"testing"
 
 	"github.com/navionguy/basicwasm/decimal"
 )
+
+func TestBStr(t *testing.T) {
+	tests := []struct {
+		inp []byte
+		out string
+	}{
+		{[]byte{0x41, 0x41}, "AA"},
+		{[]byte{0x00, 0x41}, " A"},
+		{[]byte{0x0d, 0x0e}, "  "},
+	}
+
+	for _, tt := range tests {
+		bs := &BStr{Value: tt.inp}
+
+		if strings.Compare(tt.out, bs.Inspect()) != 0 {
+			t.Fatalf("expected %s, got %s", tt.out, bs.Inspect())
+		}
+	}
+}
 
 func TestInteger(t *testing.T) {
 	fv, _ := decimal.NewFromString("14.25")

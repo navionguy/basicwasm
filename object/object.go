@@ -11,7 +11,7 @@ import (
 )
 
 // BuiltinFunction is a function defined by gwbasic
-type BuiltinFunction func(env *Environment, args ...Object) Object
+type BuiltinFunction func(env *Environment, fn *Builtin, args ...Object) Object
 
 // ObjectType can always be displayed as a string
 type ObjectType string
@@ -28,6 +28,7 @@ const (
 	FLOATSGL_OBJ     = "FLOATSGL"
 	FLOATDBL_OBJ     = "FLOATDBL"
 	STRING_OBJ       = "STRING"
+	BSTR_OBJ         = "BSTR"
 	NULL_OBJ         = "NULL"
 	BUILTIN_OBJ      = "BUILTIN"
 	FUNCTION_OBJ     = "FUNCTION"
@@ -216,6 +217,30 @@ func (i *String) Type() ObjectType { return STRING_OBJ }
 
 // Inspect returns value as a string
 func (i *String) Inspect() string { return i.Value }
+
+// BStr is a byte backed string
+// not COMmonly used
+// parser won't generate one
+// they only occur at run-time
+type BStr struct {
+	Value []byte
+}
+
+// Type returns my type BSTR_OBJ
+func (bs *BStr) Type() ObjectType { return BSTR_OBJ }
+
+// Inspect returns a displayable string
+func (bs *BStr) Inspect() string {
+	var out bytes.Buffer
+	for _, bt := range bs.Value {
+		if bt < 0x20 {
+			out.WriteRune(' ')
+		} else {
+			out.WriteByte(bt)
+		}
+	}
+	return out.String()
+}
 
 type Builtin struct {
 	Fn BuiltinFunction

@@ -595,7 +595,7 @@ func applyFunction(fn object.Object, args []object.Object, code *ast.Code, env *
 		return unwrapReturnValue(evaluated)
 
 	case *object.Builtin:
-		return fn.Fn(env, args...)
+		return fn.Fn(env, fn, args...)
 
 	default:
 		return newError(env, "not a function: %s", fn.Type())
