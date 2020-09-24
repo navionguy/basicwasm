@@ -182,6 +182,37 @@ func TestStatements(t *testing.T) {
 			{token.INT, "10"},
 			{token.RBRACKET, "]"},
 		}},
+		{`20 A# = 10`, []result{
+			{token.EOL, "\n"},
+			{token.INT, "20"},
+			{token.IDENT, "A"},
+			{token.TYPE_DBL, "#"},
+			{token.EQ, "="},
+			{token.INT, "10"},
+		}},
+		{`30 PRINT A;B`, []result{
+			{token.EOL, "\n"},
+			{token.INT, "30"},
+			{token.PRINT, "PRINT"},
+			{token.IDENT, "A"},
+			{token.SEMICOLON, ";"},
+			{token.IDENT, "B"},
+		}},
+		{`50 A = 10 \ 2`, []result{
+			{token.EOL, "\n"},
+			{token.INT, "50"},
+			{token.IDENT, "A"},
+			{token.EQ, "="},
+			{token.INT, "10"},
+			{token.BSLASH, "\\"},
+			{token.INT, "2"},
+		}},
+		{`60 ' Comment`, []result{
+			{token.EOL, "\n"},
+			{token.INT, "60"},
+			{token.REM, "'"},
+			{token.IDENT, "Comment"},
+		}},
 	}
 
 	for _, tt := range tests {
@@ -191,7 +222,7 @@ func TestStatements(t *testing.T) {
 			nt := l.NextToken()
 
 			if nt.Type != res.expectedType {
-				t.Errorf("expected tok %s, got %s", res.expectedType, nt.Type)
+				t.Errorf("for %s expected tok %s, got %s", tt.input, res.expectedType, nt.Type)
 			}
 
 			if nt.Literal != res.expectedLiteral {

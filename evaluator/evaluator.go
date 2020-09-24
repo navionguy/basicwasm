@@ -12,11 +12,6 @@ import (
 	"github.com/navionguy/basicwasm/token"
 )
 
-const (
-	ERROR   = object.ERROR_OBJ
-	INTEGER = object.INTEGER_OBJ
-)
-
 // Eval returns the object at a node
 func Eval(node ast.Node, code *ast.Code, env *object.Environment) object.Object {
 	switch node := node.(type) {

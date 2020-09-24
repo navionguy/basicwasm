@@ -3,11 +3,9 @@ package cli
 import (
 	"fmt"
 	"strconv"
-	"time"
 
 	"github.com/navionguy/basicwasm/ast"
 	"github.com/navionguy/basicwasm/evaluator"
-	"github.com/navionguy/basicwasm/keybuffer"
 	"github.com/navionguy/basicwasm/lexer"
 	"github.com/navionguy/basicwasm/object"
 	"github.com/navionguy/basicwasm/parser"
@@ -23,13 +21,8 @@ func runLoop(env *object.Environment) {
 
 	env.Terminal().Println("OK")
 	for {
-		k, ok := keybuffer.ReadByte()
-
-		if !ok {
-			time.Sleep(300 * time.Millisecond)
-			continue
-		}
-
+		key := env.Terminal().ReadKeys(1)
+		k := key[0]
 		switch k {
 		case '\r':
 			row, _ := env.Terminal().GetCursor()

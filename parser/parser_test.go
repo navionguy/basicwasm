@@ -1137,6 +1137,7 @@ func TestPrintStatements(t *testing.T) {
 		input    string
 		expStmts int
 	}{
+		//		{`5 PRINT X * Y`, 3},
 		{`10 PRINT "Hello World!`, 2},
 		{`20 PRINT "This is ";"a test"`, 2},
 		{`30 PRINT "Another test " "program."`, 2},

@@ -55,6 +55,24 @@ func (mt mockTerm) Read(col, row, len int) string {
 	return *mt.strVal
 }
 
+func (mt mockTerm) ReadKeys(count int) []byte {
+	if mt.strVal == nil {
+		return nil
+	}
+
+	bt := []byte(*mt.strVal)
+
+	if count >= len(bt) {
+		mt.strVal = nil
+		return bt
+	}
+
+	v := (*mt.strVal)[:count]
+	mt.strVal = &v
+
+	return bt[:count]
+}
+
 func TestAutoCommand(t *testing.T) {
 	tests := []struct {
 		inp  string
@@ -174,6 +192,23 @@ func testEval(input string) object.Object {
 	p := parser.New(l)
 	var mt mockTerm
 	initMockTerm(&mt)
+	env := object.NewTermEnvironment(mt)
+	p.ParseProgram(env)
+	program := env.Program
+
+	if len(p.Errors()) > 0 {
+		return nil
+	}
+
+	return Eval(program, program.StatementIter(), env)
+}
+
+func testEvalWithTerm(input string, keys string) object.Object {
+	l := lexer.New(input)
+	p := parser.New(l)
+	var mt mockTerm
+	initMockTerm(&mt)
+	mt.strVal = &keys
 	env := object.NewTermEnvironment(mt)
 	p.ParseProgram(env)
 	program := env.Program
@@ -429,6 +464,7 @@ func ExamplePrint() {
 	tests := []struct {
 		input string
 	}{
+		{`4 X = 5 : Y + 3.2 : PRINT X * Y`},
 		{`5 IF 5 = 5 THEN PRINT "Same"`},
 		{`10 IF "A" = "A" THEN PRINT "Same"`},
 		{`10 PRINT "Hello World!`},

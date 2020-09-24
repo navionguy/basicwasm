@@ -4,6 +4,8 @@ package object
 import (
 	"bytes"
 	"fmt"
+	"math/rand"
+
 	"strings"
 
 	"github.com/navionguy/basicwasm/ast"
@@ -46,6 +48,7 @@ type Console interface {
 	Locate(int, int)
 	GetCursor() (int, int)
 	Read(col, row, len int) string
+	ReadKeys(count int) []byte
 }
 
 // NewEnclosedEnvironment allows variables during function calls
@@ -64,6 +67,10 @@ func newEnvironment() *Environment {
 		e.Program = &ast.Program{}
 	}
 	e.Program.New()
+
+	// initialize my random number generator
+	e.rnd = rand.New(rand.NewSource(37))
+	e.rndVal = e.rnd.Float32()
 	return e
 }
 
@@ -82,6 +89,8 @@ type Environment struct {
 	term    Console
 	autoOn  *ast.AutoCommand
 	traceOn bool
+	rnd     *rand.Rand
+	rndVal  float32
 }
 
 // Get attempts to retrieve an object from the environment
@@ -122,6 +131,22 @@ func (e *Environment) SetAuto(auto *ast.AutoCommand) {
 // GetAuto returns the line numbering parameters
 func (e *Environment) GetAuto() *ast.AutoCommand {
 	return e.autoOn
+}
+
+// Random returns a random number between 0 and 1
+// if x is greater than zero, a new random number is generated
+// otherwise, the current rndVal is returned
+func (e *Environment) Random(x int) *FloatSgl {
+	if x > 0 {
+		e.rndVal = e.rnd.Float32()
+	}
+	return &FloatSgl{Value: e.rndVal}
+}
+
+// Randomize takes in a new seed and starts a new random series
+func (e *Environment) Randomize(seed int64) {
+	e.rnd = rand.New(rand.NewSource(seed))
+	e.rndVal = e.rnd.Float32()
 }
 
 type Array struct {

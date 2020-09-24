@@ -1,7 +1,9 @@
 package evaluator
 
 import (
+	"bytes"
 	"encoding/binary"
+	"fmt"
 	"math"
 
 	"github.com/navionguy/basicwasm/object"
@@ -11,9 +13,10 @@ const syntaxErr = "Syntax error"
 const typeMismatchErr = "Type mismatch"
 const overflowErr = "Overflow"
 const illegalFuncCallErr = "Illegal function call"
+const illegalArgErr = "Illegal argument"
 
 var builtins = map[string]*object.Builtin{
-	"ABS": {
+	"ABS": { // absolute value
 		Fn: func(env *object.Environment, fn *object.Builtin, args ...object.Object) object.Object {
 			if len(args) != 1 {
 				return newError(env, syntaxErr)
@@ -51,7 +54,7 @@ var builtins = map[string]*object.Builtin{
 			}
 		},
 	},
-	"ASC": {
+	"ASC": { // ASCII code for first char in string
 		Fn: func(env *object.Environment, fn *object.Builtin, args ...object.Object) object.Object {
 			if len(args) != 1 {
 				return newError(env, syntaxErr)
@@ -78,7 +81,7 @@ var builtins = map[string]*object.Builtin{
 			}
 		},
 	},
-	"ATN": {
+	"ATN": { // Arctangent of value
 		Fn: func(env *object.Environment, fn *object.Builtin, args ...object.Object) object.Object {
 			if len(args) != 1 {
 				return newError(env, syntaxErr)
@@ -109,7 +112,7 @@ var builtins = map[string]*object.Builtin{
 			}
 		},
 	},
-	"CDBL": {
+	"CDBL": { // convert value to double precision
 		Fn: func(env *object.Environment, fn *object.Builtin, args ...object.Object) object.Object {
 			if len(args) != 1 {
 				return newError(env, syntaxErr)
@@ -143,71 +146,35 @@ var builtins = map[string]*object.Builtin{
 			}
 		},
 	},
-	"CHR$": {
+	"CHR$": { // return character at codepoint args[0].Value
 		Fn: func(env *object.Environment, fn *object.Builtin, args ...object.Object) object.Object {
 			if len(args) != 1 {
 				return newError(env, syntaxErr)
 			}
 
-			var rc int64
-			switch arg := args[0].(type) {
-			case *object.Integer:
-				rc = int64(arg.Value)
+			flt, ok := extractNumeric(args[0])
 
-			case *object.IntDbl:
-				rc = int64(arg.Value)
-
-			case *object.Fixed:
-				dc := arg.Value.Round(0)
-				rc = dc.IntPart()
-
-			case *object.FloatSgl:
-				rc = int64(math.Round(float64(arg.Value)))
-
-			case *object.FloatDbl:
-				rc = int64(math.Round(float64(arg.Value)))
-
-			case *object.TypedVar:
-				return fn.Fn(env, fn, arg.Value)
-
-			default:
+			if !ok {
 				return newError(env, typeMismatchErr)
 			}
+
+			rc := int64(math.Round(flt))
 
 			if (rc < 0) || (rc > 255) {
 				return newError(env, illegalFuncCallErr)
 			}
-			return &object.String{Value: string(rc)}
+			return &object.String{Value: fmt.Sprintf("%c", rc)}
 		},
 	},
-	"CINT": {
+	"CINT": { // convert numeric to integer with rounding, as opposed to FIX()
 		Fn: func(env *object.Environment, fn *object.Builtin, args ...object.Object) object.Object {
 			if len(args) != 1 {
 				return newError(env, syntaxErr)
 			}
 
-			var rc int64
-			switch arg := args[0].(type) {
-			case *object.Integer:
-				return newError(env, syntaxErr)
+			rc, ok := extractNumeric(args[0])
 
-			case *object.IntDbl:
-				rc = int64(arg.Value)
-
-			case *object.Fixed:
-				dc := arg.Value.Round(0)
-				rc = dc.IntPart()
-
-			case *object.FloatSgl:
-				rc = int64(math.Round(float64(arg.Value)))
-
-			case *object.FloatDbl:
-				rc = int64(math.Round(float64(arg.Value)))
-
-			case *object.TypedVar:
-				return fn.Fn(env, fn, arg.Value)
-
-			default:
+			if !ok {
 				return newError(env, typeMismatchErr)
 			}
 
@@ -215,10 +182,10 @@ var builtins = map[string]*object.Builtin{
 				return newError(env, overflowErr)
 			}
 
-			return &object.Integer{Value: int16(rc)}
+			return &object.Integer{Value: int16(math.Round(rc))}
 		},
 	},
-	"COS": {
+	"COS": { // return the cosine of the arguement
 		Fn: func(env *object.Environment, fn *object.Builtin, args ...object.Object) object.Object {
 			if len(args) != 1 {
 				return newError(env, syntaxErr)
@@ -279,114 +246,60 @@ var builtins = map[string]*object.Builtin{
 			}
 		},
 	},
-	"CVD": {
+	"CVD": { // convert string to double precision float
 		Fn: func(env *object.Environment, fn *object.Builtin, args ...object.Object) object.Object {
 			if len(args) != 1 {
 				return newError(env, syntaxErr)
 			}
 
-			switch arg := args[0].(type) {
-			case *object.String:
-				if len(arg.Value) < 8 {
-					return newError(env, illegalFuncCallErr)
-				}
+			str, ok, _ := extractString(args[0])
 
-				num := []byte(arg.Value)
-				cv := int(binary.LittleEndian.Uint64(num[:8]))
-				return fixType(cv)
-
-			case *object.BStr:
-				return fixType(int(binary.LittleEndian.Uint64(arg.Value[:8])))
-
-			case *object.TypedVar:
-				return fn.Fn(env, fn, arg.Value)
-
-			default:
+			if !ok {
 				return newError(env, typeMismatchErr)
 			}
+
+			return fixType(int(binary.LittleEndian.Uint64(str[:8])))
 		},
 	},
-	"CVI": {
+	"CVI": { // convert string to integer
 		Fn: func(env *object.Environment, fn *object.Builtin, args ...object.Object) object.Object {
 			if len(args) != 1 {
 				return newError(env, syntaxErr)
 			}
 
-			switch arg := args[0].(type) {
-			case *object.String:
-				if len(arg.Value) > 2 {
-					return newError(env, illegalFuncCallErr)
-				}
+			num, ok, _ := extractString(args[0])
 
-				num := []byte(arg.Value)
-				cv := int16(binary.LittleEndian.Uint16(num[:2]))
-				return fixType(cv)
-
-			case *object.BStr:
-				return fixType(int16(binary.LittleEndian.Uint16(arg.Value[:2])))
-
-			case *object.TypedVar:
-				return fn.Fn(env, fn, arg.Value)
-
-			default:
+			if !ok {
 				return newError(env, typeMismatchErr)
 			}
+
+			return fixType(int16(binary.LittleEndian.Uint16(num[:2])))
 		},
 	},
-	"CVS": {
+	"CVS": { // convert string to single precision float
 		Fn: func(env *object.Environment, fn *object.Builtin, args ...object.Object) object.Object {
 			if len(args) != 1 {
 				return newError(env, syntaxErr)
 			}
 
-			switch arg := args[0].(type) {
-			case *object.String:
-				if len(arg.Value) > 4 {
-					return newError(env, illegalFuncCallErr)
-				}
+			str, ok, _ := extractString(args[0])
 
-				num := []byte(arg.Value)
-				cv := int32(binary.LittleEndian.Uint32(num[:4]))
-				return fixType(cv)
-
-			case *object.BStr:
-				return fixType(int32(binary.LittleEndian.Uint32(arg.Value[:4])))
-
-			case *object.TypedVar:
-				return fn.Fn(env, fn, arg.Value)
-
-			default:
+			if !ok {
 				return newError(env, typeMismatchErr)
 			}
+
+			return fixType(int32(binary.LittleEndian.Uint32(str[:4])))
 		},
 	},
-	"EXP": {
+	"EXP": { // e^^x
 		Fn: func(env *object.Environment, fn *object.Builtin, args ...object.Object) object.Object {
 			if len(args) != 1 {
 				return newError(env, syntaxErr)
 			}
 
-			var exp float64
-			switch arg := args[0].(type) {
-			case *object.Integer:
-				exp = float64(arg.Value)
+			exp, ok := extractNumeric(args[0])
 
-			case *object.IntDbl:
-				exp = float64(arg.Value)
-
-			case *object.Fixed:
-				exp, _ = arg.Value.Float64()
-
-			case *object.FloatSgl:
-				exp = float64(arg.Value)
-
-			case *object.FloatDbl:
-				exp = float64(arg.Value)
-
-			case *object.TypedVar:
-				return fn.Fn(env, fn, arg.Value)
-
-			default:
+			if !ok {
 				return newError(env, typeMismatchErr)
 			}
 
@@ -397,23 +310,264 @@ var builtins = map[string]*object.Builtin{
 			return &object.FloatSgl{Value: float32(math.Exp(exp))}
 		},
 	},
-	"LEN": {
+	"FIX": { // truncate a value, no rounding
 		Fn: func(env *object.Environment, fn *object.Builtin, args ...object.Object) object.Object {
 			if len(args) != 1 {
 				return newError(env, syntaxErr)
 			}
 
-			switch arg := args[0].(type) {
-			case *object.String:
-				return &object.Integer{Value: int16(len(arg.Value))}
-			case *object.TypedVar:
-				return fn.Fn(env, fn, arg.Value)
-			default:
+			rc, ok := extractNumeric(args[0])
+
+			if !ok {
 				return newError(env, typeMismatchErr)
 			}
+
+			rc = math.Trunc(rc)
+
+			if (rc > math.MinInt16) && (rc < math.MaxInt16) {
+				return &object.Integer{Value: int16(rc)}
+			}
+
+			if (rc > math.MinInt32) && (rc < math.MaxInt32) {
+				return &object.IntDbl{Value: int32(rc)}
+			}
+
+			return newError(env, overflowErr)
 		},
 	},
-	"MKD$": {
+	"HEX$": { // Convert value to hexidecimal, range -32768 to +65535
+		// interesting that covers uint16 and int16
+		Fn: func(env *object.Environment, fn *object.Builtin, args ...object.Object) object.Object {
+			if len(args) != 1 {
+				return newError(env, syntaxErr)
+			}
+
+			rc, ok := extractNumeric((args[0]))
+
+			if !ok {
+				return newError(env, typeMismatchErr)
+			}
+
+			rc = math.Round(rc)
+
+			if (rc > math.MinInt16) && (rc < math.MaxUint16) {
+				return &object.String{Value: fmt.Sprintf("%X", uint16(rc))}
+			}
+
+			return newError(env, overflowErr)
+		},
+	},
+	"INPUT$": { // read keystrokes from the keyboard
+		Fn: func(env *object.Environment, fn *object.Builtin, args ...object.Object) object.Object {
+			if len(args) != 1 { // TODO: bump if adding file support
+				return newError(env, syntaxErr)
+			}
+
+			rc, ok := extractNumeric(args[0])
+
+			if !ok {
+				return newError(env, typeMismatchErr)
+			}
+
+			rc = math.Round(rc)
+
+			if (rc < 1) || (rc > math.MaxInt8) {
+				return newError(env, illegalFuncCallErr)
+			}
+
+			bt := env.Terminal().ReadKeys(int(rc))
+
+			st := &object.String{Value: string(bt)}
+			tv := &object.TypedVar{Value: st, TypeID: "$"}
+
+			return tv
+		},
+	},
+	"INSTR": { // search for a string inside of another string
+		// I actually search them as BStr to be more accepting
+		Fn: func(env *object.Environment, fn *object.Builtin, args ...object.Object) object.Object {
+			if (len(args) < 2) || (len(args) > 3) {
+				return newError(env, syntaxErr)
+			}
+
+			a := 0
+			strt := 1
+
+			if len(args) == 3 {
+				f, _ := extractNumeric(args[a])
+				strt = int(f)
+				a++
+			}
+
+			if strt < 1 {
+				return newError(env, illegalArgErr)
+			}
+
+			if strt > 255 {
+				return newError(env, illegalFuncCallErr)
+			}
+
+			bt, ok, _ := extractString(args[a])
+			a++
+
+			sub, ok2, _ := extractString(args[a])
+
+			if !ok || !ok2 {
+				return newError(env, syntaxErr)
+			}
+
+			if (strt > len(bt)) || (len(sub) > len(bt)) {
+				return &object.Integer{Value: 0}
+			}
+
+			subSize := len(sub)
+			for i := strt - 1; i < len(bt); i++ {
+				if 0 == bytes.Compare(bt[i:subSize+i], sub) {
+					// found him
+					return &object.Integer{Value: int16(i + 1)}
+				}
+
+				if len(sub) >= len(bt[i:]) {
+					i = len(bt)
+				}
+			}
+
+			return &object.Integer{Value: 0}
+		},
+	},
+	"INT": { // truncate an expression to a whole number
+		Fn: func(env *object.Environment, fn *object.Builtin, args ...object.Object) object.Object {
+			if len(args) != 1 {
+				return newError(env, syntaxErr)
+			}
+
+			rc, ok := extractNumeric(args[0])
+
+			if !ok {
+				return newError(env, typeMismatchErr)
+			}
+
+			rc = math.Trunc(rc)
+
+			if (rc > math.MinInt16) && (rc < math.MaxInt16) {
+				return &object.Integer{Value: int16(rc)}
+			}
+
+			if (rc > math.MinInt32) && (rc < math.MaxInt32) {
+				return &object.IntDbl{Value: int32(rc)}
+			}
+
+			return newError(env, overflowErr)
+		},
+	},
+	"LEFT$": { // return the left most n characters of x$
+		Fn: func(env *object.Environment, fn *object.Builtin, args ...object.Object) object.Object {
+			if len(args) != 2 {
+				return newError(env, syntaxErr)
+			}
+
+			bstr, ok, str := extractString(args[0])
+
+			fc, ok2 := extractNumeric(args[1])
+
+			if !ok || !ok2 {
+				return newError(env, syntaxErr)
+			}
+
+			if (fc < 0) || fc > 255 {
+				return newError(env, illegalFuncCallErr)
+			}
+
+			if str {
+				return &object.String{Value: string(bstr[:int16(fc)])}
+			}
+
+			return &object.BStr{Value: bstr[:int16(fc)]}
+		},
+	},
+	"LEN": { // return the length of a string
+		Fn: func(env *object.Environment, fn *object.Builtin, args ...object.Object) object.Object {
+			if len(args) != 1 {
+				return newError(env, syntaxErr)
+			}
+
+			bstr, ok, _ := extractString(args[0])
+
+			if !ok {
+				return newError(env, typeMismatchErr)
+			}
+
+			return &object.Integer{Value: int16(len(bstr))}
+		},
+	},
+	"LOG": { // return the natural log of a number
+		Fn: func(env *object.Environment, fn *object.Builtin, args ...object.Object) object.Object {
+			if len(args) != 1 {
+				return newError(env, syntaxErr)
+			}
+
+			x, ok := extractNumeric(args[0])
+
+			if !ok {
+				return newError(env, typeMismatchErr)
+			}
+
+			if x <= 0 {
+				return newError(env, illegalFuncCallErr)
+			}
+
+			return &object.FloatSgl{Value: float32(math.Log(x))}
+		},
+	},
+	"LPOS": { // return printer head position TODO: Implement printing
+		Fn: func(env *object.Environment, fn *object.Builtin, args ...object.Object) object.Object {
+			if len(args) != 1 {
+				return newError(env, syntaxErr)
+			}
+
+			return &object.Integer{Value: 0}
+		},
+	},
+	"MID$": {
+		Fn: func(env *object.Environment, fn *object.Builtin, args ...object.Object) object.Object {
+			if (len(args) < 2) || (len(args) > 3) {
+				return newError(env, syntaxErr)
+			}
+
+			src, ok, isString := extractString(args[0])
+			floc, ok2 := extractNumeric(args[1])
+			fct := float64(0)
+			ok3 := true
+
+			if len(args) == 3 {
+				fct, ok3 = extractNumeric(args[2])
+			}
+
+			if !ok || !ok2 || !ok3 {
+				return newError(env, syntaxErr)
+			}
+
+			ct := int(fct)
+			loc := int(floc)
+
+			if (loc < 1) || (loc > 255) || (ct < 0) || (ct > 255) {
+				return newError(env, illegalFuncCallErr)
+			}
+
+			bt := src[loc-1:]
+
+			if ct != 0 {
+				bt = bt[:ct]
+			}
+
+			if isString {
+				return &object.String{Value: string(bt)}
+			}
+
+			return &object.BStr{Value: bt}
+		},
+	},
+	"MKD$": { // convert a numeric to a 8 byte BStr
 		Fn: func(env *object.Environment, fn *object.Builtin, args ...object.Object) object.Object {
 			if len(args) != 1 {
 				return newError(env, syntaxErr)
@@ -422,7 +576,7 @@ var builtins = map[string]*object.Builtin{
 			return bstrEncode(8, env, args[0])
 		},
 	},
-	"MKI$": {
+	"MKI$": { // convert a numeric to a 2 byte BStr
 		Fn: func(env *object.Environment, fn *object.Builtin, args ...object.Object) object.Object {
 			if len(args) != 1 {
 				return newError(env, syntaxErr)
@@ -431,13 +585,85 @@ var builtins = map[string]*object.Builtin{
 			return bstrEncode(2, env, args[0])
 		},
 	},
-	"MKS$": {
+	"MKS$": { // convert a numeric to a 4 byte string
 		Fn: func(env *object.Environment, fn *object.Builtin, args ...object.Object) object.Object {
 			if len(args) != 1 {
 				return newError(env, syntaxErr)
 			}
 
 			return bstrEncode(4, env, args[0])
+		},
+	},
+	"OCT$": { // convert a numberic to
+		Fn: func(env *object.Environment, fn *object.Builtin, args ...object.Object) object.Object {
+			if len(args) != 1 {
+				return newError(env, syntaxErr)
+			}
+
+			rc, ok := extractNumeric((args[0]))
+
+			if !ok {
+				return newError(env, typeMismatchErr)
+			}
+
+			rc = math.Round(rc)
+
+			if (rc > math.MinInt16) && (rc < math.MaxUint16) {
+				return &object.String{Value: fmt.Sprintf("%o", uint16(rc))}
+			}
+
+			return newError(env, overflowErr)
+		},
+	},
+	"RIGHT$": { // return the rightmost n characters of the string
+		Fn: func(env *object.Environment, fn *object.Builtin, args ...object.Object) object.Object {
+			if len(args) != 2 {
+				return newError(env, syntaxErr)
+			}
+
+			src, ok, isString := extractString(args[0])
+			floc, ok2 := extractNumeric(args[1])
+
+			if !ok || !ok2 {
+				return newError(env, syntaxErr)
+			}
+
+			loc := int(floc)
+
+			if (loc < 0) || (loc > 255) {
+				return newError(env, illegalFuncCallErr)
+			}
+
+			if loc > len(src) {
+				return args[0]
+			}
+
+			if loc == 0 {
+				return &object.String{Value: ""}
+			}
+
+			bt := src[len(src)-loc:]
+
+			if isString {
+				return &object.String{Value: string(bt)}
+			}
+
+			return &object.BStr{Value: bt}
+		},
+	},
+	"RND": {
+		Fn: func(env *object.Environment, fn *object.Builtin, args ...object.Object) object.Object {
+			if len(args) > 1 {
+				return newError(env, syntaxErr)
+			}
+
+			x, ok := extractNumeric(args[0])
+
+			if !ok {
+				return newError(env, typeMismatchErr)
+			}
+
+			return env.Random(int(x))
 		},
 	},
 }
@@ -489,4 +715,59 @@ func bstrEncode(size int, env *object.Environment, arg object.Object) object.Obj
 	}
 	return &object.BStr{Value: bt}
 
+}
+
+// given any of the numeric values, return a float64 representation
+// bool = false means non-numeric
+func extractNumeric(obj object.Object) (float64, bool) {
+	var rc float64
+
+	switch arg := obj.(type) {
+	case *object.Integer:
+		return float64(arg.Value), true
+
+	case *object.IntDbl:
+		return float64(arg.Value), true
+
+	case *object.Fixed:
+		rc, _ = arg.Value.Float64()
+		return rc, true
+
+	case *object.FloatSgl:
+		return float64(arg.Value), true
+
+	case *object.FloatDbl:
+		return float64(arg.Value), true
+
+	case *object.TypedVar:
+		f, ok := extractNumeric(arg.Value)
+
+		if !ok {
+			return 0, false
+		}
+
+		return f, true
+
+	default:
+		return 0, false
+	}
+}
+
+func extractString(obj object.Object) ([]byte, bool, bool) {
+
+	switch arg := obj.(type) {
+	case *object.String:
+		bt := []byte(arg.Value)
+		return bt, true, true
+
+	case *object.BStr:
+		return arg.Value, true, false
+
+	case *object.TypedVar:
+		bt, ok, str := extractString(arg.Value)
+		return bt, ok, str
+
+	default:
+		return nil, false, false
+	}
 }

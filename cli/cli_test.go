@@ -41,6 +41,10 @@ func (mt mockTerm) Read(col, row, len int) string {
 	return mt.strVal
 }
 
+func (mt mockTerm) ReadKeys(count int) []byte {
+	return nil
+}
+
 type Expector struct {
 	failed bool
 	exp    []string
@@ -63,6 +67,7 @@ func TestExecCommand(t *testing.T) {
 		exp []string
 	}{
 		{inp: "10 CLS", exp: []string{"OK"}},
+		//		{inp: "20 PRINT X * Y", exp: []string{"OK"}},
 		{"LIST", []string{"10 CLS", "OK"}},
 		{"nerf", []string{"Syntax error", "OK"}},
 		{"LET X = 5", []string{"OK"}},

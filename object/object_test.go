@@ -40,6 +40,9 @@ func TestInteger(t *testing.T) {
 		{obj: &Error{Message: "Error"}, exp: "ERROR: Error", tp: "ERROR"},
 		{obj: &Builtin{}, exp: "builtin function", tp: "BUILTIN"},
 		{obj: &Null{}, exp: "null", tp: "NULL"},
+		{obj: &IntDbl{Value: 65999}, exp: "65999", tp: "INTDBL"},
+		{obj: &FloatSgl{Value: 3.14159}, exp: "3.141590E+00", tp: "FLOATSGL"},
+		{obj: &FloatDbl{Value: 3.14159}, exp: "3.141590E+00", tp: "FLOATDBL"},
 	}
 
 	for _, tt := range tests {
@@ -106,4 +109,31 @@ func testIntEnvGet(t *testing.T, env Environment, item string, exp Object) bool 
 	}
 
 	return true
+}
+
+func TestRandom(t *testing.T) {
+	tests := []struct {
+		inp    int
+		exp    float32
+		rndMze int64
+	}{
+		{0, 0.61560816, 0},
+		{0, 0.61560816, 0},
+		{1, 0.123114005, 0},
+		{0, 0.604660273, 1},
+		{1, 0.940509081, 0},
+	}
+
+	env := newEnvironment()
+
+	for _, tt := range tests {
+		if tt.rndMze != 0 {
+			env.Randomize(tt.rndMze)
+		}
+		rc := env.Random(tt.inp)
+
+		if rc.Value != tt.exp {
+			t.Fatalf("Random returned %.9f, expected %.9f!  That's too random!!!", rc.Value, tt.exp)
+		}
+	}
 }

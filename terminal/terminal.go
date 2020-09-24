@@ -4,6 +4,9 @@ import (
 	"fmt"
 	"strings"
 	"syscall/js"
+	"time"
+
+	"github.com/navionguy/basicwasm/keybuffer"
 )
 
 // Terminal holds the terminal instance and provides io abilities
@@ -66,4 +69,22 @@ func (t *Terminal) Read(col, row, len int) string {
 	inp := strings.TrimRight(t.term.Call("getSelection").String(), " ")
 	t.term.Call("clearSelection")
 	return inp
+}
+
+// ReadKeys reads the requested number of keystrokes
+func (t *Terminal) ReadKeys(count int) []byte {
+	var keys []byte
+
+	for i := 0; i < count; {
+		bt, ok := keybuffer.ReadByte()
+
+		if !ok {
+			time.Sleep(100 * time.Millisecond)
+		} else {
+			keys = append(keys, bt)
+			i++
+		}
+	}
+
+	return keys
 }

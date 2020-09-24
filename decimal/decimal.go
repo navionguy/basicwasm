@@ -145,8 +145,6 @@ func (d Decimal) Div(d2 Decimal) Decimal {
 	r.value *= 2
 	r.exp += precision + q.exp
 
-	//r2 := Decimal{value: &rv2, exp: r.exp + precision}
-	// r2 is now 2 * r * 10 ^ precision
 	var c = r.Cmp(d2.Abs())
 
 	if c < 0 {
@@ -158,11 +156,6 @@ func (d Decimal) Div(d2 Decimal) Decimal {
 	}
 
 	return q.Add(New(1, -precision))
-
-	//q := d.value / d2.value
-	//r := abs(d.value % d2.value)
-
-	//return q
 }
 
 // QuoRem does divsion with remainder
@@ -322,12 +315,6 @@ func rescalePair(d1, d2 Decimal) (Decimal, Decimal) {
 	}
 
 	return d1, d2.rescale(baseScale)
-}
-
-func (d *Decimal) divMod(x, y int) Decimal {
-	d.value = x / y
-
-	return Decimal{value: x % y, exp: 0}
 }
 
 func (d Decimal) cmp(t int) int {
