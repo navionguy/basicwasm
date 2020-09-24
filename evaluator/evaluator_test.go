@@ -464,7 +464,6 @@ func ExamplePrint() {
 	tests := []struct {
 		input string
 	}{
-		{`4 X = 5 : Y + 3.2 : PRINT X * Y`},
 		{`5 IF 5 = 5 THEN PRINT "Same"`},
 		{`10 IF "A" = "A" THEN PRINT "Same"`},
 		{`10 PRINT "Hello World!`},
@@ -491,6 +490,7 @@ func ExamplePrint() {
 		{`210 LET Y = 45.12 * 3.4 : PRINT Y`},
 		{`220 LET Y = 45.12 / 3.4 : PRINT Y`},
 		{`230 LET Y = 235.988E+2 + 1.354E+1 : PRINT Y`},
+		{`240 X = 5 : Y = 3.2 : PRINT X * Y`},
 	}
 
 	for _, tt := range tests {
@@ -522,6 +522,7 @@ func ExamplePrint() {
 	// 153.408
 	// 13.27059
 	// 2.361234E+04
+	// 16
 }
 
 func ExampleT_int() {

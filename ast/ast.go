@@ -541,10 +541,8 @@ func (pe *PrefixExpression) expressionNode() {}
 func (pe *PrefixExpression) TokenLiteral() string { return pe.Token.Literal }
 func (pe *PrefixExpression) String() string {
 	var out bytes.Buffer
-	out.WriteString("(")
 	out.WriteString(pe.Operator)
 	out.WriteString(pe.Right.String())
-	out.WriteString(")")
 	return out.String()
 }
 
@@ -566,11 +564,32 @@ func (ie *InfixExpression) TokenLiteral() string {
 // String the readable version of me
 func (ie *InfixExpression) String() string {
 	var out bytes.Buffer
-	out.WriteString("(")
 	out.WriteString(ie.Left.String())
 	out.WriteString(" " + ie.Operator + " ")
 	out.WriteString(ie.Right.String())
+	return out.String()
+}
+
+// GroupedExpression is enclosed in parentheses
+type GroupedExpression struct {
+	Token token.Token
+	Exp   Expression
+}
+
+func (ge *GroupedExpression) expressionNode() {}
+
+// TokenLiteral sends back my token
+func (ge *GroupedExpression) TokenLiteral() string {
+	return ge.Token.Literal
+}
+
+// String the readable version of me
+func (ge *GroupedExpression) String() string {
+	var out bytes.Buffer
+	out.WriteString("(")
+	out.WriteString(ge.Exp.String())
 	out.WriteString(")")
+
 	return out.String()
 }
 

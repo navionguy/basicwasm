@@ -743,9 +743,11 @@ func (p *Parser) registerInfix(tokenType token.TokenType, fn infixParseFn) {
 }
 
 func (p *Parser) parseGroupedExpression() ast.Expression {
+	exp := &ast.GroupedExpression{Token: p.curToken}
+
 	p.nextToken()
 
-	exp := p.parseExpression(LOWEST)
+	exp.Exp = p.parseExpression(LOWEST)
 
 	if !p.expectPeek(token.RPAREN) {
 		return nil

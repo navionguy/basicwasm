@@ -34,6 +34,9 @@ func Eval(node ast.Node, code *ast.Code, env *object.Environment) object.Object 
 	case *ast.ExpressionStatement:
 		return Eval(node.Expression, code, env)
 
+	case *ast.GroupedExpression:
+		return Eval(node.Exp, code, env)
+
 	case *ast.LetStatement:
 		val := Eval(node.Value, code, env)
 		if isError(val) {

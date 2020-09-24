@@ -729,14 +729,14 @@ func TestOperatorPrecedenceParsing(t *testing.T) {
 		input    string
 		expected string
 	}{
-		{"10 -a * b", "10 ((-A) * B)"},
-		{"10 a + b + c", "10 ((A + B) + C)"},
-		{"10 a + b - c", "10 ((A + B) - C)"},
-		{"10 a * b * c", "10 ((A * B) * C)"},
-		{"10 a * b / c", "10 ((A * B) / C)"},
-		{"10 a + b / c", "10 (A + (B / C))"},
-		{"10 a + b * c + d / e - f", "10 (((A + (B * C)) + (D / E)) - F)"},
-		{"10 5 > 4 = 3 < 4", "10 ((5 > 4) = (3 < 4))"},
+		{"10 -a * b", "10 -A * B"},
+		{"10 a + b + c", "10 A + B + C"},
+		{"10 a + b - c", "10 A + B - C"},
+		{"10 a * b * c", "10 A * B * C"},
+		{"10 a * b / c", "10 A * B / C"},
+		{"10 a + b / c", "10 A + B / C"},
+		{"10 a + b * c + d / e - f", "10 A + B * C + D / E - F"},
+		{"10 5 > 4 = 3 < 4", "10 5 > 4 = 3 < 4"},
 		{"20 ((5 < 4) <> (3 > 4))", "20 ((5 < 4) <> (3 > 4))"},
 	}
 
@@ -848,8 +848,19 @@ func TestIfExpression(t *testing.T) {
 			t.Fatalf("stmt.Expression is not ast.IfExpression. got=%T", stmt1.Expression)
 		}
 
-		if !testInfixExpression(t, exp.Condition, "X", tt.op, "Y") {
-			return
+		gexp, ok := exp.Condition.(*ast.GroupedExpression)
+		if ok {
+			iexp, ok := gexp.Exp.(*ast.InfixExpression)
+
+			if ok {
+				if !testInfixExpression(t, iexp, "X", tt.op, "Y") {
+					return
+				}
+			}
+		} else {
+			if !testInfixExpression(t, exp.Condition, "X", tt.op, "Y") {
+				return
+			}
 		}
 
 		if !testIfConsequence(t, tt.cons, exp.Consequence) {
@@ -1137,7 +1148,8 @@ func TestPrintStatements(t *testing.T) {
 		input    string
 		expStmts int
 	}{
-		//		{`5 PRINT X * Y`, 3},
+		{`5 PRINT X * Y`, 2},
+		{`7 PRINT (X * Y)`, 2},
 		{`10 PRINT "Hello World!`, 2},
 		{`20 PRINT "This is ";"a test"`, 2},
 		{`30 PRINT "Another test " "program."`, 2},
