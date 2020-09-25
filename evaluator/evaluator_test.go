@@ -44,7 +44,6 @@ func (mt mockTerm) Println(msg string) {
 }
 
 func (mt mockTerm) Locate(int, int) {
-
 }
 
 func (mt mockTerm) GetCursor() (int, int) {
@@ -52,7 +51,14 @@ func (mt mockTerm) GetCursor() (int, int) {
 }
 
 func (mt mockTerm) Read(col, row, len int) string {
-	return *mt.strVal
+	// make sure your test is correct
+	trim := (row-1)*80 + (col - 1)
+
+	tstr := *mt.strVal
+
+	newstr := tstr[trim : trim+len]
+
+	return newstr
 }
 
 func (mt mockTerm) ReadKeys(count int) []byte {

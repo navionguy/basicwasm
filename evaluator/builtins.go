@@ -5,6 +5,7 @@ import (
 	"encoding/binary"
 	"fmt"
 	"math"
+	"strconv"
 
 	"github.com/navionguy/basicwasm/object"
 )
@@ -651,7 +652,7 @@ var builtins = map[string]*object.Builtin{
 			return &object.BStr{Value: bt}
 		},
 	},
-	"RND": {
+	"RND": { // generate a random number
 		Fn: func(env *object.Environment, fn *object.Builtin, args ...object.Object) object.Object {
 			if len(args) > 1 {
 				return newError(env, syntaxErr)
@@ -664,6 +665,202 @@ var builtins = map[string]*object.Builtin{
 			}
 
 			return env.Random(int(x))
+		},
+	},
+	"SCREEN": { // read the ascii value at a position on the screen
+		// ToDo: add support for screen color
+		Fn: func(env *object.Environment, fn *object.Builtin, args ...object.Object) object.Object {
+			if len(args) != 2 {
+				return newError(env, illegalFuncCallErr)
+			}
+
+			rowarg, ok := extractNumeric(args[0])
+			colarg, ok2 := extractNumeric(args[1])
+
+			if !ok || !ok2 {
+				return newError(env, typeMismatchErr)
+			}
+
+			row := int(rowarg)
+			col := int(colarg)
+
+			bt := []byte(env.Terminal().Read(col, row, 1))
+
+			return &object.Integer{Value: int16(bt[0])}
+		},
+	},
+	"SGN": { // return the sign of the argument -1 = neg, 0 = zero, 1 = pos
+		Fn: func(env *object.Environment, fn *object.Builtin, args ...object.Object) object.Object {
+			if len(args) != 1 {
+				return newError(env, syntaxErr)
+			}
+
+			arg, ok := extractNumeric(args[0])
+
+			if !ok {
+				return newError(env, typeMismatchErr)
+			}
+
+			if arg < 0 {
+				return &object.Integer{Value: -1}
+			}
+
+			if arg == 0 {
+				return &object.Integer{Value: 0}
+			}
+
+			return &object.Integer{Value: 1}
+		},
+	},
+	"SIN": { // calculate sine of arg in radians
+		Fn: func(env *object.Environment, fn *object.Builtin, args ...object.Object) object.Object {
+			if len(args) != 1 {
+				return newError(env, syntaxErr)
+			}
+
+			arg, ok := extractNumeric(args[0])
+
+			if !ok {
+				return newError(env, typeMismatchErr)
+			}
+
+			return &object.FloatSgl{Value: float32(math.Sin(arg))}
+		},
+	},
+	"SPACE$": { // return number of spaces == round(arg[0])
+		Fn: func(env *object.Environment, fn *object.Builtin, args ...object.Object) object.Object {
+			if len(args) != 1 {
+				return newError(env, syntaxErr)
+			}
+
+			arg, ok := extractNumeric(args[0])
+
+			if !ok {
+				return newError(env, typeMismatchErr)
+			}
+
+			val := int(math.Round(arg))
+
+			if (val < 0) || (val > 255) {
+				return newError(env, illegalFuncCallErr)
+			}
+
+			sp := ""
+			for i := 0; i < val; i++ {
+				sp += " "
+			}
+
+			return &object.String{Value: sp}
+		},
+	},
+	"SQR": { // calculate square root of argument
+		Fn: func(env *object.Environment, fn *object.Builtin, args ...object.Object) object.Object {
+			if len(args) != 1 {
+				return newError(env, syntaxErr)
+			}
+
+			arg, ok := extractNumeric(args[0])
+
+			if !ok {
+				return newError(env, typeMismatchErr)
+			}
+
+			val := float32(math.Sqrt(arg))
+
+			return &object.FloatSgl{Value: val}
+		},
+	},
+	"STR$": {
+		Fn: func(env *object.Environment, fn *object.Builtin, args ...object.Object) object.Object {
+			if len(args) != 1 {
+				return newError(env, syntaxErr)
+			}
+
+			arg, ok := extractNumeric(args[0])
+
+			if !ok {
+				return newError(env, typeMismatchErr)
+			}
+
+			st := fmt.Sprint(arg)
+
+			return &object.String{Value: st}
+		},
+	},
+	"STRING$": { // (x, y) build a string of length x consisting of character y repeated
+		// if y is string, repeat the first character
+		Fn: func(env *object.Environment, fn *object.Builtin, args ...object.Object) object.Object {
+			if len(args) != 2 {
+				return newError(env, syntaxErr)
+			}
+
+			arg, ok := extractNumeric(args[0])
+
+			if !ok {
+				return newError(env, typeMismatchErr)
+			}
+
+			if arg < 0 || arg > 255 {
+				return newError(env, illegalFuncCallErr)
+			}
+
+			arg2, ok := extractNumeric(args[1])
+
+			var bt []byte
+			if ok {
+				if arg2 < 0 || arg2 > 255 {
+					return newError(env, illegalFuncCallErr)
+				}
+
+				bt = append(bt, byte(arg2))
+			} else {
+				bt, _, _ = extractString(args[1])
+			}
+
+			bt = bt[0:1]
+			for i := 0; i < int(math.Round(arg))-1; i++ {
+				bt = append(bt, bt[0])
+			}
+
+			if bt[0] == 0 {
+				return &object.BStr{Value: bt}
+			}
+			return &object.String{Value: string(bt)}
+		},
+	},
+	"TAN": { // compute the tangent of x in radians
+		Fn: func(env *object.Environment, fn *object.Builtin, args ...object.Object) object.Object {
+			if len(args) != 1 {
+				return newError(env, syntaxErr)
+			}
+
+			arg, ok := extractNumeric(args[0])
+
+			if !ok {
+				return newError(env, typeMismatchErr)
+			}
+
+			return &object.FloatSgl{Value: float32(math.Tan(arg))}
+		},
+	},
+	"VAL": {
+		Fn: func(env *object.Environment, fn *object.Builtin, args ...object.Object) object.Object {
+			if len(args) != 1 {
+				return newError(env, syntaxErr)
+			}
+
+			arg, ok, _ := extractString(args[0])
+
+			if !ok {
+				return newError(env, typeMismatchErr)
+			}
+			val, err := strconv.ParseFloat(string(arg), 32)
+
+			if err != nil {
+				val = 0
+			}
+
+			return &object.FloatSgl{Value: float32(val)}
 		},
 	},
 }
@@ -753,6 +950,7 @@ func extractNumeric(obj object.Object) (float64, bool) {
 	}
 }
 
+// returns []bytes, extractedYN, isString
 func extractString(obj object.Object) ([]byte, bool, bool) {
 
 	switch arg := obj.(type) {

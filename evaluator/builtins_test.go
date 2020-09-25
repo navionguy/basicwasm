@@ -737,3 +737,166 @@ func TestRnd(t *testing.T) {
 		compareObjects(tt.inp, evald, tt.exp, t)
 	}
 }
+
+func TestScreen(t *testing.T) {
+	tests := []struct {
+		inp string
+		msg string
+		exp interface{}
+	}{
+		{`10 SCREEN(5)`, "", &object.Error{Message: illegalFuncCallErr + " in 10"}},
+		{`20 SCREEN(5, "fred")`, "", &object.Error{Message: typeMismatchErr + " in 20"}},
+		{`30 SCREEN(1,1)`, "470", &object.Integer{Value: 52}},
+		{`40 SCREEN(1,2)`, "470", &object.Integer{Value: 55}},
+	}
+	for _, tt := range tests {
+		evald := testEvalWithTerm(tt.inp, tt.msg)
+
+		compareObjects(tt.inp, evald, tt.exp, t)
+	}
+}
+
+func TestSgn(t *testing.T) {
+	tests := []struct {
+		inp string
+		exp interface{}
+	}{
+		{`10 SGN(5, 2)`, &object.Error{Message: syntaxErr + " in 10"}},
+		{`20 SGN("fred")`, &object.Error{Message: typeMismatchErr + " in 20"}},
+		{`30 SGN(5)`, &object.Integer{Value: 1}},
+		{`40 SGN(0)`, &object.Integer{Value: 0}},
+		{`50 SGN(-2)`, &object.Integer{Value: -1}},
+	}
+	for _, tt := range tests {
+		evald := testEval(tt.inp)
+
+		compareObjects(tt.inp, evald, tt.exp, t)
+	}
+}
+
+func TestSin(t *testing.T) {
+	tests := []struct {
+		inp string
+		exp interface{}
+	}{
+		{`10 SIN(5, 2)`, &object.Error{Message: syntaxErr + " in 10"}},
+		{`20 SIN("fred")`, &object.Error{Message: typeMismatchErr + " in 20"}},
+		{`30 SIN(5)`, &object.FloatSgl{Value: -0.9589243}},
+		{`40 SIN(0.5)`, &object.FloatSgl{Value: 0.479425550}},
+	}
+	for _, tt := range tests {
+		evald := testEval(tt.inp)
+
+		compareObjects(tt.inp, evald, tt.exp, t)
+	}
+}
+
+func TestSpaces(t *testing.T) {
+	tests := []struct {
+		inp string
+		exp interface{}
+	}{
+		{`10 SPACE$(5, 2)`, &object.Error{Message: syntaxErr + " in 10"}},
+		{`20 SPACE$("fred")`, &object.Error{Message: typeMismatchErr + " in 20"}},
+		{`30 SPACE$(-1)`, &object.Error{Message: illegalFuncCallErr + " in 30"}},
+		{`40 SPACE$(256)`, &object.Error{Message: illegalFuncCallErr + " in 40"}},
+		{`50 SPACE$(2)`, &object.String{Value: "  "}},
+		{`60 SPACE$(0)`, &object.String{Value: ""}},
+	}
+	for _, tt := range tests {
+		evald := testEval(tt.inp)
+
+		compareObjects(tt.inp, evald, tt.exp, t)
+	}
+}
+
+func TestSqr(t *testing.T) {
+	tests := []struct {
+		inp string
+		exp interface{}
+	}{
+		{`10 SQR(5, 2)`, &object.Error{Message: syntaxErr + " in 10"}},
+		{`20 SQR("fred")`, &object.Error{Message: typeMismatchErr + " in 20"}},
+		{`30 SQR(25)`, &object.FloatSgl{Value: 5}},
+		{`40 SQR(0.5)`, &object.FloatSgl{Value: 0.707106769}},
+	}
+	for _, tt := range tests {
+		evald := testEval(tt.inp)
+
+		compareObjects(tt.inp, evald, tt.exp, t)
+	}
+}
+
+func TestStrs(t *testing.T) {
+	tests := []struct {
+		inp string
+		exp interface{}
+	}{
+		{`10 STR$(5, 2)`, &object.Error{Message: syntaxErr + " in 10"}},
+		{`20 STR$("fred")`, &object.Error{Message: typeMismatchErr + " in 20"}},
+		{`30 STR$(-1)`, &object.String{Value: "-1"}},
+		{`40 STR$(256)`, &object.String{Value: "256"}},
+		{`50 STR$(2)`, &object.String{Value: "2"}},
+		{`60 STR$(1.5)`, &object.String{Value: "1.5"}},
+	}
+	for _, tt := range tests {
+		evald := testEval(tt.inp)
+
+		compareObjects(tt.inp, evald, tt.exp, t)
+	}
+}
+
+func TestStrings(t *testing.T) {
+	tests := []struct {
+		inp string
+		exp interface{}
+	}{
+		{`10 STRING$(5, 2, 3)`, &object.Error{Message: syntaxErr + " in 10"}},
+		{`20 STRING$("fred", 52)`, &object.Error{Message: typeMismatchErr + " in 20"}},
+		{`30 STRING$(-1, 52)`, &object.Error{Message: illegalFuncCallErr + " in 30"}},
+		{`40 STRING$(3, 256)`, &object.Error{Message: illegalFuncCallErr + " in 40"}},
+		{`50 STRING$(2, 50)`, &object.String{Value: "22"}},
+		{`60 STRING$(3, "34")`, &object.String{Value: "333"}},
+		{`70 STRING$(3, 0)`, &object.BStr{Value: []byte{0x00, 0x00, 0x00}}},
+	}
+	for _, tt := range tests {
+		evald := testEval(tt.inp)
+
+		compareObjects(tt.inp, evald, tt.exp, t)
+	}
+}
+
+func TestTan(t *testing.T) {
+	tests := []struct {
+		inp string
+		exp interface{}
+	}{
+		{`10 TAN(5, 2)`, &object.Error{Message: syntaxErr + " in 10"}},
+		{`20 TAN("fred")`, &object.Error{Message: typeMismatchErr + " in 20"}},
+		{`30 TAN(5)`, &object.FloatSgl{Value: -3.380515099}},
+		{`40 TAN(0.5)`, &object.FloatSgl{Value: 0.546302497}},
+	}
+	for _, tt := range tests {
+		evald := testEval(tt.inp)
+
+		compareObjects(tt.inp, evald, tt.exp, t)
+	}
+}
+
+func TestVal(t *testing.T) {
+	tests := []struct {
+		inp string
+		exp interface{}
+	}{
+		{`10 VAL("5", "2")`, &object.Error{Message: syntaxErr + " in 10"}},
+		{`20 VAL("fred")`, &object.FloatSgl{Value: 0}},
+		{`30 VAL("5")`, &object.FloatSgl{Value: 5}},
+		{`40 VAL("0.5")`, &object.FloatSgl{Value: 0.5}},
+		{`50 VAL(5)`, &object.Error{Message: typeMismatchErr + " in 50"}},
+	}
+	for _, tt := range tests {
+		evald := testEval(tt.inp)
+
+		compareObjects(tt.inp, evald, tt.exp, t)
+	}
+}
