@@ -212,14 +212,6 @@ func (l *Lexer) chgType(curTok token.TokenType, ifTok token.TokenType, newTok to
 	return true, curTok
 }
 
-func (l *Lexer) readHexConstant() int {
-	return 0
-}
-
-func (l *Lexer) readOctalConstant() int {
-	return 0
-}
-
 //peekChar - take a look at, but don't consume the next character
 func (l *Lexer) peekChar() byte {
 	if l.readPosition >= len(l.input) {

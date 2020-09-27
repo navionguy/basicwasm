@@ -37,6 +37,9 @@ func Eval(node ast.Node, code *ast.Code, env *object.Environment) object.Object 
 	case *ast.GroupedExpression:
 		return Eval(node.Exp, code, env)
 
+	case *ast.HexConstant:
+		return evalHexConstant(node, code, env)
+
 	case *ast.LetStatement:
 		val := Eval(node.Value, code, env)
 		if isError(val) {
@@ -67,6 +70,9 @@ func Eval(node ast.Node, code *ast.Code, env *object.Environment) object.Object 
 	case *ast.EndStatement:
 		code.Jump(code.Len())
 		return &object.Integer{Value: 0}
+
+	case *ast.OctalConstant:
+		return evalOctalConstant(node, code, env)
 
 	case *ast.PrintStatement:
 		evalPrintStatement(node, code, env)
@@ -318,6 +324,20 @@ func evalGotoStatement(jmp string, code *ast.Code, env *object.Environment) obje
 	return &object.Integer{Value: int16(v)}
 }
 
+func evalHexConstant(stmt *ast.HexConstant, code *ast.Code, env *object.Environment) object.Object {
+	dst, err := strconv.ParseInt(stmt.Value, 16, 16)
+
+	if err != nil {
+		st := err.Error()
+		if strings.Contains(st, "value out of range") {
+			return newError(env, overflowErr)
+		}
+		return newError(env, syntaxErr)
+	}
+
+	return &object.Integer{Value: int16(dst)}
+}
+
 func evalListStatement(code *ast.Code, stmt *ast.ListStatement, env *object.Environment) {
 	var out bytes.Buffer
 	cd := env.Program.StatementIter()
@@ -368,6 +388,21 @@ func evalListStatement(code *ast.Code, stmt *ast.ListStatement, env *object.Envi
 		bMore = cd.Next()
 	}
 	env.Terminal().Println(out.String())
+}
+
+func evalOctalConstant(stmt *ast.OctalConstant, code *ast.Code, env *object.Environment) object.Object {
+
+	dst, err := strconv.ParseInt(stmt.Value, 8, 16)
+
+	if err != nil {
+		st := err.Error()
+		if strings.Contains(st, "value out of range") {
+			return newError(env, overflowErr)
+		}
+		return newError(env, syntaxErr)
+	}
+
+	return &object.Integer{Value: int16(dst)}
 }
 
 func evalPrintStatement(node *ast.PrintStatement, code *ast.Code, env *object.Environment) {

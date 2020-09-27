@@ -434,6 +434,40 @@ func TestFunctionApplication(t *testing.T) {
 	}
 }
 
+func TestHexOctalConstants(t *testing.T) {
+	tests := []struct {
+		inp string
+		exp interface{}
+	}{
+		{`10 &H7F`, int16(127)},
+		{`20 &HG7F`, "Syntax error in 20"},
+		{`30 &H7FFFFF`, "Overflow in 30"},
+		{`40 &O7`, int16(7)},
+		{`50 &O77`, int16(63)},
+		{`60 &O77777`, int16(32767)},
+		{`70 &O777777`, "Overflow in 70"},
+		{`80 &77777`, int16(32767)},
+		{`90 &O78777`, "Syntax error in 90"},
+	}
+
+	for _, tt := range tests {
+		evald := testEval(tt.inp)
+		switch expected := tt.exp.(type) {
+		case int16:
+			testIntegerObject(t, evald, expected)
+		case string:
+			errObj, ok := evald.(*object.Error)
+			if !ok {
+				t.Errorf("unexepected result, go %t (%+v)", evald, evald)
+				continue
+			}
+			if errObj.Message != expected {
+				t.Errorf("wrong error message!  expected %q, got %q", expected, errObj.Message)
+			}
+		}
+	}
+}
+
 func TestTronTroffCommands(t *testing.T) {
 	tests := []struct {
 		inp string

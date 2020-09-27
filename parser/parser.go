@@ -82,6 +82,7 @@ func New(l *lexer.Lexer) *Parser {
 	p.registerPrefix(token.DEF, p.parseFunctionLiteral)
 	p.registerPrefix(token.FLOAT, p.parseFloatingPointLiteral)
 	p.registerPrefix(token.FIXED, p.parseFixedPointLiteral)
+	p.registerPrefix(token.AMPERSAND, p.parseHexOctalConstant)
 
 	// and infix elements
 	p.infixParseFns = make(map[token.TokenType]infixParseFn)
@@ -308,6 +309,70 @@ func (p *Parser) parseIntegerLiteral() ast.Expression {
 	}
 
 	lit.Value = int16(value)
+	return lit
+}
+
+func (p *Parser) parseHexOctalConstant() ast.Expression {
+	defer untrace(trace("parseHexOctalConstant"))
+
+	if p.peekTokenIs(token.IDENT) && (strings.Compare(p.peekToken.Literal[0:1], "H") == 0) {
+		return p.parseHexConstant()
+	}
+
+	if !p.peekTokenIs(token.INT) && !p.peekTokenIs(token.IDENT) {
+		return nil
+	}
+
+	return p.parseOctalConstant()
+}
+
+func (p *Parser) parseOctalConstant() ast.Expression {
+	tk := token.Token{Type: token.OCTAL, Literal: "&"}
+	lit := &ast.OctalConstant{Token: tk}
+	p.nextToken()
+
+	if p.curTokenIs(token.IDENT) {
+		if strings.Compare(p.curToken.Literal, "O") != 0 {
+			msg := fmt.Sprintf("could not parse %q as octal prefix line %d", p.curToken.Literal, p.curLine)
+			p.errors = append(p.errors, msg)
+			return nil
+		}
+		lit.Token = token.Token{Type: token.OCTAL, Literal: "&O"}
+		p.nextToken()
+	}
+
+	if !p.curTokenIs(token.INT) {
+		msg := fmt.Sprintf("could not parse %q as octal value line %d", p.curToken.Literal, p.curLine)
+		p.errors = append(p.errors, msg)
+		return nil
+	}
+
+	lit.Value = p.curToken.Literal
+
+	return lit
+}
+
+func (p *Parser) parseHexConstant() ast.Expression {
+	tk := token.Token{Type: token.HEX, Literal: "&H"}
+	lit := &ast.HexConstant{Token: tk}
+
+	// there may be hex A-F stuck to the H
+	p.nextToken()
+
+	val := ""
+	if len(p.curToken.Literal) > 1 {
+		val += p.curToken.Literal[1:]
+	}
+
+	// scoop up all letters and numbers
+	// we'll figure out if they are valid later
+	for p.peekTokenIs(token.IDENT) || p.peekTokenIs(token.INT) {
+		p.nextToken()
+		val += p.curToken.Literal
+	}
+
+	lit.Value = val
+
 	return lit
 }
 

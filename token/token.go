@@ -56,11 +56,15 @@ const (
 	LBRACKET = "["
 	RBRACKET = "]"
 
+	HEX   = "&H"
+	OCTAL = "&O"
+
 	// Keywords
 	AUTO   = "AUTO"
 	CLS    = "CLS"
 	CLEAR  = "CLEAR"
 	COMMON = "COMMON"
+	DATA   = "DATA"
 	DEF    = "DEF"
 	DIM    = "DIM"
 	ELSE   = "ELSE"
@@ -93,6 +97,7 @@ var keywords = map[string]TokenType{
 	"auto":   AUTO,
 	"clear":  CLEAR,
 	"cls":    CLS,
+	"data":   DATA,
 	"def":    DEF,
 	"dim":    DIM,
 	"else":   ELSE,

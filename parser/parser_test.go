@@ -539,6 +539,49 @@ func TestIntegerLiteralExpression(t *testing.T) {
 	}
 }
 
+func TestHexOctalConstants(t *testing.T) {
+	tests := []struct {
+		inp string
+		lit interface{}
+	}{
+		{"10 &HF76F", &ast.HexConstant{Value: "F76F"}},
+		{"20 &HF7F6F", &ast.HexConstant{Value: "F7F6F"}},
+		{"30 &767", &ast.OctalConstant{Value: "767"}},
+		{"30 &O767", &ast.OctalConstant{Value: "767"}},
+		{"40 &F767", nil},
+		{"30 &O F767", nil},
+	}
+
+	for _, tt := range tests {
+		l := lexer.New(tt.inp)
+		p := New(l)
+		env := &object.Environment{}
+		p.ParseProgram(env)
+		program := env.Program
+
+		if tt.lit == nil {
+			if len(p.errors) != 1 {
+				t.Fatalf("%s passed and it shouldn't", tt.inp)
+			}
+		} else {
+			checkParserErrors(t, p)
+			if program.StatementIter().Len() != 2 {
+				t.Fatalf("program has not enough statements. got=%d", program.StatementIter().Len())
+			}
+
+			iter := program.StatementIter()
+			iter.Next()
+			step := iter.Value()
+			stmt, ok := step.(*ast.ExpressionStatement)
+			if !ok {
+				t.Fatalf("program.Statements[1] is not ast.ExpressionStatement. got=%T", step)
+			}
+
+			compareStatements(tt.inp, tt.lit, stmt, t)
+		}
+	}
+}
+
 type parseFunc func(*Parser) ast.Expression
 
 func TestNumericConversion(t *testing.T) {

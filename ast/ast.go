@@ -490,6 +490,45 @@ func (fd *FloatDoubleLiteral) TokenLiteral() string { return fd.Token.Literal }
 // String returns value as an integer
 func (fd *FloatDoubleLiteral) String() string { return fd.Token.Literal }
 
+// HexConstant holds values in the from &H76 &H32F
+type HexConstant struct {
+	Token token.Token
+	Value string
+}
+
+func (hc *HexConstant) expressionNode() {}
+
+// TokenLiteral returns my literal
+func (hc *HexConstant) TokenLiteral() string { return hc.Token.Literal }
+
+// String returns literal as a string
+func (hc *HexConstant) String() string {
+	var out bytes.Buffer
+
+	out.WriteString(hc.Token.Literal)
+	out.WriteString(hc.Value)
+	return out.String()
+}
+
+type OctalConstant struct {
+	Token token.Token
+	Value string
+}
+
+func (oc *OctalConstant) expressionNode() {}
+
+// TokenLiteral throws back my literal
+func (oc *OctalConstant) TokenLiteral() string { return oc.Token.Literal }
+
+// String gives printable version of me
+func (oc *OctalConstant) String() string {
+	var out bytes.Buffer
+
+	out.WriteString(oc.Token.Literal)
+	out.WriteString(oc.Value)
+	return out.String()
+}
+
 // StringLiteral holds an StringLiteral eg. "Hello World"
 type StringLiteral struct {
 	Token token.Token
