@@ -25,6 +25,9 @@ func Eval(node ast.Node, code *ast.Code, env *object.Environment) object.Object 
 	case *ast.ClsStatement:
 		evalClsStatement(node, code, env)
 
+	case *ast.DataStatement:
+		return nil
+
 	case *ast.DimStatement:
 		evalDimStatement(node, code, env)
 
@@ -46,8 +49,8 @@ func Eval(node ast.Node, code *ast.Code, env *object.Environment) object.Object 
 			return val
 		}
 		// life gets more complicated, not less
-		if !strings.ContainsAny(node.Name.String(), "[$%!#") {
-			env.Set(node.Name.String(), val)
+		if !strings.ContainsAny(node.Name.Token.Literal, "[$%!#") {
+			env.Set(node.Name.Token.Literal, val)
 			break
 		}
 		return saveVariable(code, env, node.Name, val)
@@ -719,6 +722,7 @@ func evalArrayIndexExpression(array, index, newVal object.Object, env *object.En
 	arrayObject := array.(*object.Array)
 	idx := index.(*object.Integer).Value
 	max := int16(len(arrayObject.Elements) - 1)
+
 	if idx < 0 || idx > max {
 		return newError(env, "Subscript out of range")
 	}
@@ -734,7 +738,7 @@ func evalArrayIndexExpression(array, index, newVal object.Object, env *object.En
 }
 
 func saveVariable(code *ast.Code, env *object.Environment, name *ast.Identifier, val object.Object) object.Object {
-	sname := name.String()
+	sname := name.Token.Literal
 	cv, ok := env.Get(sname)
 
 	if !ok {
@@ -785,7 +789,7 @@ func saveNewVariable(code *ast.Code, env *object.Environment, name *ast.Identifi
 
 		if 10 > indValue.Value {
 			arr.Elements[indValue.Value] = val
-			env.Set(sname, arr)
+			env.Set(name.Token.Literal, arr)
 			return arr
 		}
 
@@ -794,8 +798,34 @@ func saveNewVariable(code *ast.Code, env *object.Environment, name *ast.Identifi
 
 	// just a typed variable
 	tv := &object.TypedVar{Value: val, TypeID: typeid}
-	env.Set(sname, tv)
+	env.Set(name.Token.Literal, tv)
 	return tv
+}
+
+func initVal(val object.Object) object.Object {
+	switch iv := val.(type) {
+	case *object.Integer:
+		iv.Value = 0
+		return iv
+	case *object.IntDbl:
+		iv.Value = 0
+		return iv
+	case *object.Fixed:
+		deci := decimal.NewFromInt32(0)
+		iv.Value = deci
+		return iv
+	case *object.FloatSgl:
+		iv.Value = 0
+		return iv
+	case *object.FloatDbl:
+		iv.Value = 0
+		return iv
+	case *object.String:
+		iv.Value = ""
+		return iv
+	default:
+		return val
+	}
 }
 
 func coerceIndex(idx object.Object) int16 {
@@ -852,25 +882,18 @@ func checkTypes(typeid string, val object.Object) bool {
 }
 
 func parseVarName(name string) (string, bool) {
-	l := len(name) - 1
-	isarray := false
-	typeid := ""
+	parts := strings.Split(name, "[")
 
-	// check if name is an array
-	if name[l] == ']' {
+	isarray := false
+	if len(parts) > 1 {
 		isarray = true
-		l = l - 2
 	}
 
-	switch name[l] {
-	case '$':
-		typeid = "$"
-	case '%':
-		typeid = "%"
-	case '#':
-		typeid = "#"
-	case '!':
-		typeid = "!"
+	base := parts[0]
+	typeid := base[len(base)-1:]
+
+	if !strings.ContainsAny(typeid, "$%#!") {
+		return "", isarray
 	}
 
 	return typeid, isarray

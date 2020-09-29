@@ -78,6 +78,7 @@ const (
 	LOCATE = "LOCATE"
 	MOD    = "MOD"
 	PRINT  = "PRINT"
+	READ   = "READ"
 	REM    = "REM"
 	RETURN = "RETURN"
 	RUN    = "RUN"
@@ -111,6 +112,7 @@ var keywords = map[string]TokenType{
 	"locate": LOCATE,
 	"mod":    MOD,
 	"print":  PRINT,
+	"read":   READ,
 	"rem":    REM,
 	"return": RETURN,
 	"run":    RUN,

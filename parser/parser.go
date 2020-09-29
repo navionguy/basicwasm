@@ -181,6 +181,8 @@ func (p *Parser) parseStatement() ast.Statement {
 		return p.parseAutoCommand()
 	case token.CLS:
 		return p.parseClsStatement()
+	case token.DATA:
+		return p.parseDataStatement()
 	case token.END:
 		return p.parseEndStatement()
 	case token.EOL:
@@ -292,6 +294,66 @@ func (p *Parser) parseClsStatement() *ast.ClsStatement {
 	p.nextToken()
 
 	return stmt
+}
+
+func (p *Parser) parseDataStatement() *ast.DataStatement {
+	stmt := &ast.DataStatement{Token: p.curToken}
+
+	p.l.PassOn()
+	elem := ""
+	for !p.peekTokenIs(token.LINENUM) && !p.peekTokenIs(token.EOF) && !p.peekTokenIs(token.EOL) && !p.peekTokenIs(token.COLON) {
+		p.nextToken()
+
+		if p.curTokenIs(token.COMMA) || p.curTokenIs(token.COLON) {
+			stmt.Consts = append(stmt.Consts, p.parseDataElement(strings.Trim(elem, " ")))
+			elem = ""
+		} else {
+			elem = elem + p.curToken.Literal
+		}
+	}
+
+	stmt.Consts = append(stmt.Consts, p.parseDataElement(strings.Trim(elem, " ")))
+
+	p.l.PassOff()
+	if p.peekTokenIs(token.COLON) {
+		p.nextToken()
+	}
+
+	return stmt
+}
+
+func (p *Parser) parseDataElement(elem string) ast.Expression {
+	l := lexer.New(elem)
+	ip := New(l)
+	ip.nextToken()
+	stmt := ip.parseStatement()
+
+	if len(ip.errors) != 0 {
+		p.errors = append(p.errors, ip.errors...)
+		return nil
+	}
+
+	ln, ok := stmt.(*ast.LineNumStmt)
+
+	if ok {
+		tk := token.Token{Type: token.INT, Literal: "INT"}
+		return &ast.IntegerLiteral{Token: tk, Value: int16(ln.Value)}
+	}
+
+	exp, ok := stmt.(*ast.ExpressionStatement)
+
+	if !ok {
+		return nil
+	}
+
+	if exp.Token.Type == token.IDENT {
+		// if it parsed to an identifier, it's actually a string
+		// and ignore the parser flipping it to all caps
+		tk := token.Token{Type: token.STRING, Literal: "STRING"}
+		return &ast.StringLiteral{Token: tk, Value: elem}
+	}
+
+	return exp.Expression
 }
 
 func (p *Parser) parseIntegerLiteral() ast.Expression {
@@ -642,12 +704,14 @@ func (p *Parser) parseGosubStatement() *ast.GosubStatement {
 
 // not a hard one to parse
 func (p *Parser) parseRemStatement() *ast.RemStatement {
-	stmt := &ast.RemStatement{Token: p.curToken, Comment: strings.ToUpper(p.curToken.Literal)}
+	stmt := &ast.RemStatement{Token: p.curToken, Comment: strings.ToUpper(p.curToken.Literal) + " "}
 
+	p.l.PassOn()
 	for !p.peekTokenIs(token.LINENUM) && !p.peekTokenIs(token.EOF) && !p.peekTokenIs(token.EOL) {
 		p.nextToken()
-		stmt.Comment += " " + p.curToken.Literal
+		stmt.Comment += p.curToken.Literal
 	}
+	p.l.PassOff()
 	return stmt
 }
 

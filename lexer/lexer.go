@@ -10,15 +10,27 @@ type Lexer struct {
 	position     int  // current position in input (points to current char)
 	readPosition int  // current reading position in input (after current char)
 	ch           byte // current char under examination
+	passWhite    bool // do I let whitespace through to parser
 }
 
 //New create a new lexer object
 func New(input string) *Lexer {
 	l := &Lexer{
-		input:    input,
-		position: -1,
+		input:     input,
+		position:  -1,
+		passWhite: false,
 	}
 	return l
+}
+
+// PassOn starts whitespace going up to the parser
+func (l *Lexer) PassOn() {
+	l.passWhite = true
+}
+
+// PassOff turns off whitespace to the parser
+func (l *Lexer) PassOff() {
+	l.passWhite = false
 }
 
 //NextToken scans for the next token
@@ -32,7 +44,9 @@ func (l *Lexer) NextToken() token.Token {
 		return newToken(token.EOL, '\n')
 	}
 
-	l.skipWhitespace()
+	if !l.passWhite {
+		l.skipWhitespace()
+	}
 
 	switch l.ch {
 	// Type tokens

@@ -291,13 +291,32 @@ type Identifier struct {
 }
 
 func (i *Identifier) expressionNode() {}
-func (i *Identifier) String() string  { return i.Value }
+func (i *Identifier) String() string {
+	var out bytes.Buffer
+
+	if i.Array {
+		out.WriteString(i.Value[:len(i.Value)-1])
+		for x, ind := range i.Index {
+			out.WriteString(ind.String())
+
+			if x+1 < len(i.Index) {
+				out.WriteString(",")
+			}
+		}
+		out.WriteString("]")
+	} else {
+		out.WriteString(i.Value)
+	}
+
+	return out.String()
+}
 
 // TokenLiteral returns literal value of the identifier
 func (i *Identifier) TokenLiteral() string {
 	return strings.ToUpper(i.Token.Literal)
 }
 
+// FunctionLiteral starts the definition of a user function
 type FunctionLiteral struct {
 	Token      token.Token // The 'DEF' token
 	Parameters []*Identifier
@@ -396,6 +415,34 @@ func (es *ExpressionStatement) String() string {
 	return ""
 }
 
+// DataStatement how basic did constants
+type DataStatement struct {
+	Token  token.Token // token.DATA
+	Consts []Expression
+}
+
+func (ds *DataStatement) statementNode() {}
+
+// String sends my contents
+func (ds *DataStatement) String() string {
+	var out bytes.Buffer
+
+	out.WriteString(ds.Token.Literal)
+	out.WriteString(" ")
+	for _, c := range ds.Consts {
+		out.WriteString(c.String())
+		out.WriteString(", ")
+	}
+
+	return out.String()
+}
+
+// TokenLiteral returns my token
+func (ds *DataStatement) TokenLiteral() string {
+
+	return ds.Token.Literal
+}
+
 // DimStatement holds the dimension data for an Identifier
 type DimStatement struct {
 	Token token.Token // token.DIM
@@ -403,8 +450,24 @@ type DimStatement struct {
 }
 
 func (ds *DimStatement) statementNode() {}
-func (ds *DimStatement) String() string { return ds.Token.Literal }
 
+// String displays the statment
+func (ds *DimStatement) String() string {
+	var out bytes.Buffer
+
+	params := []string{}
+	for _, v := range ds.Vars {
+		params = append(params, v.String())
+	}
+
+	out.WriteString("DIM ")
+	out.WriteString(strings.Join(params, ", "))
+
+	tmp := out.String()
+	return tmp
+}
+
+// TokenLiteral displays the full Dim statement
 func (ds *DimStatement) TokenLiteral() string {
 	var out bytes.Buffer
 
@@ -510,6 +573,7 @@ func (hc *HexConstant) String() string {
 	return out.String()
 }
 
+// OctalConstant has two form &37 or &O37
 type OctalConstant struct {
 	Token token.Token
 	Value string
@@ -544,7 +608,7 @@ func (il *StringLiteral) TokenLiteral() string { return il.Token.Literal }
 func (il *StringLiteral) String() string {
 	var out bytes.Buffer
 	out.WriteString("\"")
-	out.WriteString(il.Token.Literal)
+	out.WriteString(il.Value)
 	out.WriteString("\"")
 	return out.String()
 }
@@ -559,11 +623,7 @@ func (ie *IndexExpression) expressionNode()      {}
 func (ie *IndexExpression) TokenLiteral() string { return strings.ToUpper(ie.Token.Literal) }
 func (ie *IndexExpression) String() string {
 	var out bytes.Buffer
-	out.WriteString("(")
-	out.WriteString(ie.Left.String())
-	out.WriteString("[")
-	//out.WriteString(ie.Index.String())
-	out.WriteString("])")
+	out.WriteString(ie.Index.String())
 	return out.String()
 }
 

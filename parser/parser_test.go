@@ -7,6 +7,7 @@ import (
 	"testing"
 
 	"github.com/navionguy/basicwasm/ast"
+	"github.com/navionguy/basicwasm/decimal"
 	"github.com/navionguy/basicwasm/lexer"
 	"github.com/navionguy/basicwasm/object"
 	"github.com/navionguy/basicwasm/token"
@@ -308,6 +309,85 @@ func checkParserErrors(t *testing.T, p *Parser) {
 	t.FailNow()
 }
 
+func TestDataStatement(t *testing.T) {
+	tkInt := token.Token{Type: token.INT, Literal: "INT"}
+	tkFixed := token.Token{Type: token.FIXED, Literal: "123.45"}
+	tkString := token.Token{Type: token.STRING, Literal: "STRING"}
+	tkFloatS := token.Token{Type: token.FLOAT, Literal: "3.14159E+0"}
+	tkFloatD := token.Token{Type: token.FLOAT, Literal: "3.14159D+0"}
+
+	fixed, _ := decimal.NewFromString("123.45")
+
+	tests := []struct {
+		inp     string           // source line
+		stmtNum int              // # of statements expected
+		lineNum int32            // line number
+		cnt     int              // number of expressions expected
+		exp     []ast.Expression // expected values
+	}{
+		{`10 DATA "Fred", George Foreman`, 2, 10, 2, []ast.Expression{
+			&ast.StringLiteral{Token: tkString, Value: "Fred"},
+			&ast.StringLiteral{Token: tkString, Value: "George Foreman"},
+		}},
+		{`20 DATA 123, 123.45, "Fred"`, 2, 20, 3, []ast.Expression{
+			&ast.IntegerLiteral{Token: tkInt, Value: 123},
+			&ast.FixedLiteral{Token: tkFixed, Value: fixed},
+			&ast.StringLiteral{Token: tkString, Value: "Fred"},
+		},
+		},
+		{`30 DATA "Fred", George : PRINT`, 3, 30, 2, []ast.Expression{
+			&ast.StringLiteral{Token: tkString, Value: "Fred"},
+			&ast.StringLiteral{Token: tkString, Value: "George"},
+		}},
+		{`40 DATA 3.14159E+0, 3.14159D+0`, 2, 40, 2, []ast.Expression{
+			&ast.FloatSingleLiteral{Token: tkFloatS, Value: 3.14159},
+			&ast.FloatDoubleLiteral{Token: tkFloatD, Value: 3.14159},
+		},
+		},
+	}
+
+	for _, tt := range tests {
+		l := lexer.New(tt.inp)
+		p := New(l)
+		env := &object.Environment{}
+		p.ParseProgram(env)
+		program := env.Program
+		checkParserErrors(t, p)
+		iter := program.StatementIter()
+		if iter.Len() != tt.stmtNum {
+			t.Fatalf("expected %d statements, got %d", tt.stmtNum, iter.Len())
+		}
+		stmt := iter.Value()
+
+		lm, ok := stmt.(*ast.LineNumStmt)
+
+		if !ok {
+			t.Fatalf("no line number, expected %d", tt.lineNum)
+		}
+
+		if lm.Value != tt.lineNum {
+			t.Fatalf("expected line %d, got %d", tt.lineNum, lm.Value)
+		}
+
+		iter.Next()
+		stmt = iter.Value()
+
+		dstmt, ok := stmt.(*ast.DataStatement)
+
+		if !ok {
+			t.Fatalf("unexpected this is")
+		}
+
+		if len(dstmt.Consts) != tt.cnt {
+			t.Fatalf("expected %d contants, got %d!", len(dstmt.Consts), tt.cnt)
+		}
+
+		for i, want := range tt.exp {
+			compareStatements(tt.inp, dstmt.Consts[i], want, t)
+		}
+	}
+}
+
 func TestDimStatement(t *testing.T) {
 	type dimensions struct {
 		id   string
@@ -356,6 +436,8 @@ func TestDimStatement(t *testing.T) {
 		if !ok {
 			t.Fatalf("unexpected this is")
 		}
+
+		dstmt.String()
 
 		if int8(len(dstmt.Vars)) != tt.numIDs {
 			t.Fatalf("expected %d dimensioned variables, got %d on %s", tt.numIDs, len(dstmt.Vars), tt.input)
@@ -1412,6 +1494,48 @@ func compareStatements(inp string, got interface{}, want interface{}, t *testing
 		if gotInt.Token.Literal != wantVal.Token.Literal {
 			t.Fatalf("unexpected token from %s, got %s, expected %s", inp, gotInt.Token.Literal, wantVal.Token.Literal)
 		}
+	case *ast.FixedLiteral:
+		gotFixed, ok := got.(*ast.FixedLiteral)
+
+		if !ok {
+			t.Fatalf("got incorrect statement from %s, got %T, wanted %T", inp, got, want)
+		}
+
+		if gotFixed.Value != wantVal.Value {
+			t.Fatalf("bad value from %s, got %d, wanted %d", inp, gotFixed.Value, wantVal.Value)
+		}
+
+		if gotFixed.Token.Literal != wantVal.Token.Literal {
+			t.Fatalf("unexpected token from %s, got %s, expected %s", inp, gotFixed.Token.Literal, wantVal.Token.Literal)
+		}
+	case *ast.FloatSingleLiteral:
+		gotFloat, ok := got.(*ast.FloatSingleLiteral)
+
+		if !ok {
+			t.Fatalf("got incorrect statement from %s, got %T, wanted %T", inp, got, want)
+		}
+
+		if gotFloat.Value != wantVal.Value {
+			t.Fatalf("bad value from %s, got %f, wanted %f", inp, gotFloat.Value, wantVal.Value)
+		}
+
+		if gotFloat.Token.Literal != wantVal.Token.Literal {
+			t.Fatalf("unexpected token from %s, got %s, expected %s", inp, gotFloat.Token.Literal, wantVal.Token.Literal)
+		}
+	case *ast.FloatDoubleLiteral:
+		gotFloat, ok := got.(*ast.FloatDoubleLiteral)
+
+		if !ok {
+			t.Fatalf("got incorrect statement from %s, got %T, wanted %T", inp, got, want)
+		}
+
+		if gotFloat.Value != wantVal.Value {
+			t.Fatalf("bad value from %s, got %f, wanted %f", inp, gotFloat.Value, wantVal.Value)
+		}
+
+		if gotFloat.Token.Literal != wantVal.Token.Literal {
+			t.Fatalf("unexpected token from %s, got %s, expected %s", inp, gotFloat.Token.Literal, wantVal.Token.Literal)
+		}
 	case *ast.DblIntegerLiteral:
 		gotInt, ok := got.(*ast.DblIntegerLiteral)
 
@@ -1425,6 +1549,16 @@ func compareStatements(inp string, got interface{}, want interface{}, t *testing
 
 		if gotInt.Token.Literal != wantVal.Token.Literal {
 			t.Fatalf("unexpected token from %s, got %s, expected %s", inp, gotInt.Token.Literal, wantVal.Token.Literal)
+		}
+	case *ast.StringLiteral:
+		gotString, ok := got.(*ast.StringLiteral)
+
+		if !ok {
+			t.Fatalf("got incorrect statement from %s, got %T, wanted %T", inp, got, want)
+		}
+
+		if gotString.Value != wantVal.Value {
+			t.Fatalf("bad value from %s, got %s, wanted %s", inp, gotString.Value, wantVal.Value)
 		}
 	}
 }
