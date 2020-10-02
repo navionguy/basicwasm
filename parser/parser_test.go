@@ -315,6 +315,7 @@ func TestDataStatement(t *testing.T) {
 	tkString := token.Token{Type: token.STRING, Literal: "STRING"}
 	tkFloatS := token.Token{Type: token.FLOAT, Literal: "3.14159E+0"}
 	tkFloatD := token.Token{Type: token.FLOAT, Literal: "3.14159D+0"}
+	tkDblInt := token.Token{Type: token.INTD, Literal: "INTD"}
 
 	fixed, _ := decimal.NewFromString("123.45")
 
@@ -329,10 +330,11 @@ func TestDataStatement(t *testing.T) {
 			&ast.StringLiteral{Token: tkString, Value: "Fred"},
 			&ast.StringLiteral{Token: tkString, Value: "George Foreman"},
 		}},
-		{`20 DATA 123, 123.45, "Fred"`, 2, 20, 3, []ast.Expression{
+		{`20 DATA 123, 123.45, "Fred", 99999`, 2, 20, 4, []ast.Expression{
 			&ast.IntegerLiteral{Token: tkInt, Value: 123},
 			&ast.FixedLiteral{Token: tkFixed, Value: fixed},
 			&ast.StringLiteral{Token: tkString, Value: "Fred"},
+			&ast.DblIntegerLiteral{Token: tkDblInt, Value: 99999},
 		},
 		},
 		{`30 DATA "Fred", George : PRINT`, 3, 30, 2, []ast.Expression{
@@ -379,7 +381,7 @@ func TestDataStatement(t *testing.T) {
 		}
 
 		if len(dstmt.Consts) != tt.cnt {
-			t.Fatalf("expected %d contants, got %d!", len(dstmt.Consts), tt.cnt)
+			t.Fatalf("expected %d constants, got %d!", tt.cnt, len(dstmt.Consts))
 		}
 
 		for i, want := range tt.exp {
@@ -494,6 +496,72 @@ func TestIdentifierExpression(t *testing.T) {
 	}
 }
 
+func TestReadStatement(t *testing.T) {
+	tkAs := token.Token{Type: token.IDENT, Literal: "A$"}
+	tkBs := token.Token{Type: token.IDENT, Literal: "B$"}
+
+	tests := []struct {
+		inp     string
+		stmtNum int              // expected count of statments
+		lineNum int32            // line number
+		vars    int              // number of expressions expected
+		exp     []ast.Expression // expected values
+	}{
+		{`10 READ A$`, 2, 10, 1, []ast.Expression{
+			&ast.Identifier{Token: tkAs, Value: "A$", Type: "$"},
+		}},
+		{`20 READ A$, B$`, 2, 20, 2, []ast.Expression{
+			&ast.Identifier{Token: tkAs, Value: "A$", Type: "$"},
+			&ast.Identifier{Token: tkBs, Value: "B$", Type: "$"},
+		}},
+		{`30 READ A$, B$ : PRINT "Hello"`, 3, 30, 2, []ast.Expression{
+			&ast.Identifier{Token: tkAs, Value: "A$", Type: "$"},
+			&ast.Identifier{Token: tkBs, Value: "B$", Type: "$"},
+		}},
+	}
+
+	for _, tt := range tests {
+		l := lexer.New(tt.inp)
+		p := New(l)
+		env := &object.Environment{}
+		p.ParseProgram(env)
+		program := env.Program
+		checkParserErrors(t, p)
+		iter := program.StatementIter()
+		if iter.Len() != tt.stmtNum {
+			t.Fatalf("expected %d statements, got %d", tt.stmtNum, iter.Len())
+		}
+		stmt := iter.Value()
+
+		lm, ok := stmt.(*ast.LineNumStmt)
+
+		if !ok {
+			t.Fatalf("no line number, expected %d", tt.lineNum)
+		}
+
+		if lm.Value != tt.lineNum {
+			t.Fatalf("expected line %d, got %d", tt.lineNum, lm.Value)
+		}
+
+		iter.Next()
+		stmt = iter.Value()
+
+		rstmt, ok := stmt.(*ast.ReadStatement)
+
+		if !ok {
+			t.Fatalf("unexpected this is")
+		}
+
+		if len(rstmt.Vars) != tt.vars {
+			t.Fatalf("expected %d contants, got %d!", tt.vars, len(rstmt.Vars))
+		}
+
+		/*for i, want := range tt.exp {
+			compareStatements(tt.inp, rstmt.[i], want, t)
+		}*/
+	}
+}
+
 func TestRemStatement(t *testing.T) {
 	tests := []struct {
 		inp string
@@ -519,6 +587,42 @@ func TestRemStatement(t *testing.T) {
 
 		if strings.Compare(stmt.String(), tt.res) != 0 {
 			t.Fatalf("REM stmt expected %s, got %s", tt.res, stmt.String())
+		}
+	}
+}
+
+func TestRestore(t *testing.T) {
+	rsTk := token.Token{Type: token.RESTORE, Literal: "RESTORE"}
+
+	tests := []struct {
+		inp string
+		exp interface{}
+	}{
+		{`10 RESTORE`, &ast.RestoreStatement{Token: rsTk, Line: -1}},
+		{`20 RESTORE 300`, &ast.RestoreStatement{Token: rsTk, Line: 300}},
+		{`30 RESTORE X`, nil},
+	}
+
+	for _, tt := range tests {
+		l := lexer.New(tt.inp)
+		p := New(l)
+		env := &object.Environment{}
+		p.ParseProgram(env)
+		program := env.Program
+		if tt.exp != nil {
+			checkParserErrors(t, p)
+		} else {
+			if len(p.errors) == 0 {
+				t.Fatalf("%s parsed but should have failed!", tt.inp)
+			}
+		}
+
+		itr := program.StatementIter()
+		itr.Next()
+		stmt := itr.Value()
+
+		if tt.exp != nil {
+			compareStatements(tt.inp, stmt, tt.exp, t)
 		}
 	}
 }
@@ -1559,6 +1663,16 @@ func compareStatements(inp string, got interface{}, want interface{}, t *testing
 
 		if gotString.Value != wantVal.Value {
 			t.Fatalf("bad value from %s, got %s, wanted %s", inp, gotString.Value, wantVal.Value)
+		}
+	case *ast.RestoreStatement:
+		gotRestore, ok := got.(*ast.RestoreStatement)
+
+		if !ok {
+			t.Fatalf("got incorrect statement from %s, got %T, wanted %T", inp, got, want)
+		}
+
+		if gotRestore.Line != wantVal.Line {
+			t.Fatalf("bad value from %s, got %d, wanted %d", inp, gotRestore.Line, wantVal.Line)
 		}
 	}
 }

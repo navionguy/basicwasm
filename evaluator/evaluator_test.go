@@ -3,6 +3,7 @@ package evaluator
 import (
 	"fmt"
 
+	"github.com/navionguy/basicwasm/decimal"
 	"github.com/navionguy/basicwasm/lexer"
 	"github.com/navionguy/basicwasm/object"
 	"github.com/navionguy/basicwasm/parser"
@@ -468,6 +469,50 @@ func TestHexOctalConstants(t *testing.T) {
 	}
 }
 
+func TestReadStatement(t *testing.T) {
+	fixedInt, _ := decimal.NewFromString("999.99")
+
+	tests := []struct {
+		inp string
+		exp object.Object
+	}{
+		{`10 DATA "Fred", "George" : READ A$`, &object.String{Value: "Fred"}},
+		{`20 DATA 123 : READ A`, &object.Integer{Value: 123}},
+		{`30 DATA 99999 : READ A`, &object.IntDbl{Value: 99999}},
+		{`40 DATA 999.99 : READ A`, &object.Fixed{Value: fixedInt}},
+		{`50 DATA 2.35123412341234E+4 : READ A`, &object.FloatSgl{Value: 23512.341796875}},
+		{`60 DATA 2.35123412341234D+4 : READ A`, &object.FloatDbl{Value: 23512.3412341234}},
+		{`70 DATA -2.35123412341234D+4 : READ A`, &object.FloatDbl{Value: -23512.3412341234}},
+		{`80 DATA "Fred" : READ A$ : READ B$`, &object.Error{Message: "Out of data in 80"}},
+	}
+
+	for _, tt := range tests {
+		res := testEval(tt.inp)
+
+		compareObjects(tt.inp, res, tt.exp, t)
+	}
+}
+
+func TestRestoreStatement(t *testing.T) {
+
+	tests := []struct {
+		inp string
+		exp interface{}
+	}{
+		{`10 DATA "Fred", "George" : RESTORE`, nil},
+		{`20 DATA "Fred", "George" : RESTORE 20`, nil},
+		{`30 DATA "Fred", "George" : RESTORE 5`, &object.Error{Message: "Undefined line number in 30"}},
+	}
+
+	for _, tt := range tests {
+		res := testEval(tt.inp)
+
+		if (res != nil) || (tt.exp != nil) {
+			compareObjects(tt.inp, res, tt.exp, t)
+		}
+	}
+}
+
 func TestTronTroffCommands(t *testing.T) {
 	tests := []struct {
 		inp string
@@ -771,6 +816,8 @@ func ExampleT_array() {
 		{`140 DIM M[10,10] : LET M[4,5] = 13 : PRINT M[4,5] : PRINT M[5,4]`},
 		{`150 DIM A[9,10], B[5,6] : LET B[4,5] = 12 : PRINT B[4,5]`},
 		{`160 DIM Y[12.5] : LET Y[1.5] = 5 : PRINT Y[1.5]`},
+		{`170 LET Y[4] = 31 : PRINT Y[3.6E+00]`},
+		{`170 LET Y[4] = 31 : PRINT Y[3.6D+00]`},
 	}
 
 	for _, tt := range tests {
@@ -796,6 +843,8 @@ func ExampleT_array() {
 	// 0
 	// 12
 	// 5
+	// 31
+	// 31
 }
 
 func ExampleT_strings() {

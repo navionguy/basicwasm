@@ -191,12 +191,6 @@ func (p *Parser) parseStatement() ast.Statement {
 			stmt := &ast.EndStatement{}
 			return stmt
 		}
-
-		/* Newline signals a line number should follow
-		if !p.expectPeek(token.LINENUM) {
-			p.errors = append(p.errors, fmt.Sprintf("missing line number after %d", p.curLine))
-			return nil
-		}*/
 		return nil
 	case token.LET:
 		return p.parseLetStatement()
@@ -208,8 +202,12 @@ func (p *Parser) parseStatement() ast.Statement {
 		return p.parseGotoStatement()
 	case token.GOSUB:
 		return p.parseGosubStatement()
+	case token.READ:
+		return p.parseReadStatement()
 	case token.REM:
 		return p.parseRemStatement()
+	case token.RESTORE:
+		return p.parseRestoreStatement()
 	case token.RETURN:
 		return p.parseReturnStatement()
 	case token.RUN:
@@ -297,6 +295,7 @@ func (p *Parser) parseClsStatement() *ast.ClsStatement {
 }
 
 func (p *Parser) parseDataStatement() *ast.DataStatement {
+	defer untrace(trace("parseDataStatement"))
 	stmt := &ast.DataStatement{Token: p.curToken}
 
 	p.l.PassOn()
@@ -336,8 +335,14 @@ func (p *Parser) parseDataElement(elem string) ast.Expression {
 	ln, ok := stmt.(*ast.LineNumStmt)
 
 	if ok {
-		tk := token.Token{Type: token.INT, Literal: "INT"}
-		return &ast.IntegerLiteral{Token: tk, Value: int16(ln.Value)}
+		// line number is actually a int or double int
+		if (ln.Value < 32767) && (ln.Value > -32768) {
+			tk := token.Token{Type: token.INT, Literal: "INT"}
+			return &ast.IntegerLiteral{Token: tk, Value: int16(ln.Value)}
+		}
+
+		tk := token.Token{Type: token.INTD, Literal: "INTD"}
+		return &ast.DblIntegerLiteral{Token: tk, Value: ln.Value}
 	}
 
 	exp, ok := stmt.(*ast.ExpressionStatement)
@@ -702,8 +707,37 @@ func (p *Parser) parseGosubStatement() *ast.GosubStatement {
 	return stmt
 }
 
+// read constant data from DATA statements
+func (p *Parser) parseReadStatement() *ast.ReadStatement {
+	defer untrace(trace("parseReadStatement"))
+	stmt := &ast.ReadStatement{Token: p.curToken}
+
+	for !p.peekTokenIs(token.LINENUM) && !p.peekTokenIs(token.EOF) && !p.peekTokenIs(token.EOL) && !p.peekTokenIs(token.COLON) {
+		p.nextToken()
+
+		if p.curTokenIs(token.IDENT) {
+			id := p.parseIdentifier()
+
+			if id != nil {
+				stmt.Vars = append(stmt.Vars, id)
+			}
+
+			if p.peekTokenIs(token.COMMA) {
+				p.nextToken()
+			}
+		}
+	}
+
+	if p.peekTokenIs(token.COLON) {
+		p.nextToken()
+	}
+
+	return stmt
+}
+
 // not a hard one to parse
 func (p *Parser) parseRemStatement() *ast.RemStatement {
+	defer untrace(trace("parseRemStatement"))
 	stmt := &ast.RemStatement{Token: p.curToken, Comment: strings.ToUpper(p.curToken.Literal) + " "}
 
 	p.l.PassOn()
@@ -715,8 +749,35 @@ func (p *Parser) parseRemStatement() *ast.RemStatement {
 	return stmt
 }
 
+// RESTORE resets to read from the beginning of const DATA
+// it can optionally take a line number to restore to
+func (p *Parser) parseRestoreStatement() *ast.RestoreStatement {
+	defer untrace(trace("parseRestoreStatement"))
+	stmt := &ast.RestoreStatement{Token: p.curToken, Line: -1}
+
+	if !p.peekTokenIs(token.LINENUM) && !p.peekTokenIs(token.EOF) && !p.peekTokenIs(token.EOL) && !p.peekTokenIs(token.COLON) {
+		p.nextToken()
+		targ, err := strconv.Atoi(p.curToken.Literal)
+
+		if err != nil {
+			msg := fmt.Sprintf("undefined line number %s", p.curToken.Literal)
+			p.errors = append(p.errors, msg)
+			return nil
+		}
+
+		stmt.Line = targ
+	}
+
+	if p.peekTokenIs(token.COLON) {
+		p.nextToken()
+	}
+
+	return stmt
+}
+
 // returns are much simpler in gwbasic
 func (p *Parser) parseReturnStatement() *ast.ReturnStatement {
+	defer untrace(trace("parseReturnStatement"))
 	stmt := &ast.ReturnStatement{Token: p.curToken, ReturnTo: ""}
 
 	if p.peekToken.Literal == token.EOF {
@@ -765,6 +826,7 @@ func (p *Parser) parseRunCommand() *ast.RunCommand {
 }
 
 func (p *Parser) parseEndStatement() *ast.EndStatement {
+	defer untrace(trace("parseEndStatement"))
 	stmt := &ast.EndStatement{Token: p.curToken}
 
 	return stmt

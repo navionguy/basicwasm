@@ -3,6 +3,7 @@ package evaluator
 import (
 	"bytes"
 	"fmt"
+	"math"
 	"strconv"
 	"strings"
 
@@ -126,6 +127,12 @@ func Eval(node ast.Node, code *ast.Code, env *object.Environment) object.Object 
 		env.Set(node.Token.Literal, obj)
 		return obj
 
+	case *ast.ReadStatement:
+		return evalReadStatement(node, code, env)
+
+	case *ast.RestoreStatement:
+		return evalRestoreStatement(node, code, env)
+
 	case *ast.RemStatement:
 		return nil // nothing to be done
 
@@ -213,6 +220,65 @@ func evalStatements(stmts *ast.Program, code *ast.Code, env *object.Environment)
 	return result
 }
 
+// read constant values out of data statements into variables
+func evalReadStatement(rd *ast.ReadStatement, code *ast.Code, env *object.Environment) object.Object {
+	var value object.Object
+
+	for _, item := range rd.Vars {
+		name, ok := item.(*ast.Identifier)
+
+		if !ok {
+			return newError(env, syntaxErr)
+		}
+
+		cst := env.Program.ConstData().Next()
+
+		if cst == nil {
+			return newError(env, outOfDataErr)
+		}
+
+		switch val := (*cst).(type) {
+		case *ast.StringLiteral:
+			value = &object.String{Value: val.Value}
+		case *ast.IntegerLiteral:
+			value = &object.Integer{Value: val.Value}
+		case *ast.DblIntegerLiteral:
+			value = &object.IntDbl{Value: val.Value}
+		case *ast.FixedLiteral:
+			value = &object.Fixed{Value: val.Value}
+		case *ast.FloatSingleLiteral:
+			value = &object.FloatSgl{Value: val.Value}
+		case *ast.FloatDoubleLiteral:
+			value = &object.FloatDbl{Value: val.Value}
+		default:
+			value = Eval(val, code, env)
+
+			// yes, the default case would work for all cases
+			// but I wanted to be clear what was going on
+		}
+
+		saveVariable(code, env, name, value)
+	}
+	return value
+}
+
+// evalRestoreStatement makes sure you can re-read data statements
+func evalRestoreStatement(rst *ast.RestoreStatement, code *ast.Code, env *object.Environment) object.Object {
+	if rst.Line >= 0 {
+		// he wants to restore to a certain line
+		if env.Program.ConstData().RestoreTo(rst.Line) {
+			return nil
+		}
+
+		return newError(env, unDefinedLineNumberErr)
+	}
+
+	// restore to the beginning
+	env.Program.ConstData().Restore()
+
+	return nil
+}
+
 // actually run the program
 // ToDo: implement loading a program by name
 // ToDo: close open data files (as soon as I support data files)
@@ -223,6 +289,7 @@ func evalRunCommand(run *ast.RunCommand, code *ast.Code, env *object.Environment
 	}
 
 	pcode := env.Program.StatementIter()
+	env.Program.ConstData().Restore()
 
 	return Eval(env.Program, pcode, env)
 }
@@ -314,7 +381,7 @@ func evalGotoStatement(jmp string, code *ast.Code, env *object.Environment) obje
 	v, err := strconv.Atoi(strings.Trim(jmp, " "))
 
 	if err != nil {
-		return newError(env, "invalid line number: %s", jmp)
+		return newError(env, syntaxErr)
 	}
 	v2 := v
 
@@ -802,45 +869,16 @@ func saveNewVariable(code *ast.Code, env *object.Environment, name *ast.Identifi
 	return tv
 }
 
-func initVal(val object.Object) object.Object {
-	switch iv := val.(type) {
-	case *object.Integer:
-		iv.Value = 0
-		return iv
-	case *object.IntDbl:
-		iv.Value = 0
-		return iv
-	case *object.Fixed:
-		deci := decimal.NewFromInt32(0)
-		iv.Value = deci
-		return iv
-	case *object.FloatSgl:
-		iv.Value = 0
-		return iv
-	case *object.FloatDbl:
-		iv.Value = 0
-		return iv
-	case *object.String:
-		iv.Value = ""
-		return iv
-	default:
-		return val
-	}
-}
-
 func coerceIndex(idx object.Object) int16 {
-	switch idx.Type() {
-	case object.FIXED_OBJ:
-		fx, _ := idx.(*object.Fixed)
+	switch fx := idx.(type) {
+	case *object.Fixed:
 		fx2 := fx.Value.Round(0)
 		ti := fx2.IntPart()
 		return int16(ti)
-	case object.FLOATSGL_OBJ:
-		fx, _ := idx.(*object.FloatSgl)
-		return int16(fx.Value)
-	case object.FLOATDBL_OBJ:
-		fx, _ := idx.(*object.FloatDbl)
-		return int16(fx.Value)
+	case *object.FloatSgl:
+		return int16(math.Round(float64(fx.Value)))
+	case *object.FloatDbl:
+		return int16(math.Round(fx.Value))
 	}
 
 	return 0

@@ -60,33 +60,34 @@ const (
 	OCTAL = "&O"
 
 	// Keywords
-	AUTO   = "AUTO"
-	CLS    = "CLS"
-	CLEAR  = "CLEAR"
-	COMMON = "COMMON"
-	DATA   = "DATA"
-	DEF    = "DEF"
-	DIM    = "DIM"
-	ELSE   = "ELSE"
-	END    = "END"
-	FALSE  = "FALSE"
-	GOSUB  = "GOSUB"
-	GOTO   = "GOTO"
-	IF     = "IF"
-	LET    = "LET"
-	LIST   = "LIST"
-	LOCATE = "LOCATE"
-	MOD    = "MOD"
-	PRINT  = "PRINT"
-	READ   = "READ"
-	REM    = "REM"
-	RETURN = "RETURN"
-	RUN    = "RUN"
-	THEN   = "THEN"
-	TRON   = "TRON"
-	TROFF  = "TROFF"
-	TRUE   = "TRUE"
-	USING  = "USING"
+	AUTO    = "AUTO"
+	CLS     = "CLS"
+	CLEAR   = "CLEAR"
+	COMMON  = "COMMON"
+	DATA    = "DATA"
+	DEF     = "DEF"
+	DIM     = "DIM"
+	ELSE    = "ELSE"
+	END     = "END"
+	FALSE   = "FALSE"
+	GOSUB   = "GOSUB"
+	GOTO    = "GOTO"
+	IF      = "IF"
+	LET     = "LET"
+	LIST    = "LIST"
+	LOCATE  = "LOCATE"
+	MOD     = "MOD"
+	PRINT   = "PRINT"
+	READ    = "READ"
+	REM     = "REM"
+	RESTORE = "RESTORE"
+	RETURN  = "RETURN"
+	RUN     = "RUN"
+	THEN    = "THEN"
+	TRON    = "TRON"
+	TROFF   = "TROFF"
+	TRUE    = "TRUE"
+	USING   = "USING"
 )
 
 type Token struct {
@@ -95,32 +96,33 @@ type Token struct {
 }
 
 var keywords = map[string]TokenType{
-	"auto":   AUTO,
-	"clear":  CLEAR,
-	"cls":    CLS,
-	"data":   DATA,
-	"def":    DEF,
-	"dim":    DIM,
-	"else":   ELSE,
-	"end":    END,
-	"false":  FALSE,
-	"gosub":  GOSUB,
-	"goto":   GOTO,
-	"if":     IF,
-	"let":    LET,
-	"list":   LIST,
-	"locate": LOCATE,
-	"mod":    MOD,
-	"print":  PRINT,
-	"read":   READ,
-	"rem":    REM,
-	"return": RETURN,
-	"run":    RUN,
-	"then":   THEN,
-	"tron":   TRON,
-	"troff":  TROFF,
-	"true":   TRUE,
-	"using":  USING,
+	"auto":    AUTO,
+	"clear":   CLEAR,
+	"cls":     CLS,
+	"data":    DATA,
+	"def":     DEF,
+	"dim":     DIM,
+	"else":    ELSE,
+	"end":     END,
+	"false":   FALSE,
+	"gosub":   GOSUB,
+	"goto":    GOTO,
+	"if":      IF,
+	"let":     LET,
+	"list":    LIST,
+	"locate":  LOCATE,
+	"mod":     MOD,
+	"print":   PRINT,
+	"read":    READ,
+	"rem":     REM,
+	"restore": RESTORE,
+	"return":  RETURN,
+	"run":     RUN,
+	"then":    THEN,
+	"tron":    TRON,
+	"troff":   TROFF,
+	"true":    TRUE,
+	"using":   USING,
 }
 
 func LookupIdent(ident string) TokenType {

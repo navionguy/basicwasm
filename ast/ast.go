@@ -4,6 +4,7 @@ import (
 	"bytes"
 	"errors"
 	"fmt"
+	"strconv"
 	"strings"
 
 	"github.com/navionguy/basicwasm/decimal"
@@ -50,10 +51,21 @@ type Code struct {
 	err       error
 }
 
+// ConstData provides access to DATA elements
+type ConstData struct {
+	code *Code // pointer to the current lines of code
+	line int   // index into code.lines[]
+	stmt int   // index into code.lines[line].stmts
+
+	data *DataStatement // the data statment I'm working from
+	exp  int            // index into data.exp[]
+}
+
 //Program holds the root of the AST (Abstract Syntax Tree)
 type Program struct {
 	code    *Code
 	cmdLine *Code
+	data    *ConstData
 }
 
 // New setups internal state
@@ -135,6 +147,18 @@ func (p *Program) CmdLineIter() *Code {
 		p.cmdLine.lines[0].curStmt = 0
 	}
 	return p.cmdLine
+}
+
+// ConstData returns the ConstData object
+func (p *Program) ConstData() *ConstData {
+	if p.data == nil {
+		var cd ConstData
+		p.data = &cd
+		p.data.code = p.code
+		p.data.data = nil
+	}
+
+	return p.data
 }
 
 // going to add, or possibly replace, a line of code
@@ -281,6 +305,103 @@ func (cd *Code) Jump(target int) error {
 	return errors.New("Undefined line number")
 }
 
+// Next returns the next constant data item
+func (data *ConstData) Next() *Expression {
+	if data.data == nil {
+		exp := data.findNextData()
+
+		return exp
+	}
+
+	// can I just increment?
+	data.exp++
+	if data.exp < len(data.data.Consts) {
+		// all good
+		exp := &data.data.Consts[data.exp]
+		return exp
+	}
+
+	// go look for more consts
+	data.nextStmt()
+	exp := data.findNextData()
+
+	return exp
+}
+
+// Restore the const scanner to the first data element
+func (data *ConstData) Restore() {
+	data.exp = 0
+	data.line = 0
+	data.stmt = 0
+}
+
+// RestoreTo a particular point in the constant data
+// based on a line number.
+// The line number passed has to exist, but doesn't
+// have to start with, or even contain a DATA statement
+func (data *ConstData) RestoreTo(line int) bool {
+	data.Restore()
+	index, found := data.code.findLine(line)
+
+	if !found {
+		return found
+	}
+
+	data.line = index
+	return true
+}
+
+func (data *ConstData) findNextData() *Expression {
+	for ok := false; !ok; {
+		stmt := data.value()
+
+		if stmt == nil {
+			return nil
+		}
+
+		ds, ok := (*stmt).(*DataStatement)
+
+		if ok {
+			// found him
+			data.data = ds
+			data.exp = 0
+			return &ds.Consts[0]
+		}
+		data.nextStmt()
+	}
+	return nil
+}
+
+func (data *ConstData) value() *Statement {
+	if data.line >= len(data.code.lines) {
+		return nil
+	}
+
+	if data.stmt >= len(data.code.lines[data.line].stmts) {
+		// end of line, go to the next one
+		data.stmt = 0
+		data.line++
+
+		if data.line >= len(data.code.lines) {
+			return nil
+		}
+
+	}
+	return &data.code.lines[data.line].stmts[data.stmt]
+}
+
+func (data *ConstData) nextStmt() {
+	data.stmt++
+
+	if data.stmt < len(data.code.lines[data.line].stmts) {
+		return
+	}
+
+	// have to move to the next line
+	data.stmt = 0
+	data.line++
+}
+
 // Identifier holds the token for the identifier in the statement
 type Identifier struct {
 	Token token.Token // the token.IDENT token Value string
@@ -323,7 +444,9 @@ type FunctionLiteral struct {
 	Body       *BlockStatement
 }
 
-func (fl *FunctionLiteral) expressionNode()      {}
+func (fl *FunctionLiteral) expressionNode() {}
+
+// TokenLiteral returns my literal
 func (fl *FunctionLiteral) TokenLiteral() string { return strings.ToUpper(fl.Token.Literal) }
 func (fl *FunctionLiteral) String() string {
 	var out bytes.Buffer
@@ -593,6 +716,58 @@ func (oc *OctalConstant) String() string {
 	return out.String()
 }
 
+// ReadStatement fills variables from constaint DATA elements
+type ReadStatement struct {
+	Token token.Token
+	Vars  []Expression
+}
+
+func (rd *ReadStatement) statementNode() {}
+
+// TokenLiteral returns my literal
+func (rd *ReadStatement) TokenLiteral() string { return rd.Token.Literal }
+
+// String sends my contents
+func (rd *ReadStatement) String() string {
+	var out bytes.Buffer
+
+	out.WriteString(rd.Token.Literal)
+	out.WriteString(" ")
+	for i, id := range rd.Vars {
+		out.WriteString(id.String())
+		if (i + 1) < len(rd.Vars) {
+			out.WriteString(", ")
+		}
+	}
+
+	return out.String()
+}
+
+// RestoreStatement resets the DATA constant scanner to
+// either the beginning or to a specified line number
+type RestoreStatement struct {
+	Token token.Token
+	Line  int
+}
+
+func (rs *RestoreStatement) statementNode() {}
+
+// TokenLiteral returns my literal
+func (rs *RestoreStatement) TokenLiteral() string { return rs.Token.Literal }
+
+// String sends the original code
+func (rs *RestoreStatement) String() string {
+	var out bytes.Buffer
+
+	out.WriteString(rs.Token.Literal)
+	if rs.Line > 0 {
+		out.WriteString(" ")
+		out.WriteString(strconv.Itoa((rs.Line)))
+	}
+
+	return out.String()
+}
+
 // StringLiteral holds an StringLiteral eg. "Hello World"
 type StringLiteral struct {
 	Token token.Token
@@ -613,13 +788,16 @@ func (il *StringLiteral) String() string {
 	return out.String()
 }
 
+// IndexExpression contains the index into an array
 type IndexExpression struct {
 	Token token.Token // The [ token
 	Left  Expression
 	Index Expression
 }
 
-func (ie *IndexExpression) expressionNode()      {}
+func (ie *IndexExpression) expressionNode() {}
+
+// TokenLiteral returns my literal
 func (ie *IndexExpression) TokenLiteral() string { return strings.ToUpper(ie.Token.Literal) }
 func (ie *IndexExpression) String() string {
 	var out bytes.Buffer
@@ -722,7 +900,7 @@ func (ie *IfExpression) String() string {
 	return out.String()
 }
 
-//Bl
+// BlockStatement holds a block statement
 type BlockStatement struct {
 	Token      token.Token // the { token
 	Statements []Statement

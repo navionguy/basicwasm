@@ -15,6 +15,8 @@ const typeMismatchErr = "Type mismatch"
 const overflowErr = "Overflow"
 const illegalFuncCallErr = "Illegal function call"
 const illegalArgErr = "Illegal argument"
+const outOfDataErr = "Out of data"
+const unDefinedLineNumberErr = "Undefined line number"
 
 var builtins = map[string]*object.Builtin{
 	"ABS": { // absolute value

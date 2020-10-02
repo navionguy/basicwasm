@@ -155,3 +155,69 @@ func TestCodeIterValue(t *testing.T) {
 		itr.Next()
 	}
 }
+
+func TestData(t *testing.T) {
+	tests := []struct {
+		inp []codeLine
+		exp []Expression
+	}{
+		{inp: []codeLine{
+			{lineNum: 10, stmts: []Statement{
+				&RemStatement{Comment: "Hi"},
+				&DataStatement{Consts: []Expression{
+					&IntegerLiteral{Value: 12},
+					&StringLiteral{Value: "Fred"},
+				}},
+			}},
+			{lineNum: 20, stmts: []Statement{
+				&RemStatement{Comment: "Hi"},
+				&DataStatement{Consts: []Expression{
+					&IntegerLiteral{Value: 21},
+					&StringLiteral{Value: "George"},
+				}},
+			}},
+		},
+			exp: []Expression{
+				&IntegerLiteral{Value: 12},
+				&StringLiteral{Value: "Fred"},
+				&IntegerLiteral{Value: 21},
+				&StringLiteral{Value: "George"},
+			}},
+	}
+
+	for _, tt := range tests {
+		var p Program
+		p.New()
+
+		p.code.lines = tt.inp
+
+		//p.ConstData().Next()
+
+		for _, exp := range tt.exp {
+			got := p.ConstData().Next()
+
+			switch eVal := exp.(type) {
+			case *IntegerLiteral:
+				gVal, ok := (*got).(*IntegerLiteral)
+
+				if !ok {
+					t.Fatalf("expected type %T, but got %T", exp, got)
+				}
+
+				if gVal.Value != eVal.Value {
+					t.Fatalf("expected value %d but got %d", eVal.Value, gVal.Value)
+				}
+			case *StringLiteral:
+				gVal, ok := (*got).(*StringLiteral)
+
+				if !ok {
+					t.Fatalf("expected type %T, but got %T", exp, got)
+				}
+
+				if gVal.Value != eVal.Value {
+					t.Fatalf("expected value %s but got %s", eVal.Value, gVal.Value)
+				}
+			}
+		}
+	}
+}

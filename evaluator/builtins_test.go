@@ -64,7 +64,7 @@ func compareObjects(inp string, evald object.Object, want interface{}, t *testin
 		}
 
 		if flt.Value != exp.Value {
-			t.Fatalf("%s got %f, expected %f", inp, flt.Value, exp.Value)
+			t.Fatalf("%s got %.11f, expected %.11f", inp, flt.Value, exp.Value)
 		}
 	case *object.String:
 		def, ok := evald.(*object.String)
