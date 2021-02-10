@@ -39,6 +39,10 @@ func (cl codeLine) String() string {
 	var out bytes.Buffer
 	for i := range cl.stmts {
 		out.WriteString(cl.stmts[i].String())
+
+		if (i+1 < len(cl.stmts)) && (i > 0) {
+			out.WriteString(" : ")
+		}
 	}
 	return out.String()
 }
@@ -104,12 +108,10 @@ func (p *Program) CmdComplete() {
 }
 
 // TokenLiteral returns string representation of the program
-func (p *Program) TokenLiteral() string { return p.code.Value().String() }
+func (p *Program) TokenLiteral() string { return "GWBasic" }
 
 // AddStatement adds a new statement to the AST
 func (p *Program) AddStatement(stmt Statement) {
-	//p.code.statements = append(p.code.statements, stmt)
-
 	lNum, ok := stmt.(*LineNumStmt)
 
 	if ok {
@@ -120,6 +122,7 @@ func (p *Program) AddStatement(stmt Statement) {
 
 	if len(p.code.lines) == 0 {
 		p.code.err = errors.New("invalid line number")
+		return
 	}
 
 	p.code.lines[p.code.currIndex].stmts = append(p.code.lines[p.code.currIndex].stmts, stmt)
@@ -129,7 +132,7 @@ func (p *Program) AddStatement(stmt Statement) {
 // he only ever has one line
 func (p *Program) AddCmdStmt(stmt Statement) {
 	if len(p.cmdLine.lines) == 0 {
-		p.cmdLine.addLine((0))
+		p.cmdLine.addLine(0)
 	}
 	p.cmdLine.lines[0].stmts = append(p.cmdLine.lines[0].stmts, stmt)
 }
@@ -262,14 +265,6 @@ func (cd *Code) Value() Statement {
 	}
 	line := &cd.lines[cd.currIndex]
 
-	if line.curStmt > len(line.stmts)-1 {
-		if !cd.Next() {
-			return nil
-		}
-		rc := cd.Value()
-		return rc
-	}
-
 	rc := line.stmts[line.curStmt]
 	return rc
 }
@@ -373,6 +368,10 @@ func (data *ConstData) findNextData() *Expression {
 }
 
 func (data *ConstData) value() *Statement {
+	if data == nil {
+		return nil
+	}
+
 	if data.line >= len(data.code.lines) {
 		return nil
 	}
@@ -400,6 +399,87 @@ func (data *ConstData) nextStmt() {
 	// have to move to the next line
 	data.stmt = 0
 	data.line++
+}
+
+// AutoCommand turns on automatic line numbering during entry
+// it comes in two forms
+// AUTO [line number][,[increment]]
+// AUTO .[,[increment]] where the '.' indicates start at current line
+type AutoCommand struct {
+	Token     token.Token
+	Start     int
+	Increment int
+	Curr      bool
+}
+
+func (ac *AutoCommand) statementNode() {}
+
+// TokenLiteral returns my token literal
+func (ac *AutoCommand) TokenLiteral() string { return strings.ToUpper(ac.Token.Literal) }
+func (ac *AutoCommand) String() string {
+	var out bytes.Buffer
+
+	out.WriteString("AUTO")
+
+	if ac.Start != -1 {
+		out.WriteString(fmt.Sprintf(" %d", ac.Start))
+	}
+
+	if ac.Curr {
+		out.WriteString(" .")
+	}
+
+	if ac.Increment != -1 {
+		out.WriteString(fmt.Sprintf(", %d", ac.Increment))
+	}
+
+	return out.String()
+}
+
+// CallExpression is used when calling built in functions
+type CallExpression struct {
+	Token     token.Token // The '(' token
+	Function  Expression  // Identifier or FunctionLiteral
+	Arguments []Expression
+}
+
+func (ce *CallExpression) expressionNode() {}
+
+// TokenLiteral returns my token literal
+func (ce *CallExpression) TokenLiteral() string { return strings.ToUpper(ce.Token.Literal) }
+func (ce *CallExpression) String() string {
+	var out bytes.Buffer
+
+	args := []string{}
+	for _, a := range ce.Arguments {
+		args = append(args, a.String())
+	}
+
+	out.WriteString(ce.Function.String())
+	out.WriteString("(")
+	out.WriteString(strings.Join(args, ", "))
+	out.WriteString(")")
+
+	return out.String()
+}
+
+// ClsStatement command to clear screen
+type ClsStatement struct {
+	Token token.Token
+	Param int
+}
+
+func (cls *ClsStatement) statementNode() {}
+
+// TokenLiteral returns my token literal
+func (cls *ClsStatement) TokenLiteral() string { return strings.ToUpper(cls.Token.Literal) }
+
+func (cls *ClsStatement) String() string {
+	if cls.Param == -1 {
+		return "CLS"
+	}
+
+	return fmt.Sprintf("CLS %d", cls.Param)
 }
 
 // Identifier holds the token for the identifier in the statement
@@ -993,87 +1073,6 @@ func (end *EndStatement) String() string {
 	var out bytes.Buffer
 	out.WriteString(end.TokenLiteral() + " ")
 	return out.String()
-}
-
-// AutoCommand turns on automatic line numbering during entry
-// it comes in two forms
-// AUTO [line number][,[increment]]
-// AUTO .[,[increment]] where the '.' indicates start at current line
-type AutoCommand struct {
-	Token     token.Token
-	Start     int
-	Increment int
-	Curr      bool
-}
-
-func (ac *AutoCommand) statementNode() {}
-
-// TokenLiteral returns my token literal
-func (ac *AutoCommand) TokenLiteral() string { return strings.ToUpper(ac.Token.Literal) }
-func (ac *AutoCommand) String() string {
-	var out bytes.Buffer
-
-	out.WriteString("RUN")
-
-	if ac.Start != -1 {
-		out.WriteString(fmt.Sprintf(" %d", ac.Start))
-	}
-
-	if ac.Curr {
-		out.WriteString(" .")
-	}
-
-	if ac.Increment != -1 {
-		out.WriteString(fmt.Sprintf(", %d", ac.Increment))
-	}
-
-	return out.String()
-}
-
-// CallExpression is used when calling built in functions
-type CallExpression struct {
-	Token     token.Token // The '(' token
-	Function  Expression  // Identifier or FunctionLiteral
-	Arguments []Expression
-}
-
-func (ce *CallExpression) expressionNode() {}
-
-// TokenLiteral returns my token literal
-func (ce *CallExpression) TokenLiteral() string { return strings.ToUpper(ce.Token.Literal) }
-func (ce *CallExpression) String() string {
-	var out bytes.Buffer
-
-	args := []string{}
-	for _, a := range ce.Arguments {
-		args = append(args, a.String())
-	}
-
-	out.WriteString(ce.Function.String())
-	out.WriteString("(")
-	out.WriteString(strings.Join(args, ", "))
-	out.WriteString(")")
-
-	return out.String()
-}
-
-// ClsStatement command to clear screen
-type ClsStatement struct {
-	Token token.Token
-	Param int
-}
-
-func (cls *ClsStatement) statementNode() {}
-
-// TokenLiteral returns my token literal
-func (cls *ClsStatement) TokenLiteral() string { return strings.ToUpper(cls.Token.Literal) }
-
-func (cls *ClsStatement) String() string {
-	if cls.Param == -1 {
-		return "CLS"
-	}
-
-	return fmt.Sprintf("CLS %d", cls.Param)
 }
 
 // ListStatement command to clear screen

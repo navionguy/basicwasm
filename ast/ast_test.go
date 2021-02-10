@@ -1,6 +1,7 @@
 package ast
 
 import (
+	"fmt"
 	"strconv"
 	"strings"
 	"testing"
@@ -8,7 +9,7 @@ import (
 	"github.com/navionguy/basicwasm/token"
 )
 
-func TestString(t *testing.T) {
+func TestStringAndToken(t *testing.T) {
 	var program Program
 
 	program.New()
@@ -27,11 +28,51 @@ func TestString(t *testing.T) {
 			Value: "anotherVar",
 		},
 	})
-	//program.AddStatement()
+
+	program.code.lines[0].curStmt = 42
+	program.Parsed()
+
+	if program.code.lines[0].curStmt != 0 {
+		t.Fatalf("code statement ptr failed to reset!")
+	}
 
 	rc := program.String()
 	if rc != "10 LET myVar = anotherVar" {
 		t.Errorf("program.String() wrong. got=%q", program.String())
+	}
+
+	rc = program.TokenLiteral()
+	if rc != "GWBasic" {
+		t.Errorf("program.TokenLiteral() wrong. got=%q", program.TokenLiteral())
+	}
+}
+
+func TestCmdLineProgramSwitches(t *testing.T) {
+	var program Program
+
+	program.New()
+	program.AddCmdStmt(&ClsStatement{
+		Token: token.Token{Type: token.CLS, Literal: "CLS"},
+		Param: 0,
+	})
+
+	cmdl := program.CmdLineIter()
+
+	if len(cmdl.lines) != 1 {
+		t.Fatalf("AddCmdStmt() failed, got %d, wanted 1", len(program.cmdLine.lines))
+	}
+
+	program.cmdLine.lines[0].curStmt = 37
+	program.CmdParsed()
+
+	if program.cmdLine.lines[0].curStmt != 0 {
+		t.Fatalf("cmdLine statement ptr failed to reset!")
+	}
+
+	program.CmdComplete()
+
+	if program.cmdLine.lines != nil {
+		t.Fatalf("cmdLine failed to clear lines!")
 	}
 }
 
@@ -79,11 +120,118 @@ func TestCodeMultiLines(t *testing.T) {
 
 	stmt := it.Value()
 
-	sz = strings.Compare(stmt.String(), "10 ")
-	if sz != 0 {
-		t.Fatalf("expected 10, got %s", stmt.String())
+	tests := []struct {
+		exp string
+	}{
+		{"10 "},
+		{"LET myVar = anotherVar"},
+		{"20 "},
+		{"LET X = 6"},
 	}
 
+	for _, tt := range tests {
+		sz = strings.Compare(stmt.String(), tt.exp)
+		if sz != 0 {
+			t.Fatalf("expected %s, got %s", tt.exp, stmt.String())
+		}
+		it.Next()
+		stmt = it.Value()
+	}
+
+	if !program.code.Exists(10) {
+		t.Fatal("Code.Exists failed to find line 10!")
+	}
+
+	err := program.code.Jump(10)
+
+	if err != nil {
+		t.Fatal("code.Jump to line 10 failed!")
+	}
+
+	err = program.code.Jump(400)
+
+	if err == nil {
+		t.Fatal("code.Jump to non-existant line succeeded!")
+	}
+}
+
+func TestCodeMultiStmts(t *testing.T) {
+	var program Program
+
+	program.New()
+	program.AddStatement(&LineNumStmt{
+		Token: token.Token{Type: token.LINENUM, Literal: "10"},
+		Value: 10,
+	})
+	program.AddStatement(&LetStatement{
+		Token: token.Token{Type: token.LET, Literal: "LET"},
+		Name: &Identifier{
+			Token: token.Token{Type: token.IDENT, Literal: "myVar"},
+			Value: "myVar",
+		},
+		Value: &Identifier{
+			Token: token.Token{Type: token.IDENT, Literal: "anotherVar"},
+			Value: "anotherVar",
+		},
+	})
+	program.AddStatement(&LetStatement{
+		Token: token.Token{Type: token.LET, Literal: "LET"},
+		Name: &Identifier{
+			Token: token.Token{Type: token.IDENT, Literal: "X"},
+			Value: "X",
+		},
+		Value: &Identifier{
+			Token: token.Token{Type: token.IDENT, Literal: "6"},
+			Value: "6",
+		},
+	})
+
+	it := program.StatementIter()
+	sz := it.Len()
+
+	if sz != 3 {
+		t.Fatalf("expected 3 statements, got %d", sz)
+	}
+
+	stmt := it.Value()
+
+	tests := []struct {
+		exp string
+	}{
+		{"10 "},
+		{"LET myVar = anotherVar"},
+		{"LET X = 6"},
+	}
+
+	for _, tt := range tests {
+		sz = strings.Compare(stmt.String(), tt.exp)
+		if sz != 0 {
+			t.Fatalf("expected %s, got %s", tt.exp, stmt.String())
+		}
+		it.Next()
+		stmt = it.Value()
+	}
+}
+
+func TestNoLineNum(t *testing.T) {
+	var program Program
+
+	program.New()
+	program.AddStatement(&LetStatement{
+		Token: token.Token{Type: token.LET, Literal: "LET"},
+		Name: &Identifier{
+			Token: token.Token{Type: token.IDENT, Literal: "myVar"},
+			Value: "myVar",
+		},
+		Value: &Identifier{
+			Token: token.Token{Type: token.IDENT, Literal: "anotherVar"},
+			Value: "anotherVar",
+		},
+	})
+
+	if program.code.err == nil {
+		t.Fatal("failed to detect no line number on line")
+	}
 }
 
 func TestCodeAdd(t *testing.T) {
@@ -103,6 +251,11 @@ func TestCodeAdd(t *testing.T) {
 		cd := p.code
 		for _, ln := range tt.lines {
 			cd.addLine(ln)
+
+			if p.code.CurLine() != ln {
+				t.Fatalf("expected line %d, got %d", ln, p.code.currLine)
+			}
+
 		}
 
 		for i, ln := range tt.expected {
@@ -189,9 +342,12 @@ func TestData(t *testing.T) {
 		var p Program
 		p.New()
 
-		p.code.lines = tt.inp
+		// make sure he handles having no data
+		if p.data.findNextData() != nil {
+			t.Fatal("He found data without any code!")
+		}
 
-		//p.ConstData().Next()
+		p.code.lines = tt.inp
 
 		for _, exp := range tt.exp {
 			got := p.ConstData().Next()
@@ -220,4 +376,54 @@ func TestData(t *testing.T) {
 			}
 		}
 	}
+}
+
+// a long, dump test case
+func ExampleStatement() {
+	var program Program
+
+	program.New()
+	program.AddStatement(&LineNumStmt{
+		Token: token.Token{Type: token.LINENUM, Literal: "10"},
+		Value: 10,
+	})
+	program.AddStatement(&AutoCommand{
+		Token:     token.Token{Type: token.AUTO, Literal: "AUTO"},
+		Start:     10,
+		Increment: 10,
+		Curr:      false,
+	})
+	program.AddStatement(&ExpressionStatement{
+		Token: token.Token{Type: token.IDENT, Literal: "ABS"},
+		Expression: &CallExpression{
+			Token:    token.Token{Type: token.LPAREN, Literal: "("},
+			Function: &Identifier{Token: token.Token{Type: token.IDENT, Literal: "ABS"}, Value: "ABS"},
+			Arguments: []Expression{&IntegerLiteral{
+				Token: token.Token{Type: token.INT, Literal: "INT"},
+				Value: 1}},
+		},
+	})
+	program.AddStatement(&ClsStatement{
+		Token: token.Token{Type: token.CLS, Literal: "CLS"},
+		Param: 1,
+	})
+	program.AddStatement(&LetStatement{
+		Token: token.Token{Type: token.LET, Literal: "LET"},
+		Name: &Identifier{
+			Token: token.Token{Type: token.IDENT, Literal: "myVar"},
+			Value: "myVar",
+		},
+		Value: &Identifier{
+			Token: token.Token{Type: token.IDENT, Literal: "anotherVar"},
+			Value: "anotherVar",
+		},
+	})
+
+	program.code.lines[0].curStmt = 42
+	program.Parsed()
+
+	fmt.Println(program.String())
+
+	// Output:
+	// 10 AUTO 10, 10 : ABS(1) : CLS 1 : LET myVar = anotherVar
 }

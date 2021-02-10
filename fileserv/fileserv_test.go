@@ -6,6 +6,7 @@ import (
 	"testing"
 )
 
+/*
 func Test_parseName(t *testing.T) {
 	type args struct {
 		name string
@@ -32,8 +33,8 @@ func Test_parseName(t *testing.T) {
 			}
 		})
 	}
-}
-
+}*/
+/*
 func Test_buildPath(t *testing.T) {
 	type args struct {
 		name string
@@ -63,7 +64,7 @@ func Test_buildPath(t *testing.T) {
 			}
 		})
 	}
-}
+}*/
 
 type mockFS struct {
 	want string
@@ -83,14 +84,26 @@ func Test_autoPathingSystem_Open(t *testing.T) {
 	}
 	tests := []struct {
 		name      string
-		fs        autoPathingSystem
+		fs        http.FileSystem
 		args      args
 		wantHFile string
 		wantErr   bool
 	}{
-		//{name: "No extension", fs: autoPathingSystem{fs}, args: args{"gwbasic"}, wantHFile: "./assets/html/gwbasic.html", wantErr: false},
+		// I have to set the root director for the pathing object to my parent
+		// since I'm down in the fileserv directory
+		//
+		{name: "bas file not in subdir", args: args{"menu/prog/calc.bas"}, wantHFile: "./source/menu/prog/calc.bas", wantErr: true},
+		{name: "bas file in subdir", fs: autoPathingSystem{fs}, args: args{"menu/prog/calc.bas"}, wantHFile: "./source/menu/prog/calc.bas", wantErr: false},
+		{name: "bas file", args: args{"menu/hello.bas"}, wantHFile: "./source/menu/hello.bas", wantErr: false},
+		{name: "css file", args: args{"print.css"}, wantHFile: "./assets/css/print.css", wantErr: false},
+		{name: "ico file", args: args{"favicon.ico"}, wantHFile: "./assets/images/favicon.ico", wantErr: false},
+		{name: "Wasm file", args: args{"gwbasic.wasm"}, wantHFile: "./assets/webmodules/gwbasic.wasm", wantErr: false},
+		{name: "Javascript source", args: args{"xterm.js"}, wantHFile: "./assets/js/xterm.js", wantErr: false},
+		{name: "Multi-extension", fs: autoPathingSystem{fs}, args: args{"compound.name.html"}, wantHFile: "./assets/html/compound.name.html", wantErr: false},
+		{name: "Secured file", args: args{".github"}, wantHFile: "", wantErr: true},
+		{name: "No extension", fs: autoPathingSystem{fs}, args: args{"gwbasic"}, wantHFile: "./assets/html/gwbasic.html", wantErr: false},
 		{name: "Invalid extension", args: args{"file.snigglefritz"}, wantHFile: "", wantErr: true},
-		{name: "HTML source", fs: autoPathingSystem{http.Dir("..")}, args: args{"gwbasic.html"}, wantHFile: "", wantErr: false},
+		{name: "HTML source", args: args{"gwbasic.html"}, wantHFile: "", wantErr: false},
 		{name: "Root", fs: autoPathingSystem{fs}, args: args{""}, wantHFile: "./assets/html/gwbasic.html", wantErr: false},
 	}
 	for _, tt := range tests {
@@ -98,9 +111,15 @@ func Test_autoPathingSystem_Open(t *testing.T) {
 			if len(tt.wantHFile) > 0 {
 				fs.want = tt.wantHFile
 			}
+
+			if tt.fs == nil {
+				*filedir = ".."
+				tt.fs = WrapFileOrg()
+			}
+
 			_, err := tt.fs.Open(tt.args.name)
 			if (err != nil) != tt.wantErr {
-				t.Errorf("autoPathingSystem.Open() error = %v, wantErr %v", err, tt.wantErr)
+				t.Errorf("autoPathingSystem.Open(%s) error = %v, wantErr %v", tt.name, err, tt.wantErr)
 				return
 			}
 		})

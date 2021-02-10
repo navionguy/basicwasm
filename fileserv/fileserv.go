@@ -1,66 +1,17 @@
 package fileserv
 
 import (
+	"flag"
 	"fmt"
 	"net/http"
 	"os"
 	"strings"
 )
 
-// WrapFileOrg shim myself to build the correct path
-// to the various assets served up.
-func WrapFileOrg() (filesys http.FileSystem) {
-	return autoPathingSystem{http.Dir(".")}
-}
-
-// takes the requested file and extracts out the basename
-// and the extension and returns them.  He does only simple
-// checking to make sure they are valid.
-func parseName(name string) (basename string, ext string) {
-	parts := strings.Split(name, "/")
-
-	if parts[len(parts)-1] == "" {
-		return "gwbasic", "html"
-	}
-
-	baseparts := strings.Split(parts[len(parts)-1], ".")
-
-	if len(baseparts) == 1 {
-		return baseparts[0], "html"
-	}
-
-	if len(baseparts) > 2 {
-		base := strings.Join(baseparts[:len(baseparts)-1], ".")
-		return base, baseparts[len(baseparts)-1]
-	}
-
-	return baseparts[0], baseparts[1]
-}
-
-// buildPath() builds the full path to the file based on the
-// extension and environment variables that tell me where
-// things are stored
-func buildPath(name string, ext string) (path string, ok bool) {
-	fmt.Printf("About to send %s.%s\n", name, ext)
-	switch ext {
-	case "html":
-		return "./assets/html/" + name + "." + ext, true
-	case "js", "map":
-		fmt.Printf("sending %s.%s", name, ext)
-		return "./assets/js/" + name + "." + ext, true
-
-	case "wasm":
-		return "./webmodules/" + name + "." + ext, true
-	case "ico":
-		return "./assets/images/" + name + "." + ext, true
-	case "css":
-		return "./assets/css/" + name + "." + ext, true
-	default:
-		fmt.Printf("Request to open %s.%s, no.\n", name, ext)
-	}
-
-	return "", false
-}
+var (
+	filedir   = flag.String("dir", ".", "directory to serve")
+	progFiles = flag.String("progdir", "./source", "")
+)
 
 // autoPathingSystem is an http.FileSystem that hides
 // my directory structure.
@@ -68,13 +19,30 @@ type autoPathingSystem struct {
 	http.FileSystem
 }
 
+// WrapFileOrg shim myself to build the correct path
+// to the various assets served up.
+func WrapFileOrg() (filesys http.FileSystem) {
+
+	return autoPathingSystem{http.Dir(*filedir)}
+}
+
+// fileRequest holds the parts of a requested file
+type fileRequest struct {
+	path     string // any directories that should be traversed
+	base     string // base filename
+	ext      string // any extension specified
+	fullSpec string // fully specified path to file
+}
+
 // Open is a wrapper around the Open method of the embedded FileSystem
 // that builds the actual file name based on his extension and how
 // my assets are arranged.
 func (fs autoPathingSystem) Open(name string) (hFile http.File, err error) {
-	fileName, ext := parseName(name)
+	if containsDotFile(name) { // If dot file, return 403 response
+		return nil, os.ErrPermission
+	}
 
-	fullPath, ok := buildPath(fileName, ext)
+	fullPath, ok := cleanFileName(name)
 
 	if !ok { // no defined path for file type
 		return nil, os.ErrPermission
@@ -85,5 +53,117 @@ func (fs autoPathingSystem) Open(name string) (hFile http.File, err error) {
 		fmt.Printf("file open failed %s\n", fullPath)
 		return nil, err
 	}
-	return file, err
+	return dotFileHidingFile{file}, err
+
 }
+
+// takes the requested file and extracts out the basename
+// and the extension and returns them.  He does only simple
+// checking to make sure they are valid.
+func cleanFileName(name string) (string, bool) {
+	rq := &fileRequest{}
+	parts := strings.Split(name, "/")
+
+	if len(parts) > 1 {
+		rq.path = strings.Join(parts[:len(parts)-1], "/")
+	}
+
+	if parts[len(parts)-1] == "" {
+		rq.base = "gwbasic"
+		rq.ext = "html"
+	}
+
+	rq.buildBaseName(parts[len(parts)-1])
+
+	rc := rq.buildPath()
+
+	return rq.fullSpec, rc
+}
+
+func (rq *fileRequest) buildBaseName(basePart string) {
+	if len(basePart) == 0 {
+		// blank name gets my default page
+		rq.base = "gwbasic"
+		rq.ext = "html"
+		return
+	}
+
+	bparts := strings.Split(basePart, ".")
+
+	switch len(bparts) {
+	case 1: // just a name, assume html as extension
+		rq.base = basePart
+		rq.ext = "html"
+
+	case 2: // got base an extension
+		rq.base = bparts[0]
+		rq.ext = bparts[1]
+
+	default: // multiple extensions?  use only the last one
+		rq.base = strings.Join(bparts[:len(bparts)-1], ".")
+		rq.ext = bparts[len(bparts)-1]
+	}
+
+}
+
+// buildPath() builds the full path to the file based on the
+// extension and environment variables that tell me where
+// things are stored
+func (rq *fileRequest) buildPath() bool {
+	fmt.Printf("About to send %s.%s\n", rq.base, rq.ext)
+	switch rq.ext {
+	case "html":
+		rq.fullSpec = "./assets/html/" + rq.base + "." + rq.ext
+	case "js", "map":
+		fmt.Printf("sending %s.%s", rq.base, rq.ext)
+		rq.fullSpec = "./assets/js/" + rq.base + "." + rq.ext
+
+	case "wasm":
+		rq.fullSpec = "./webmodules/" + rq.base + "." + rq.ext
+	case "ico":
+		rq.fullSpec = "./assets/images/" + rq.base + "." + rq.ext
+	case "css":
+		rq.fullSpec = "./assets/css/" + rq.base + "." + rq.ext
+	case "bas":
+		rq.fullSpec = *progFiles + "/" + rq.path + "/" + rq.base + "." + rq.ext
+	default:
+		fmt.Printf("Request to open %s.%s, no.\n", rq.base, rq.ext)
+		return false
+	}
+
+	return true
+}
+
+// containsDotFile reports whether name contains a path element starting with a period.
+// The name is assumed to be a delimited by forward slashes, as guaranteed
+// by the http.FileSystem interface.
+func containsDotFile(name string) bool {
+	parts := strings.Split(name, "/")
+	for _, part := range parts {
+		if strings.HasPrefix(part, ".") {
+			return true
+		}
+	}
+	return false
+}
+
+// dotFileHidingFile is the http.File use in dotFileHidingFileSystem.
+// It is used to wrap the Readdirnames method of http.File so that we can
+// remove files and directories that start with a period from its output.
+type dotFileHidingFile struct {
+	http.File
+}
+
+/*
+// Readdir is a wrapper around the Readdir method of the embedded File
+// that filters out all files that start with a period in their name.
+func (f dotFileHidingFile) Readdir(n int) (fis []os.FileInfo, err error) {
+	files, err := f.File.Readdir(n)
+	for _, file := range files { // Filters out the dot files
+		if !strings.HasPrefix(file.Name(), ".") {
+			fis = append(fis, file)
+		}
+	}
+	return
+}
+*/

@@ -8,6 +8,7 @@ webmodules/*.wasm
 assets/js/
 assets/css/
 .vscode/*
+source/
 basicwasm
 
 # Test binary, built with `go test -c`
