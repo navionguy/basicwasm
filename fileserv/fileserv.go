@@ -42,25 +42,22 @@ func (fs autoPathingSystem) Open(name string) (hFile http.File, err error) {
 		return nil, os.ErrPermission
 	}
 
-	fullPath, ok := cleanFileName(name)
-
-	if !ok { // no defined path for file type
-		return nil, os.ErrPermission
-	}
+	fullPath := cleanFileName(name)
 
 	file, err := fs.FileSystem.Open(fullPath)
 	if err != nil {
 		fmt.Printf("file open failed %s\n", fullPath)
 		return nil, err
 	}
-	return dotFileHidingFile{file}, err
+
+	return dotFileHidingFile{file}, nil
 
 }
 
 // takes the requested file and extracts out the basename
 // and the extension and returns them.  He does only simple
 // checking to make sure they are valid.
-func cleanFileName(name string) (string, bool) {
+func cleanFileName(name string) string {
 	rq := &fileRequest{}
 	parts := strings.Split(name, "/")
 
@@ -75,9 +72,9 @@ func cleanFileName(name string) (string, bool) {
 
 	rq.buildBaseName(parts[len(parts)-1])
 
-	rc := rq.buildPath()
+	rq.buildPath()
 
-	return rq.fullSpec, rc
+	return rq.fullSpec
 }
 
 func (rq *fileRequest) buildBaseName(basePart string) {
@@ -93,7 +90,9 @@ func (rq *fileRequest) buildBaseName(basePart string) {
 	switch len(bparts) {
 	case 1: // just a name, assume html as extension
 		rq.base = basePart
-		rq.ext = "html"
+		if strings.Compare(strings.ToLower(rq.base), "gwbasic") == 0 {
+			rq.ext = "html"
+		}
 
 	case 2: // got base an extension
 		rq.base = bparts[0]
@@ -109,10 +108,11 @@ func (rq *fileRequest) buildBaseName(basePart string) {
 // buildPath() builds the full path to the file based on the
 // extension and environment variables that tell me where
 // things are stored
-func (rq *fileRequest) buildPath() bool {
+func (rq *fileRequest) buildPath() {
 	fmt.Printf("About to send %s.%s\n", rq.base, rq.ext)
 	switch rq.ext {
 	case "html":
+		fmt.Printf("got %s-%s\n", rq.base, rq.ext)
 		rq.fullSpec = "./assets/html/" + rq.base + "." + rq.ext
 	case "js", "map":
 		fmt.Printf("sending %s.%s", rq.base, rq.ext)
@@ -124,14 +124,21 @@ func (rq *fileRequest) buildPath() bool {
 		rq.fullSpec = "./assets/images/" + rq.base + "." + rq.ext
 	case "css":
 		rq.fullSpec = "./assets/css/" + rq.base + "." + rq.ext
-	case "bas":
-		rq.fullSpec = *progFiles + "/" + rq.path + "/" + rq.base + "." + rq.ext
-	default:
-		fmt.Printf("Request to open %s.%s, no.\n", rq.base, rq.ext)
-		return false
-	}
 
-	return true
+	default:
+		//it isn't one of my special cases, so just build the name
+		rq.fullSpec = *progFiles + "/"
+
+		if len(rq.path) > 0 {
+			rq.fullSpec = rq.fullSpec + rq.path + "/"
+		}
+
+		rq.fullSpec = rq.fullSpec + rq.base
+
+		if len(rq.ext) > 0 {
+			rq.fullSpec = rq.fullSpec + "." + rq.ext
+		}
+	}
 }
 
 // containsDotFile reports whether name contains a path element starting with a period.
@@ -154,10 +161,10 @@ type dotFileHidingFile struct {
 	http.File
 }
 
-/*
 // Readdir is a wrapper around the Readdir method of the embedded File
 // that filters out all files that start with a period in their name.
 func (f dotFileHidingFile) Readdir(n int) (fis []os.FileInfo, err error) {
+	fmt.Printf("got request to readdir %d\n", n)
 	files, err := f.File.Readdir(n)
 	for _, file := range files { // Filters out the dot files
 		if !strings.HasPrefix(file.Name(), ".") {
@@ -166,4 +173,3 @@ func (f dotFileHidingFile) Readdir(n int) (fis []os.FileInfo, err error) {
 	}
 	return
 }
-*/
