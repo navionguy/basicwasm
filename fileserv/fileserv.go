@@ -6,11 +6,18 @@ import (
 	"net/http"
 	"os"
 	"strings"
+
+	"github.com/gorilla/mux"
 )
 
 var (
-	filedir   = flag.String("dir", ".", "directory to serve")
-	progFiles = flag.String("progdir", "./source", "")
+	filedir = flag.String("dir", ".", "directory to serve")
+	drives  = map[string]*string{
+		"driveA": flag.String("driveA", "", ""),
+		"driveB": flag.String("driveB", "", ""),
+		"driveC": flag.String("driveC", "./source", ""),
+		// TODO: add the rest of the possible drive letter flags
+	}
 )
 
 // autoPathingSystem is an http.FileSystem that hides
@@ -32,6 +39,23 @@ type fileRequest struct {
 	base     string // base filename
 	ext      string // any extension specified
 	fullSpec string // fully specified path to file
+}
+
+// FileServ sends the requested file
+func FileServ(w http.ResponseWriter, r *http.Request) {
+
+	fmt.Printf("FileServ header %s\n", r.URL.Path)
+
+	vs := mux.Vars(r)
+	typ := vs["type"]
+
+	f := fmt.Sprintf("./assets/%s/%s", vs["type"], vs["file"])
+
+	if len(typ) == 0 {
+		f = fmt.Sprintf("./webmodules/%s", vs["file"])
+	}
+
+	http.ServeFile(w, r, f)
 }
 
 // Open is a wrapper around the Open method of the embedded FileSystem
@@ -127,7 +151,7 @@ func (rq *fileRequest) buildPath() {
 
 	default:
 		//it isn't one of my special cases, so just build the name
-		rq.fullSpec = *progFiles + "/"
+		rq.fullSpec = *drives["driveC"] + "/"
 
 		if len(rq.path) > 0 {
 			rq.fullSpec = rq.fullSpec + rq.path + "/"

@@ -1372,6 +1372,23 @@ func TestCls(t *testing.T) {
 	}
 }
 
+func TestFilesCommand(t *testing.T) {
+	tests := []struct {
+		input string
+	}{
+		{`20 FILES`},
+	}
+
+	for _, tt := range tests {
+		l := lexer.New(tt.input)
+		p := New(l)
+		env := &object.Environment{}
+		p.ParseProgram(env)
+		//program := env.Program
+
+	}
+}
+
 func TestPrintStatements(t *testing.T) {
 	tests := []struct {
 		input    string

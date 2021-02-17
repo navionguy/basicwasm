@@ -192,6 +192,8 @@ func (p *Parser) parseStatement() ast.Statement {
 			return stmt
 		}
 		return nil
+	case token.FILES:
+		return p.parseFilesCommand()
 	case token.LET:
 		return p.parseLetStatement()
 	case token.LINENUM:
@@ -359,6 +361,13 @@ func (p *Parser) parseDataElement(elem string) ast.Expression {
 	}
 
 	return exp.Expression
+}
+
+func (p *Parser) parseFilesCommand() *ast.FilesCommand {
+	defer untrace(trace("parseFilesCommand"))
+	cd := &ast.FilesCommand{Token: p.curToken}
+
+	return cd
 }
 
 func (p *Parser) parseIntegerLiteral() ast.Expression {

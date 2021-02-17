@@ -81,16 +81,19 @@ func NewTermEnvironment(term Console) *Environment {
 	return env
 }
 
-// Environment holds my variables and possible an outer environment
+// Environment holds my variables and possibly an outer environment
 type Environment struct {
-	store   map[string]Object
-	outer   *Environment
-	Program *ast.Program
-	term    Console
-	autoOn  *ast.AutoCommand
-	traceOn bool
-	rnd     *rand.Rand
-	rndVal  float32
+	store   map[string]Object // variables and other program data
+	outer   *Environment      // possibly a tempory containing environment
+	Program *ast.Program      // current Abstract Syntax Tree
+	term    Console           // the terminal console object
+
+	// The following hold "state" information controlled by commands/statements
+	autoOn  *ast.AutoCommand // is auto line numbering turned on
+	cwd     string           // current working directory
+	rnd     *rand.Rand       // random number generator
+	rndVal  float32          // most recent generated value
+	traceOn bool             // is tracing turned on
 }
 
 // Get attempts to retrieve an object from the environment

@@ -1,11 +1,11 @@
 <!doctype html>
   <html type="text/css" media="print" >
     <head>
-      <link rel="stylesheet" href="node_modules/xterm/css/xterm.css" />
-      <link rel="printstyle" href="print.css"/>
-      <script src="node_modules/xterm/lib/xterm.js"></script>
-      <script src="node_modules/xterm-addon-fit/lib/xterm-addon-fit.js"></script>
-      <script src="wasm_exec.js"></script>
+      <link rel="stylesheet" href="assets/css/xterm.css" />
+      <link rel="printstyle" href="assets/css/print.css"/>
+      <script src="assets/js/xterm.js"></script>
+      <script src="assets/js/xterm-addon-fit.js"></script>
+      <script src="assets/js/wasm_exec.js"></script>
     </head>
     <style>
       body {
@@ -88,7 +88,7 @@
 
       const go = new Go();
 
-      WebAssembly.instantiateStreaming(fetch("gwbasic.wasm"), go.importObject).then(
+      WebAssembly.instantiateStreaming(fetch("/webmodules/gwbasic.wasm"), go.importObject).then(
         async result => {
           mod = result.module;
           inst = result.instance;

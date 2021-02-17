@@ -482,6 +482,26 @@ func (cls *ClsStatement) String() string {
 	return fmt.Sprintf("CLS %d", cls.Param)
 }
 
+// FilesCommand gets list of files from basic server
+type FilesCommand struct {
+	Token token.Token
+	Param string
+}
+
+func (fls *FilesCommand) statementNode() {}
+
+// TokenLiteral returns my token literal
+func (fls *FilesCommand) TokenLiteral() string { return strings.ToUpper(fls.Token.Literal) }
+
+func (fls *FilesCommand) String() string {
+	if len(fls.Param) == 0 {
+		return "FILES"
+	}
+	fc := fmt.Sprintf("FILES %s", fls.Param)
+
+	return fc
+}
+
 // Identifier holds the token for the identifier in the statement
 type Identifier struct {
 	Token token.Token // the token.IDENT token Value string

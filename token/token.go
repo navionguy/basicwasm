@@ -70,6 +70,7 @@ const (
 	ELSE    = "ELSE"
 	END     = "END"
 	FALSE   = "FALSE"
+	FILES   = "FILES"
 	GOSUB   = "GOSUB"
 	GOTO    = "GOTO"
 	IF      = "IF"
@@ -105,6 +106,7 @@ var keywords = map[string]TokenType{
 	"else":    ELSE,
 	"end":     END,
 	"false":   FALSE,
+	"files":   FILES,
 	"gosub":   GOSUB,
 	"goto":    GOTO,
 	"if":      IF,
