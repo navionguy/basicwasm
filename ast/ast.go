@@ -485,7 +485,7 @@ func (cls *ClsStatement) String() string {
 // FilesCommand gets list of files from basic server
 type FilesCommand struct {
 	Token token.Token
-	Param string
+	Path  string
 }
 
 func (fls *FilesCommand) statementNode() {}
@@ -494,10 +494,10 @@ func (fls *FilesCommand) statementNode() {}
 func (fls *FilesCommand) TokenLiteral() string { return strings.ToUpper(fls.Token.Literal) }
 
 func (fls *FilesCommand) String() string {
-	if len(fls.Param) == 0 {
+	if len(fls.Path) == 0 {
 		return "FILES"
 	}
-	fc := fmt.Sprintf("FILES %s", fls.Param)
+	fc := fmt.Sprintf("FILES %s", fls.Path)
 
 	return fc
 }

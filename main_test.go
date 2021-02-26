@@ -24,7 +24,7 @@ func Test_Routes(t *testing.T) {
 			t.Fatal(err)
 		}
 
-		rtr := setup()
+		rtr := startup()
 		rr := httptest.NewRecorder()
 
 		hd := rtr.Get(tt.route).GetHandler()
@@ -37,6 +37,8 @@ func Test_Routes(t *testing.T) {
 
 		body := rr.Body.String()
 
+		// I get back the html file so to check it
+		// I go looking for the refererence to the wasm file
 		if !strings.Contains(body, tt.body) {
 			t.Errorf("returned body did not contain %s, %s\n", tt.body, body)
 		}

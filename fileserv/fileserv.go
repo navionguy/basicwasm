@@ -10,159 +10,152 @@ import (
 	"github.com/gorilla/mux"
 )
 
+type fileSource struct {
+	src      http.FileSystem
+	filename string
+}
+
 var (
-	filedir = flag.String("dir", ".", "directory to serve")
-	drives  = map[string]*string{
+	assetsDir = flag.String("assets", "./assets/", "web page assets")
+	moduleDir = flag.String("webmodules", "./webmodules/", "web assembly file(s)")
+	drives    = map[string]*string{
 		"driveA": flag.String("driveA", "", ""),
 		"driveB": flag.String("driveB", "", ""),
-		"driveC": flag.String("driveC", "./source", ""),
+		"driveC": flag.String("driveC", "./source", "current directory on start-up"),
 		// TODO: add the rest of the possible drive letter flags
+	}
+
+	fileSources = map[string]*fileSource{
+		"assets":     {src: http.Dir(*assetsDir)},
+		"webmodules": {src: http.Dir(*moduleDir)},
 	}
 )
 
-// autoPathingSystem is an http.FileSystem that hides
-// my directory structure.
-type autoPathingSystem struct {
-	http.FileSystem
-}
-
-// WrapFileOrg shim myself to build the correct path
-// to the various assets served up.
-func WrapFileOrg() (filesys http.FileSystem) {
-
-	return autoPathingSystem{http.Dir(*filedir)}
-}
-
-// fileRequest holds the parts of a requested file
-type fileRequest struct {
-	path     string // any directories that should be traversed
-	base     string // base filename
-	ext      string // any extension specified
-	fullSpec string // fully specified path to file
+// WrapFileSources wrap all the file sources
+func WrapFileSources(rtr *mux.Router) {
+	for key, drv := range drives {
+		if len(*drv) > 0 {
+			fileSources[key] = &fileSource{src: http.Dir(*drv)}
+			rt := "/" + key + "/"
+			rtr.HandleFunc(rt, FileServ).Name(key)
+		}
+	}
 }
 
 // FileServ sends the requested file
 func FileServ(w http.ResponseWriter, r *http.Request) {
 
-	fmt.Printf("FileServ header %s\n", r.URL.Path)
+	parts := strings.Split(r.URL.Path, "/")
+	src := fileSources[parts[1]]
 
-	vs := mux.Vars(r)
-	typ := vs["type"]
-
-	f := fmt.Sprintf("./assets/%s/%s", vs["type"], vs["file"])
-
-	if len(typ) == 0 {
-		f = fmt.Sprintf("./webmodules/%s", vs["file"])
+	//
+	if (len(parts[1]) == 0) || (src == nil) {
+		w.WriteHeader(403)
+		return
 	}
 
-	http.ServeFile(w, r, f)
+	vs := mux.Vars(r)
+
+	switch parts[1] {
+	case "assets":
+		src.filename = fmt.Sprintf("%s/%s/", vs["type"], vs["file"])
+		src.setContentType(w)
+
+	case "webmodules":
+		src.filename = vs["file"]
+	default:
+		src.filename = r.URL.Path
+	}
+
+	src.ServeFile(w, r, src.filename)
+}
+
+func (fs fileSource) setContentType(w http.ResponseWriter) {
+	parts := strings.Split(fs.filename, ".")
+
+	if len(parts) == 1 {
+		return // just go with text/plain
+	}
+
+	ext := parts[len(parts)-1]
+	ext = strings.TrimRight(ext, "/")
+
+	switch ext {
+	case "js":
+		w.Header().Set("Content-Type", "text/javascript")
+	case "css":
+		w.Header().Set("Content-Type", "text/css")
+	}
+}
+
+func (fs fileSource) ServeFile(w http.ResponseWriter, r *http.Request, fname string) {
+	if len(fname) == 0 {
+		fname = "/"
+	}
+
+	hfile, err := fs.Open(fname)
+
+	if err != nil {
+		w.WriteHeader(404)
+		return
+	}
+
+	st, err := hfile.Stat()
+
+	if err != nil {
+		w.WriteHeader(403)
+		return
+	}
+
+	if st.IsDir() {
+		fs.sendDirectory(hfile, w)
+		return
+	}
+
+	buf := make([]byte, int(st.Size()))
+	_, err = hfile.Read(buf)
+
+	if err != nil {
+		w.WriteHeader(403)
+		return
+	}
+
+	w.Write(buf)
+
+}
+
+// sendDirectory sends all the filenames found in hfile
+// he does block any that start with '.'
+func (fs fileSource) sendDirectory(hfile http.File, w http.ResponseWriter) {
+	files, err := hfile.Readdir(-1)
+
+	if err != nil {
+		w.WriteHeader(404)
+		return
+	}
+
+	for _, finfo := range files {
+		if !containsDotFile(finfo.Name()) {
+			w.Write([]byte(fmt.Sprintf("<p>%s</p>", finfo.Name())))
+		}
+	}
 }
 
 // Open is a wrapper around the Open method of the embedded FileSystem
 // that builds the actual file name based on his extension and how
 // my assets are arranged.
-func (fs autoPathingSystem) Open(name string) (hFile http.File, err error) {
+func (fs fileSource) Open(name string) (hFile http.File, err error) {
 	if containsDotFile(name) { // If dot file, return 403 response
 		return nil, os.ErrPermission
 	}
 
-	fullPath := cleanFileName(name)
-
-	file, err := fs.FileSystem.Open(fullPath)
+	file, err := fs.src.Open(name)
 	if err != nil {
-		fmt.Printf("file open failed %s\n", fullPath)
 		return nil, err
 	}
 
 	return dotFileHidingFile{file}, nil
 
-}
-
-// takes the requested file and extracts out the basename
-// and the extension and returns them.  He does only simple
-// checking to make sure they are valid.
-func cleanFileName(name string) string {
-	rq := &fileRequest{}
-	parts := strings.Split(name, "/")
-
-	if len(parts) > 1 {
-		rq.path = strings.Join(parts[:len(parts)-1], "/")
-	}
-
-	if parts[len(parts)-1] == "" {
-		rq.base = "gwbasic"
-		rq.ext = "html"
-	}
-
-	rq.buildBaseName(parts[len(parts)-1])
-
-	rq.buildPath()
-
-	return rq.fullSpec
-}
-
-func (rq *fileRequest) buildBaseName(basePart string) {
-	if len(basePart) == 0 {
-		// blank name gets my default page
-		rq.base = "gwbasic"
-		rq.ext = "html"
-		return
-	}
-
-	bparts := strings.Split(basePart, ".")
-
-	switch len(bparts) {
-	case 1: // just a name, assume html as extension
-		rq.base = basePart
-		if strings.Compare(strings.ToLower(rq.base), "gwbasic") == 0 {
-			rq.ext = "html"
-		}
-
-	case 2: // got base an extension
-		rq.base = bparts[0]
-		rq.ext = bparts[1]
-
-	default: // multiple extensions?  use only the last one
-		rq.base = strings.Join(bparts[:len(bparts)-1], ".")
-		rq.ext = bparts[len(bparts)-1]
-	}
-
-}
-
-// buildPath() builds the full path to the file based on the
-// extension and environment variables that tell me where
-// things are stored
-func (rq *fileRequest) buildPath() {
-	fmt.Printf("About to send %s.%s\n", rq.base, rq.ext)
-	switch rq.ext {
-	case "html":
-		fmt.Printf("got %s-%s\n", rq.base, rq.ext)
-		rq.fullSpec = "./assets/html/" + rq.base + "." + rq.ext
-	case "js", "map":
-		fmt.Printf("sending %s.%s", rq.base, rq.ext)
-		rq.fullSpec = "./assets/js/" + rq.base + "." + rq.ext
-
-	case "wasm":
-		rq.fullSpec = "./webmodules/" + rq.base + "." + rq.ext
-	case "ico":
-		rq.fullSpec = "./assets/images/" + rq.base + "." + rq.ext
-	case "css":
-		rq.fullSpec = "./assets/css/" + rq.base + "." + rq.ext
-
-	default:
-		//it isn't one of my special cases, so just build the name
-		rq.fullSpec = *drives["driveC"] + "/"
-
-		if len(rq.path) > 0 {
-			rq.fullSpec = rq.fullSpec + rq.path + "/"
-		}
-
-		rq.fullSpec = rq.fullSpec + rq.base
-
-		if len(rq.ext) > 0 {
-			rq.fullSpec = rq.fullSpec + "." + rq.ext
-		}
-	}
 }
 
 // containsDotFile reports whether name contains a path element starting with a period.
@@ -188,7 +181,6 @@ type dotFileHidingFile struct {
 // Readdir is a wrapper around the Readdir method of the embedded File
 // that filters out all files that start with a period in their name.
 func (f dotFileHidingFile) Readdir(n int) (fis []os.FileInfo, err error) {
-	fmt.Printf("got request to readdir %d\n", n)
 	files, err := f.File.Readdir(n)
 	for _, file := range files { // Filters out the dot files
 		if !strings.HasPrefix(file.Name(), ".") {

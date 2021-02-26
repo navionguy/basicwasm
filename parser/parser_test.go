@@ -69,12 +69,60 @@ func TestAutoCommand(t *testing.T) {
 	}
 }
 
-func TestImpliedLetStatement(t *testing.T) {
+func Test_FilesCommand(t *testing.T) {
+	tests := []struct {
+		path string
+	}{
+		{`"C:\PROG\"`},
+		{},
+	}
+
+	for _, tt := range tests {
+		inp := "FILES"
+		if len(tt.path) > 0 {
+			inp = inp + " " + tt.path
+		}
+
+		l := lexer.New(inp)
+		p := New(l)
+		env := &object.Environment{}
+		p.ParseCmd(env)
+		prog := env.Program
+
+		checkParserErrors(t, p)
+
+		itr := prog.CmdLineIter()
+
+		if itr.Len() != 1 {
+			t.Fatal("program.Cmd does not contain single command")
+		}
+
+		stmt := itr.Value()
+
+		if stmt.TokenLiteral() != token.FILES {
+			t.Fatal("Test_FilesCommand didn't get a FILES command")
+		}
+
+		fls := stmt.(*ast.FilesCommand)
+
+		if fls == nil {
+			t.Fatal("Test_FilesCommand couldn't extract FilesCommand object")
+		}
+
+		if (len(tt.path) > 0) || (len(fls.Path) > 0) {
+			if strings.Compare(fls.Path, tt.path) == 0 {
+				t.Fatalf("FILES cmd expected path %s, got %s\n", tt.path, fls.Path)
+			}
+		}
+	}
+}
+
+func Test_LetStatementImplied(t *testing.T) {
 	input := `10 x = 5: y = 20`
 
 	l := lexer.New(input)
 	p := New(l)
-	fmt.Println("TestImpliedLetStatements Parsing")
+	fmt.Println("Test_LetStatementImplied Parsing")
 	env := &object.Environment{}
 	p.ParseProgram(env)
 	program := env.Program
@@ -112,12 +160,12 @@ func TestImpliedLetStatement(t *testing.T) {
 	}
 }
 
-func TestLetStatements(t *testing.T) {
+func Test_LetStatement(t *testing.T) {
 	input := `10 let x = 5: let y$ = "test": let foobar% = 838383 : LET BANG! = 46.8 : LET POUND# = 7654321.1234`
 
 	l := lexer.New(input)
 	p := New(l)
-	fmt.Println("TestLetStatements Parsing")
+	fmt.Println("Test_LetStatement Parsing")
 	env := &object.Environment{}
 	p.ParseProgram(env)
 	program := env.Program

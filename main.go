@@ -19,12 +19,11 @@ const (
 
 func main() {
 
-	rt := setup()
+	rt := startup()
 	log.Fatal(http.ListenAndServe(*listen, rt))
-	//log.Fatal(http.ListenAndServe(*listen, http.FileServer(fileserv.WrapFileOrg())))
 }
 
-func setup() *mux.Router {
+func startup() *mux.Router {
 
 	flag.Parse()
 	log.Printf("listening on %q...", *listen)
@@ -35,6 +34,7 @@ func setup() *mux.Router {
 
 	r.HandleFunc("/assets/{type}/{file}", fileserv.FileServ)
 	r.HandleFunc("/webmodules/{file}", fileserv.FileServ)
+	fileserv.WrapFileSources(r)
 	r.HandleFunc("/", BasicWasm).Name(rootRt)
 
 	return r
@@ -42,6 +42,5 @@ func setup() *mux.Router {
 
 // BasicWasm serves up the main page
 func BasicWasm(w http.ResponseWriter, r *http.Request) {
-
 	http.ServeFile(w, r, "./assets/html/gwbasic.html")
 }
