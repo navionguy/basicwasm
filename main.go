@@ -32,15 +32,13 @@ func startup() *mux.Router {
 
 	// setup my routes
 
-	r.HandleFunc("/assets/{type}/{file}", fileserv.FileServ)
-	r.HandleFunc("/webmodules/{file}", fileserv.FileServ)
 	fileserv.WrapFileSources(r)
-	r.HandleFunc("/", BasicWasm).Name(rootRt)
+	r.HandleFunc("/", gwbasicHTML).Name("main page")
 
 	return r
 }
 
-// BasicWasm serves up the main page
-func BasicWasm(w http.ResponseWriter, r *http.Request) {
+// gwbasicHTML serves up the main page
+func gwbasicHTML(w http.ResponseWriter, r *http.Request) {
 	http.ServeFile(w, r, "./assets/html/gwbasic.html")
 }

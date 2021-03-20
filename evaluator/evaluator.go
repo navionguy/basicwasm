@@ -35,6 +35,9 @@ func Eval(node ast.Node, code *ast.Code, env *object.Environment) object.Object 
 	case *ast.BlockStatement:
 		return evalBlockStatement(node, code, env)
 
+	case *ast.FilesCommand:
+		evalFilesCommand(node, code, env)
+
 	case *ast.ExpressionStatement:
 		return Eval(node.Expression, code, env)
 
@@ -375,6 +378,10 @@ func allocArrayValue(typeid string) object.Object {
 	}
 
 	return obj
+}
+
+func evalFilesCommand(files *ast.FilesCommand, code *ast.Code, env *object.Environment) {
+	//http.NewRequest("GET")
 }
 
 func evalGotoStatement(jmp string, code *ast.Code, env *object.Environment) object.Object {

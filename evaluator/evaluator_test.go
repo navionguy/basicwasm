@@ -154,6 +154,42 @@ func TestClsStatement(t *testing.T) {
 	}
 }
 
+func Test_FilesCommand(t *testing.T) {
+	tests := []struct {
+		param string
+	}{
+		{},
+	}
+
+	for _, tt := range tests {
+		cmd := "FILES"
+
+		if len(tt.param) > 0 {
+			cmd = cmd + tt.param
+		}
+
+		l := lexer.New(cmd)
+		p := parser.New(l)
+		var mt mockTerm
+		initMockTerm(&mt)
+		env := object.NewTermEnvironment(mt)
+		p.ParseCmd(env)
+
+		if len(p.Errors()) > 0 {
+			for _, er := range p.Errors() {
+				fmt.Println(er)
+			}
+			return
+		}
+
+		Eval(env.Program, env.Program.CmdLineIter(), env)
+
+		if !*mt.sawCls {
+			t.Errorf("No call to Cls() seen")
+		}
+	}
+}
+
 func TestEvalIntegerExpression(t *testing.T) {
 	tests := []struct {
 		input    string

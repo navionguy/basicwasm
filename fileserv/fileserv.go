@@ -15,6 +15,7 @@ type fileSource struct {
 	filename string
 }
 
+// These are the command line flags that tell where to find runtime resources
 var (
 	assetsDir = flag.String("assets", "./assets/", "web page assets")
 	moduleDir = flag.String("webmodules", "./webmodules/", "web assembly file(s)")
@@ -24,71 +25,136 @@ var (
 		"driveC": flag.String("driveC", "./source", "current directory on start-up"),
 		// TODO: add the rest of the possible drive letter flags
 	}
-
-	fileSources = map[string]*fileSource{
-		"assets":     {src: http.Dir(*assetsDir)},
-		"webmodules": {src: http.Dir(*moduleDir)},
-	}
 )
 
-// WrapFileSources wrap all the file sources
+// WrapFileSources builds mux routes to all my resources
+// css files, images, javascript files and of course
+// the basic interpreter wasm file.
+// Then he maps all the drive letters that point to a
+// file store.
+//
+// ToDo: drive the resource mapping from a table
 func WrapFileSources(rtr *mux.Router) {
+	drv := *assetsDir + "css/"
+	fs := &fileSource{src: http.Dir(drv)}
+	fs.wrapSource(rtr, "/css/{file}.{ext}", "text/css")
+
+	drv = *assetsDir + "images/"
+	fs = &fileSource{src: http.Dir(drv)}
+	fs.wrapSource(rtr, "/images/{file}.{ext}", "text/plain")
+
+	drv = *assetsDir + "js/"
+	fs = &fileSource{src: http.Dir(drv)}
+	fs.wrapSource(rtr, "/js/{file}.{ext}", "application/x-javascript; charset=utf-8")
+
+	drv = *moduleDir
+	fs = &fileSource{src: http.Dir(drv)}
+	fs.wrapSource(rtr, "/wasm/{file}.{ext}", "application/wasm")
+
 	for key, drv := range drives {
 		if len(*drv) > 0 {
-			fileSources[key] = &fileSource{src: http.Dir(*drv)}
-			rt := "/" + key + "/"
-			rtr.HandleFunc(rt, FileServ).Name(key)
+			fs := &fileSource{src: http.Dir(*drv)}
+			path := "/" + key
+			fs.fullyWrapSource(rtr, path)
+			fs.wrapSubDirs(rtr, *drv, path)
 		}
 	}
 }
 
-// FileServ sends the requested file
-func FileServ(w http.ResponseWriter, r *http.Request) {
+// given a path, create a handler function that will extract the
+// parts of the path and then call the source directory to work
+// on the file
+func (fs *fileSource) wrapSource(rtr *mux.Router, path string, mimetype string) {
+	rtr.HandleFunc(path, func(rw http.ResponseWriter, r *http.Request) {
+		vs := mux.Vars(r)
+		file := vs["file"]
+		ext := vs["ext"]
 
-	parts := strings.Split(r.URL.Path, "/")
-	src := fileSources[parts[1]]
+		if len(ext) > 0 {
+			file = file + "." + ext
+		}
+		fs.serveFile(rw, r, file, mimetype)
+	}).Name(path)
 
-	//
-	if (len(parts[1]) == 0) || (src == nil) {
-		w.WriteHeader(403)
+}
+
+// Since the gorilla mux doesn't support wildcard routes I have to map
+// all the possibilities independantly.
+// 		http://hostname:port/driveC
+// 		http://hostname:port/driveC/
+// 		http://hostname:port/driveC/program
+// 		http://hostname:port/driveC/program.ext
+func (fs *fileSource) fullyWrapSource(rtr *mux.Router, path string) {
+	fs.wrapSource(rtr, path, "text/plain; charset=ASCII")
+	fs.wrapSource(rtr, path+"/", "text/plain; charset=ASCII")
+	fs.wrapSource(rtr, path+"/{file}.{ext}", "text/plain; charset=ASCII")
+	fs.wrapSource(rtr, path+"/{file}", "text/plain; charset=ASCII")
+}
+
+// After wrapping a directory, I want to wrap any sub-directories
+// he might have.
+//
+func (fs *fileSource) wrapSubDirs(rtr *mux.Router, dir string, path string) {
+	hfile, err := fs.src.Open("/")
+
+	// if I can't open him, nothing more to do
+	if err != nil {
+		return
+	}
+	defer hfile.Close()
+
+	files, err := hfile.Readdir(-1)
+
+	// he might not be a directory
+	if err != nil {
 		return
 	}
 
-	vs := mux.Vars(r)
+	// he is a directory
+	// go wrap any sub directories
+	fs.wrapADir(rtr, dir, path, files)
 
-	switch parts[1] {
-	case "assets":
-		src.filename = fmt.Sprintf("%s/%s/", vs["type"], vs["file"])
-		src.setContentType(w)
-
-	case "webmodules":
-		src.filename = vs["file"]
-	default:
-		src.filename = r.URL.Path
-	}
-
-	src.ServeFile(w, r, src.filename)
 }
 
-func (fs fileSource) setContentType(w http.ResponseWriter) {
-	parts := strings.Split(fs.filename, ".")
+// loops through filenames looking for directories
+// wraps the directories and then calls wrapSubDirs on them
+// to understand recursion, you must understand recursion
+//
+func (fs fileSource) wrapADir(rtr *mux.Router, dir string, path string, files []os.FileInfo) {
+	for _, finfo := range files {
+		if containsDotFile(finfo.Name()) {
+			continue
+		}
 
-	if len(parts) == 1 {
-		return // just go with text/plain
-	}
+		tFile, err := fs.src.Open(finfo.Name())
 
-	ext := parts[len(parts)-1]
-	ext = strings.TrimRight(ext, "/")
+		if err != nil {
+			continue
+		}
 
-	switch ext {
-	case "js":
-		w.Header().Set("Content-Type", "text/javascript")
-	case "css":
-		w.Header().Set("Content-Type", "text/css")
+		info, err := tFile.Stat()
+
+		if err != nil {
+			continue
+		}
+		tFile.Close()
+
+		if !info.IsDir() {
+			continue
+		}
+
+		fname := info.Name()
+		subdir := dir + "/" + fname
+		subpath := path + "/" + fname
+		nfs := &fileSource{src: http.Dir(subdir)}
+		nfs.fullyWrapSource(rtr, subpath)
+		nfs.wrapSubDirs(rtr, subdir, subpath)
 	}
 }
 
-func (fs fileSource) ServeFile(w http.ResponseWriter, r *http.Request, fname string) {
+// serveFile opens up the file and sends its contents
+//
+func (fs fileSource) serveFile(w http.ResponseWriter, r *http.Request, fname string, mimetype string) {
 	if len(fname) == 0 {
 		fname = "/"
 	}
@@ -103,7 +169,7 @@ func (fs fileSource) ServeFile(w http.ResponseWriter, r *http.Request, fname str
 	st, err := hfile.Stat()
 
 	if err != nil {
-		w.WriteHeader(403)
+		w.WriteHeader(500)
 		return
 	}
 
@@ -116,10 +182,13 @@ func (fs fileSource) ServeFile(w http.ResponseWriter, r *http.Request, fname str
 	_, err = hfile.Read(buf)
 
 	if err != nil {
-		w.WriteHeader(403)
+		w.WriteHeader(503)
 		return
 	}
 
+	if len(mimetype) > 0 {
+		w.Header().Set("Content-Type", mimetype)
+	}
 	w.Write(buf)
 
 }

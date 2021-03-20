@@ -12,10 +12,13 @@ import (
 
 func registerCallbacks() {
 
-	fmt.Println("gwbasic::registerCallbacks")
+	fmt.Println("gwbasic::registerCallBacks")
 
 	//kybd := make(chan byte, 0)
-	term := terminal.New(js.Global().Get("term"))
+	document := js.Global().Get("document")
+	momma := document.Call("getElementById", "momma").Get("innerHTML")
+	term := terminal.New(js.Global().Get("term"), momma.String())
+	fmt.Printf("location:%s \n", momma.String())
 
 	env := object.NewTermEnvironment(term)
 	cli.Start(env)

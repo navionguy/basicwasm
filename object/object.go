@@ -39,7 +39,7 @@ const (
 	TYPED_OBJ        = "TYPED"
 )
 
-// Console defines how collect input and display output
+// Console defines how to collect input and display output
 type Console interface {
 	Cls()
 	Print(string)

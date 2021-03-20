@@ -1,12 +1,12 @@
 <!doctype html>
   <html type="text/css" media="print" >
     <head>
-      <link rel="stylesheet" type="text/css" href="assets/css/xterm.css"/>
-      <link rel="stylesheet" type="text/css" href="assets/css/print.css"/>
-      <link rel="icon" href="assets/html/favicon.ico"/>
-      <script src="assets/js/xterm.js"></script>
-      <script src="assets/js/xterm-addon-fit.js"></script>
-      <script src="assets/js/wasm_exec.js"></script>
+      <link rel="stylesheet" type="text/css" href="css/xterm.css"/>
+      <link rel="stylesheet" type="text/css" href="css/print.css"/>
+      <link rel="icon" href="images/favicon.ico"/>
+      <script src="js/xterm.js"></script>
+      <script src="js/xterm-addon-fit.js"></script>
+      <script src="js/wasm_exec.js"></script>
     </head>
     <style>
       body {
@@ -58,9 +58,11 @@
       <tr id = "terminal"></tr>
     </tbody>
   </table>
-  <p></p>
-  </body>
+  <p id=momma></p>
+</body>
      <script>
+       var loc = location.href;
+       document.getElementById('momma').innerHTML = loc;
         var printMessage
         var term = new Terminal({cols:82, rows: 24, cursorStyle: "underline", WindowOptions: {fullscreenWin: true, setWinSizeChars: true}});
         var fitAddon = new FitAddon.FitAddon();
@@ -89,7 +91,7 @@
 
       const go = new Go();
 
-      WebAssembly.instantiateStreaming(fetch("/webmodules/gwbasic.wasm"), go.importObject).then(
+      WebAssembly.instantiateStreaming(fetch("/wasm/gwbasic.wasm"), go.importObject).then(
         async result => {
           mod = result.module;
           inst = result.instance;
