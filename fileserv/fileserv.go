@@ -2,12 +2,12 @@ package fileserv
 
 import (
 	"flag"
-	"fmt"
 	"net/http"
 	"os"
 	"strings"
 
 	"github.com/gorilla/mux"
+	"github.com/navionguy/basicwasm/filelist"
 )
 
 type fileSource struct {
@@ -35,21 +35,23 @@ var (
 //
 // ToDo: drive the resource mapping from a table
 func WrapFileSources(rtr *mux.Router) {
-	drv := *assetsDir + "css/"
-	fs := &fileSource{src: http.Dir(drv)}
-	fs.wrapSource(rtr, "/css/{file}.{ext}", "text/css")
+	resources := []struct {
+		rootdir  string
+		subdir   string
+		route    string
+		mimetype string
+	}{
+		{rootdir: *assetsDir, subdir: "css/", route: "/css/{file}.{ext}", mimetype: "text/css"},
+		{rootdir: *assetsDir, subdir: "images/", route: "/images/{file}.{ext}", mimetype: "text/plain"},
+		{rootdir: *assetsDir, subdir: "js/", route: "/js/{file},{ext}", mimetype: "application/x-javascript; charset=utf-8"},
+		{rootdir: *moduleDir, route: "/wasm/{file}.{ext}", mimetype: "application/wasm"},
+	}
 
-	drv = *assetsDir + "images/"
-	fs = &fileSource{src: http.Dir(drv)}
-	fs.wrapSource(rtr, "/images/{file}.{ext}", "text/plain")
-
-	drv = *assetsDir + "js/"
-	fs = &fileSource{src: http.Dir(drv)}
-	fs.wrapSource(rtr, "/js/{file}.{ext}", "application/x-javascript; charset=utf-8")
-
-	drv = *moduleDir
-	fs = &fileSource{src: http.Dir(drv)}
-	fs.wrapSource(rtr, "/wasm/{file}.{ext}", "application/wasm")
+	for _, res := range resources {
+		drv := res.rootdir + res.subdir
+		fs := &fileSource{src: http.Dir(drv)}
+		fs.wrapSource(rtr, res.route, res.mimetype)
+	}
 
 	for key, drv := range drives {
 		if len(*drv) > 0 {
@@ -203,11 +205,14 @@ func (fs fileSource) sendDirectory(hfile http.File, w http.ResponseWriter) {
 		return
 	}
 
+	fl := filelist.NewFileList()
 	for _, finfo := range files {
 		if !containsDotFile(finfo.Name()) {
-			w.Write([]byte(fmt.Sprintf("<p>%s</p>", finfo.Name())))
+			fl.AddFile(finfo)
 		}
 	}
+	w.Header().Set("Content-Type", "application/json")
+	w.Write(fl.JSON())
 }
 
 // Open is a wrapper around the Open method of the embedded FileSystem

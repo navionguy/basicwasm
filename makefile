@@ -1,4 +1,5 @@
 ./basicwasm : main.go \
+		./filelist/filelist.go \
         ./fileserv/fileserv.go \
 		./webmodules/gwbasic.wasm \
 		./assets/js/wasm_exec.js \
@@ -18,6 +19,7 @@
 			./lexer/lexer.go \
 			./ast/ast.go \
 			./decimal/decimal.go \
+			./filelist/filelist.go \
 			./object/object.go \
  			./parser/parser.go \
 			./parser/parser_trace.go \

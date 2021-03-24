@@ -280,8 +280,8 @@ func Test_SendDirectory(t *testing.T) {
 		res   int
 	}{
 		{files: []string{"hello.bas", "menu.bas"}, want: "", res: 404},
-		{files: []string{"hello.bas", ".gitignore", "menu.bas"}, want: "<p>hello.bas</p><p>menu.bas</p>", res: 200},
-		{files: []string{"hello.bas", "menu.bas"}, want: "<p>hello.bas</p><p>menu.bas</p>", res: 200},
+		{files: []string{"hello.bas", ".gitignore", "menu.bas"}, want: `[{"name":"hello.bas","isdir":false},{"name":"menu.bas","isdir":false}]`, res: 200},
+		{files: []string{"hello.bas", "menu.bas"}, want: `[{"name":"hello.bas","isdir":false},{"name":"menu.bas","isdir":false}]`, res: 200},
 	}
 
 	for _, tt := range tests {
@@ -297,10 +297,7 @@ func Test_SendDirectory(t *testing.T) {
 		ffs.sendDirectory(df, rr)
 
 		bufstr := validateResult(t, rr, tt.res, tt.mtype)
-
-		if strings.Compare(bufstr, tt.want) != 0 {
-			t.Fatalf("got result: %s\nwanted : %s\n", bufstr, tt.want)
-		}
+		assert.EqualValues(t, bufstr, tt.want, "got result %s\n wanted %s\n", bufstr, tt.want)
 	}
 }
 
@@ -316,9 +313,7 @@ func validateResult(t *testing.T, rr *httptest.ResponseRecorder, rc int, mtype s
 	buf := make([]byte, rr.Body.Len())
 	_, err := io.ReadFull(rr.Body, buf)
 
-	if err != nil {
-		t.Fatalf("got error %s, trying to read body\n", err.Error())
-	}
+	assert.Nil(t, err, "validate result got an error trying to read body\n")
 
 	if len(mtype) > 0 {
 		assert.Equal(t, mtype, rr.HeaderMap.Get("content-type"), "expected mime type %s, got %s", mtype, rr.HeaderMap.Get("content-type"))
@@ -339,7 +334,9 @@ func Test_ServeFile(t *testing.T) {
 		files   []string
 	}{
 		{testid: "read fail", fname: "hello.bas", mtype: "text/plain; charset=ASCII", res: 503, want: "", readErr: true},
-		{testid: "dir", fname: "/", mtype: "text/html; charset=utf-8", res: 200, want: "<p>hello.bas</p><p>test.bas</p><p>menu.bas</p>", files: []string{"hello.bas", "test.bas", "menu.bas"}},
+		{testid: "dir", fname: "/", mtype: "application/json", res: 200,
+			want:  `[{"name":"hello.bas","isdir":false},{"name":"test.bas","isdir":false},{"name":"menu.bas","isdir":false}]`,
+			files: []string{"hello.bas", "test.bas", "menu.bas"}},
 		{testid: "stat Error", fname: "hello.bas", res: 500, want: "", statErr: true},
 		{testid: "file not found", fname: "hello.bas", res: 404, want: ""},
 		{testid: "read from root", fname: "", res: 200, mtype: "text/plain; charset=ASCII", want: "/"},
