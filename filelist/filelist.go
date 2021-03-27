@@ -3,6 +3,7 @@ package filelist
 import (
 	"encoding/json"
 	"os"
+	"strings"
 )
 
 // dirEntry holds information about a directory entry from the file system
@@ -14,6 +15,10 @@ type dirEntry struct {
 // FileList holds the array of entries
 type FileList struct {
 	Files []dirEntry
+}
+
+type fileSorter struct {
+	list *FileList
 }
 
 // NewFileList builds a new list of files in a directory
@@ -42,4 +47,30 @@ func (fl *FileList) Build(jsn []byte) error {
 
 	err := json.Unmarshal(jsn, &fl.Files)
 	return err
+}
+
+// Len is a part of the sort.Interface
+// returns the number file entries
+func (fs *fileSorter) Len() int {
+	return len(fs.list.Files)
+}
+
+// Swap is part of sort.Interface
+// change two elements
+func (fs *fileSorter) Swap(i, j int) {
+	fs.list.Files[i], fs.list.Files[j] = fs.list.Files[j], fs.list.Files[i]
+}
+
+// Less is part of sort.Interface
+//
+func (fs *fileSorter) Less(i, j int) bool {
+	if fs.list.Files[i].Subdir && !fs.list.Files[j].Subdir {
+		return true
+	}
+
+	if strings.Compare(fs.list.Files[i].Name, fs.list.Files[j].Name) == -1 {
+		return true
+	}
+
+	return false
 }

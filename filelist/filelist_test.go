@@ -1,7 +1,9 @@
 package filelist
 
 import (
+	"fmt"
 	"os"
+	"sort"
 	"testing"
 	"time"
 
@@ -41,12 +43,13 @@ func (mi mockFI) Sys() interface{} {
 }
 
 var testDir = []mockFI{
+	{name: "short.bas"},
 	{name: "test.bas"},
 	{name: "alongername.bas"},
 	{name: "subdir", files: []string{"test1.bas", "test2.bas"}},
 }
 
-const marshaledFiles = `[{"name":"test.bas","isdir":false},{"name":"alongername.bas","isdir":false},{"name":"subdir","isdir":true}]`
+const marshaledFiles = `[{"name":"short.bas","isdir":false},{"name":"test.bas","isdir":false},{"name":"alongername.bas","isdir":false},{"name":"subdir","isdir":true}]`
 
 const buildFiles = `[{"name":"test.bas","isdir":false},{"name":"alongername.bas","isdir":true}]`
 
@@ -65,8 +68,23 @@ func Test_FilesJSON(t *testing.T) {
 	assert.Len(t, fl.Files, 2, "Test_FilesJSON Build sent back %d elements, expected 2", len(fl.Files))
 }
 
-func (fl *FileList) loadTestDir() {
+func Test_FileSort(t *testing.T) {
+	fl := NewFileList()
+	fl.loadTestDir()
+	fs := &fileSorter{list: fl}
 
+	assert.Len(t, fl.Files, fs.Len(), "Test_FileSort fs.Len() returned %d", fs.Len())
+
+	sort.Sort(fs)
+
+	assert.True(t, fs.list.Files[0].Subdir, "Subdirectory didn't float to the start of the list.")
+	assert.EqualValues(t, "alongername.bas", fs.list.Files[1].Name, "Files not alphabetical")
+
+	res := fl.JSON()
+	fmt.Println(string(res))
+}
+
+func (fl *FileList) loadTestDir() {
 	for _, fn := range testDir {
 		fl.AddFile(fn)
 	}
