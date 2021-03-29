@@ -3,12 +3,15 @@ package evaluator
 import (
 	"bytes"
 	"fmt"
+	"io/ioutil"
 	"math"
+	"net/http"
 	"strconv"
 	"strings"
 
 	"github.com/navionguy/basicwasm/ast"
 	"github.com/navionguy/basicwasm/decimal"
+	"github.com/navionguy/basicwasm/filelist"
 	"github.com/navionguy/basicwasm/object"
 	"github.com/navionguy/basicwasm/token"
 )
@@ -381,7 +384,61 @@ func allocArrayValue(typeid string) object.Object {
 }
 
 func evalFilesCommand(files *ast.FilesCommand, code *ast.Code, env *object.Environment) {
-	//http.NewRequest("GET")
+	drv, ok := env.Get(object.WORK_DRIVE)
+	if !ok { // if he wasn't set, use a default
+		drv = &object.String{Value: "driveC"}
+	}
+
+	mom, ok := env.Get(object.SERVER_URL)
+	if !ok {
+		mom = &object.String{Value: "http://localhost:8080/"}
+	}
+
+	res, err := http.DefaultClient.Get(mom.Inspect() + drv.Inspect())
+
+	if err != nil {
+		env.Terminal().Println(err.Error())
+		return
+	}
+
+	dir, err := ioutil.ReadAll(res.Body)
+	if err != nil {
+		env.Terminal().Println(err.Error())
+		return
+	}
+
+	list := filelist.NewFileList()
+	err = list.Build(dir)
+	if err != nil {
+		env.Terminal().Println(err.Error())
+		return
+	}
+
+	displayFiles(list, env)
+}
+
+func displayFiles(files *filelist.FileList, env *object.Environment) {
+	col := 0
+	for _, fl := range files.Files {
+		name := fl.Name
+		prts := strings.Split(name, ".")
+		if len(prts) == 1 {
+			prts = append(prts, " ") // blank extension
+		}
+		isdir := "     "
+		if fl.Subdir {
+			isdir = "<dir> "
+		}
+		output := fmt.Sprintf("%-8.8s.%-3.3s%s", prts[0], prts[1], isdir)
+
+		env.Terminal().Print(output)
+		col++
+		if col == 4 {
+			env.Terminal().Println("")
+			col = 0
+		}
+	}
+	env.Terminal().Println("")
 }
 
 func evalGotoStatement(jmp string, code *ast.Code, env *object.Environment) object.Object {

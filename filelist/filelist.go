@@ -3,6 +3,7 @@ package filelist
 import (
 	"encoding/json"
 	"os"
+	"sort"
 	"strings"
 )
 
@@ -41,12 +42,18 @@ func (fl *FileList) AddFile(file os.FileInfo) {
 	fl.Files = append(fl.Files, nf)
 }
 
-// Build list takes the json form and builds a full FileList
+// Build list takes the json form and builds a full FileList and sorts it
 func (fl *FileList) Build(jsn []byte) error {
 	fl.Files = fl.Files[:0]
 
 	err := json.Unmarshal(jsn, &fl.Files)
-	return err
+	if err != nil {
+		return err
+	}
+	fs := &fileSorter{list: fl}
+	sort.Sort(fs)
+
+	return nil
 }
 
 // Len is a part of the sort.Interface
@@ -66,6 +73,10 @@ func (fs *fileSorter) Swap(i, j int) {
 func (fs *fileSorter) Less(i, j int) bool {
 	if fs.list.Files[i].Subdir && !fs.list.Files[j].Subdir {
 		return true
+	}
+
+	if !fs.list.Files[i].Subdir && fs.list.Files[j].Subdir {
+		return false
 	}
 
 	if strings.Compare(fs.list.Files[i].Name, fs.list.Files[j].Name) == -1 {

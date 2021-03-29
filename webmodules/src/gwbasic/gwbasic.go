@@ -17,10 +17,12 @@ func registerCallbacks() {
 	//kybd := make(chan byte, 0)
 	document := js.Global().Get("document")
 	momma := document.Call("getElementById", "momma").Get("innerHTML")
-	term := terminal.New(js.Global().Get("term"), momma.String())
-	fmt.Printf("location:%s \n", momma.String())
+	term := terminal.New(js.Global().Get("term"))
 
 	env := object.NewTermEnvironment(term)
+	env.Set(object.SERVER_URL, &object.String{Value: momma.String()})
+	env.Set(object.WORK_DRIVE, &object.String{Value: "driveC"})
+
 	cli.Start(env)
 
 	js.Global().Set("keyPress", js.FuncOf(func(this js.Value, inputs []js.Value) interface{} {

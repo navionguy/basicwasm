@@ -13,12 +13,11 @@ import (
 type Terminal struct {
 	term js.Value
 	buff js.Value
-	host string
 }
 
 // New creates a new Terminal object
-func New(t js.Value, host string) *Terminal {
-	env := &Terminal{term: t, host: host}
+func New(t js.Value) *Terminal {
+	env := &Terminal{term: t}
 
 	t.Call("setOption", "scrollback", 0)
 	return env

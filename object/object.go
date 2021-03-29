@@ -22,6 +22,12 @@ type Object interface {
 	Inspect() string
 }
 
+// some internal environment variables
+const (
+	SERVER_URL = "$$mom"
+	WORK_DRIVE = "$$path"
+)
+
 const (
 	ERROR_OBJ        = "ERROR"
 	INTEGER_OBJ      = "INTEGER"

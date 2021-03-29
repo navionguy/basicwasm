@@ -2,6 +2,7 @@ package fileserv
 
 import (
 	"flag"
+	"fmt"
 	"net/http"
 	"os"
 	"strings"
@@ -43,7 +44,7 @@ func WrapFileSources(rtr *mux.Router) {
 	}{
 		{rootdir: *assetsDir, subdir: "css/", route: "/css/{file}.{ext}", mimetype: "text/css"},
 		{rootdir: *assetsDir, subdir: "images/", route: "/images/{file}.{ext}", mimetype: "text/plain"},
-		{rootdir: *assetsDir, subdir: "js/", route: "/js/{file},{ext}", mimetype: "application/x-javascript; charset=utf-8"},
+		{rootdir: *assetsDir, subdir: "js/", route: "/js/{file}.{ext}", mimetype: "application/x-javascript; charset=utf-8"},
 		{rootdir: *moduleDir, route: "/wasm/{file}.{ext}", mimetype: "application/wasm"},
 	}
 
@@ -67,6 +68,7 @@ func WrapFileSources(rtr *mux.Router) {
 // parts of the path and then call the source directory to work
 // on the file
 func (fs *fileSource) wrapSource(rtr *mux.Router, path string, mimetype string) {
+	fmt.Printf("Wrapping %s with %s\n", path, mimetype)
 	rtr.HandleFunc(path, func(rw http.ResponseWriter, r *http.Request) {
 		vs := mux.Vars(r)
 		file := vs["file"]
@@ -160,6 +162,7 @@ func (fs fileSource) serveFile(w http.ResponseWriter, r *http.Request, fname str
 	if len(fname) == 0 {
 		fname = "/"
 	}
+	fmt.Printf("Serving %s with type %s\n", fname, mimetype)
 
 	hfile, err := fs.Open(fname)
 
