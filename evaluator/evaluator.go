@@ -12,6 +12,7 @@ import (
 	"github.com/navionguy/basicwasm/ast"
 	"github.com/navionguy/basicwasm/decimal"
 	"github.com/navionguy/basicwasm/filelist"
+	"github.com/navionguy/basicwasm/fileserv"
 	"github.com/navionguy/basicwasm/object"
 	"github.com/navionguy/basicwasm/token"
 )
@@ -383,10 +384,16 @@ func allocArrayValue(typeid string) object.Object {
 	return obj
 }
 
+// FILES instruct the system to list filenames for current directory
+// FILES "path" lists all files in the specified directory
 func evalFilesCommand(files *ast.FilesCommand, code *ast.Code, env *object.Environment) {
 	drv, ok := env.Get(object.WORK_DRIVE)
 	if !ok { // if he wasn't set, use a default
 		drv = &object.String{Value: "driveC"}
+	}
+
+	if len(files.Path) != 0 {
+
 	}
 
 	mom, ok := env.Get(object.SERVER_URL)
@@ -394,10 +401,16 @@ func evalFilesCommand(files *ast.FilesCommand, code *ast.Code, env *object.Envir
 		mom = &object.String{Value: "http://localhost:8080/"}
 	}
 
+	fmt.Printf(mom.Inspect() + drv.Inspect())
 	res, err := http.DefaultClient.Get(mom.Inspect() + drv.Inspect())
 
 	if err != nil {
 		env.Terminal().Println(err.Error())
+		return
+	}
+
+	if res.StatusCode != 200 {
+		env.Terminal().Println("File not found")
 		return
 	}
 
@@ -417,19 +430,11 @@ func evalFilesCommand(files *ast.FilesCommand, code *ast.Code, env *object.Envir
 	displayFiles(list, env)
 }
 
+// mimic the way in which GWBasic display directory contents
 func displayFiles(files *filelist.FileList, env *object.Environment) {
 	col := 0
 	for _, fl := range files.Files {
-		name := fl.Name
-		prts := strings.Split(name, ".")
-		if len(prts) == 1 {
-			prts = append(prts, " ") // blank extension
-		}
-		isdir := "     "
-		if fl.Subdir {
-			isdir = "<dir> "
-		}
-		output := fmt.Sprintf("%-8.8s.%-3.3s%s", prts[0], prts[1], isdir)
+		output := fileserv.FormatFileName(fl.Name, fl.Subdir)
 
 		env.Terminal().Print(output)
 		col++

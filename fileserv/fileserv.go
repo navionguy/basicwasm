@@ -5,11 +5,19 @@ import (
 	"fmt"
 	"net/http"
 	"os"
+	"path"
 	"strings"
+	"unicode"
 
 	"github.com/gorilla/mux"
 	"github.com/navionguy/basicwasm/filelist"
+	"github.com/navionguy/basicwasm/object"
 )
+
+// The first group of functions are used by the basicwasm server.
+// To serve files down to the interpreter running in the browser.
+// The second group are used to build requests and to process
+// the results of those requests.
 
 type fileSource struct {
 	src      http.FileSystem
@@ -68,7 +76,6 @@ func WrapFileSources(rtr *mux.Router) {
 // parts of the path and then call the source directory to work
 // on the file
 func (fs *fileSource) wrapSource(rtr *mux.Router, path string, mimetype string) {
-	fmt.Printf("Wrapping %s with %s\n", path, mimetype)
 	rtr.HandleFunc(path, func(rw http.ResponseWriter, r *http.Request) {
 		vs := mux.Vars(r)
 		file := vs["file"]
@@ -162,7 +169,6 @@ func (fs fileSource) serveFile(w http.ResponseWriter, r *http.Request, fname str
 	if len(fname) == 0 {
 		fname = "/"
 	}
-	fmt.Printf("Serving %s with type %s\n", fname, mimetype)
 
 	hfile, err := fs.Open(fname)
 
@@ -265,4 +271,86 @@ func (f dotFileHidingFile) Readdir(n int) (fis []os.FileInfo, err error) {
 		}
 	}
 	return
+}
+
+// Functions below here are used in the interpreter to request
+// files from the file handlers defined above
+
+func BuildRequestURL(path string, env *object.Environment) {
+
+}
+
+func convertDrive(target, cwd string) string {
+	if checkForDrive(target) {
+		// if he starts with a drive
+		// we can ignore current working directory
+		drv := "drive" + strings.ToUpper(target[0:1])
+		return path.Join(drv, target[2:])
+	}
+
+	if `/` == target[0:1] {
+		// he wants to start at root of current drive
+		drv := "drive" + strings.ToUpper(cwd[0:1])
+		return path.Join(drv, target)
+	}
+
+	// start from cwd
+	drv := "drive" + strings.ToUpper(cwd[0:1])
+	return path.Join(drv, cwd[2:], target)
+}
+
+func checkForDrive(path string) bool {
+	if len(path) < 2 {
+		//
+		return false
+	}
+
+	if (unicode.IsLetter(rune(path[0:1][0]))) && (":" == path[1:2]) {
+		return true
+	}
+
+	return false
+}
+
+// FormatFileName forces it into 8.3 form
+func FormatFileName(name string, isDir bool) string {
+	// split off any extension so I can catch long basenames
+	prts := strings.Split(name, ".")
+	if len(prts) == 1 {
+		prts = append(prts, " ") // blank extension
+	}
+
+	output := fmt.Sprintf("%-8.8s.%-3.3s%s", formatBaseName(prts[0]), formatExtension(prts[1]), setDirTag(isDir))
+	return output
+}
+
+// if the basename is longer than eight characters
+// GWBasic would show the first seven with a '+'
+// in the eighth position
+func formatBaseName(name string) string {
+	if len(name) > 8 {
+		name = name[:7] + "+"
+	}
+
+	return name
+}
+
+// The 8.3 file format was just assumed at the time
+// Now, extensions can be as long as you want
+// you can I have multiple parts to a name
+// I just use the part after the first period
+// and trim to three characters if needed
+func formatExtension(ext string) string {
+	if len(ext) > 3 {
+		ext = ext[:3]
+	}
+	return ext
+}
+
+func setDirTag(isDir bool) string {
+	if isDir {
+		return "<dir>"
+	}
+
+	return "    "
 }

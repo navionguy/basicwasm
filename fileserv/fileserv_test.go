@@ -405,3 +405,111 @@ func Test_Readdir(t *testing.T) {
 		})
 	}
 }
+
+// testing client side routines
+
+func Test_SetDirTag(t *testing.T) {
+	tests := []struct {
+		flag bool
+		exp  string
+	}{
+		{false, "    "},
+		{true, "<dir>"},
+	}
+
+	for _, tt := range tests {
+		res := setDirTag(tt.flag)
+
+		assert.Zero(t, strings.Compare(tt.exp, res), "Expected %s got %s", tt.exp, res)
+	}
+}
+
+func Test_FormatExtension(t *testing.T) {
+	tests := []struct {
+		ext string
+		exp string
+	}{
+		{"bas", "bas"},
+		{"basic", "bas"},
+		{"bas.tmp", "bas"},
+	}
+
+	for _, tt := range tests {
+		res := formatExtension(tt.ext)
+
+		assert.Zero(t, strings.Compare(tt.exp, res), "Expected %s got %s", tt.exp, res)
+	}
+}
+
+func Test_FormatBaseName(t *testing.T) {
+	tests := []struct {
+		name string
+		exp  string
+	}{
+		{"basic", "basic"},
+		{"longername", "longern+"},
+		{"exactly8", "exactly8"},
+	}
+
+	for _, tt := range tests {
+		res := formatBaseName(tt.name)
+
+		assert.Zero(t, strings.Compare(tt.exp, res), "Expected %s got %s", tt.exp, res)
+	}
+}
+
+func Test_FormatFileName(t *testing.T) {
+	tests := []struct {
+		name string
+		flag bool
+		exp  string
+	}{
+		{"basic", false, "basic   .       "},
+		{"basic.bas", false, "basic   .bas    "},
+		{"longername.basic", false, "longern+.bas    "},
+		{"exactly8.bas", false, "exactly8.bas    "},
+		{"exactly8.bas", true, "exactly8.bas<dir>"},
+	}
+
+	for _, tt := range tests {
+		res := FormatFileName(tt.name, tt.flag)
+
+		assert.Zero(t, strings.Compare(tt.exp, res), "Test_FormatFileName() expected %s got %s", tt.exp, res)
+	}
+}
+
+func Test_CheckForDrive(t *testing.T) {
+	tests := []struct {
+		path string
+		exp  bool
+	}{
+		{"/", false},
+		{"c:/", true},
+		{"menu", false},
+	}
+
+	for _, tt := range tests {
+		res := checkForDrive(tt.path)
+
+		assert.Equal(t, tt.exp, res, "Test_CheckForDrive expected %t got %t", tt.exp, res)
+	}
+}
+
+func Test_ConvertDrive(t *testing.T) {
+	tests := []struct {
+		path string
+		cwd  string
+		exp  string
+	}{
+		{`C:/`, `c:`, "driveC"},
+		{"c:/", "c:/", "driveC"},
+		{"/menu", "c:/", "driveC/menu"},
+		{"prog/test.bas", "c:/menu", "driveC/menu/prog/test.bas"},
+	}
+
+	for _, tt := range tests {
+		res := convertDrive(tt.path, tt.cwd)
+
+		assert.Equal(t, tt.exp, res, "Test_ConvertDrive expected %s, got %s", tt.exp, res)
+	}
+}
