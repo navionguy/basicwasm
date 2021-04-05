@@ -12,6 +12,7 @@ import (
 	"time"
 
 	"github.com/gorilla/mux"
+	"github.com/navionguy/basicwasm/object"
 	"github.com/stretchr/testify/assert"
 )
 
@@ -501,15 +502,146 @@ func Test_ConvertDrive(t *testing.T) {
 		cwd  string
 		exp  string
 	}{
-		{`C:/`, `c:`, "driveC"},
-		{"c:/", "c:/", "driveC"},
-		{"/menu", "c:/", "driveC/menu"},
-		{"prog/test.bas", "c:/menu", "driveC/menu/prog/test.bas"},
+		{``, `c:`, "driveC"},
+		{`C:\`, `c:`, "driveC"},
+		{`c:\`, `c:\`, "driveC"},
+		{`\menu`, `c:\`, "driveC/menu"},
+		{`prog\test.bas`, "c:/menu", "driveC/menu/prog/test.bas"},
 	}
 
 	for _, tt := range tests {
 		res := convertDrive(tt.path, tt.cwd)
 
 		assert.Equal(t, tt.exp, res, "Test_ConvertDrive expected %s, got %s", tt.exp, res)
+	}
+}
+
+func Test_GetCWD(t *testing.T) {
+	tests := []struct {
+		cwd string
+		exp string
+	}{
+		{"", `C:\`},
+		{`D:\menu`, `D:\menu`},
+	}
+
+	for _, tt := range tests {
+		var trm object.Console
+		env := object.NewTermEnvironment(trm)
+
+		if len(tt.cwd) > 0 {
+			drv := object.String{Value: tt.cwd}
+			env.Set(object.WORK_DRIVE, &drv)
+		}
+
+		res := getCWD(env)
+
+		assert.Equal(t, tt.exp, res, "Test_GetCWD fail, expected %s got %s", tt.exp, res)
+	}
+}
+
+func Test_GetURL(t *testing.T) {
+	tests := []struct {
+		url string
+		exp string
+	}{
+		{"", "http://localhost:8080/"},
+		{"https://gwbasic:3002", "https://gwbasic:3002/"},
+	}
+
+	for _, tt := range tests {
+		var trm object.Console
+		env := object.NewTermEnvironment(trm)
+
+		if len(tt.url) > 0 {
+			url := object.String{Value: tt.url}
+			env.Set(object.SERVER_URL, &url)
+		}
+
+		res := getURL(env)
+
+		assert.Equal(t, tt.exp, res, "Test_GetURL fail, expected %s got %s", tt.exp, res)
+	}
+}
+
+func Test_BuildRequestURL(t *testing.T) {
+	tests := []struct {
+		url  string
+		cwd  string
+		file string
+		exp  string
+	}{
+		{"http://localhost:8080/", `C:\`, "menu1.bas", "http://localhost:8080/driveC/menu1.bas"},
+		{"http://localhost:8080/", `C:\`, `prog\menu1.bas`, "http://localhost:8080/driveC/prog/menu1.bas"},
+	}
+
+	for _, tt := range tests {
+		var trm object.Console
+		env := object.NewTermEnvironment(trm)
+
+		if len(tt.url) > 0 {
+			url := object.String{Value: tt.url}
+			env.Set(object.SERVER_URL, &url)
+		}
+
+		if len(tt.cwd) > 0 {
+			drv := object.String{Value: tt.cwd}
+			env.Set(object.WORK_DRIVE, &drv)
+		}
+
+		res := buildRequestURL(tt.file, env)
+
+		assert.Equal(t, tt.exp, res, "Test_BuildRequestURL fail, expected %s got %s", tt.exp, res)
+	}
+}
+
+func Test_GetFile(t *testing.T) {
+	tests := []struct {
+		url  string
+		cwd  string
+		file string
+		send string
+		exp  string
+		rs   int
+		err  bool
+	}{
+		{``, `C:\`, `menu\menu1.bas`, "10 PRINT \"Main Menu\"\n", "10 PRINT \"Main Menu\"\n", 200, false},
+		{`http://localhost:4321`, `C:\`, `menu\menu1.bas`, "10 PRINT \"Main Menu\"\n", "", 200, true},
+		{``, `C:\`, `menu\menu1.bas`, "", "", 404, true},
+	}
+
+	for _, tt := range tests {
+		var trm object.Console
+		env := object.NewTermEnvironment(trm)
+		ts := httptest.NewServer(http.HandlerFunc(func(res http.ResponseWriter, req *http.Request) {
+			res.WriteHeader(tt.rs)
+			res.Write([]byte(tt.send))
+		}))
+		defer ts.Close()
+
+		url := object.String{Value: ts.URL}
+		if len(tt.url) > 0 {
+			url = object.String{Value: tt.url}
+		}
+		env.Set(object.SERVER_URL, &url)
+
+		if len(tt.cwd) > 0 {
+			drv := object.String{Value: tt.cwd}
+			env.Set(object.WORK_DRIVE, &drv)
+		}
+
+		bt, err := GetFile(tt.file, env)
+
+		if !tt.err {
+			assert.NoError(t, err, "Test_GetFile failed with error")
+		} else {
+			assert.Error(t, err, "Test_GetFile succeeded will expecting error")
+		}
+
+		if len(tt.exp) > 0 {
+			res := string(*bt)
+
+			assert.Equal(t, tt.exp, res, "Test_GetFile fail, expected %s got %s", tt.exp, res)
+		}
 	}
 }

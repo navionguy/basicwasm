@@ -20,6 +20,7 @@
 			./ast/ast.go \
 			./decimal/decimal.go \
 			./filelist/filelist.go \
+			./fileserv/fileserv.go \
 			./object/object.go \
  			./parser/parser.go \
 			./parser/parser_trace.go \

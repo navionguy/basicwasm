@@ -1,8 +1,10 @@
 package fileserv
 
 import (
+	"errors"
 	"flag"
 	"fmt"
+	"io/ioutil"
 	"net/http"
 	"os"
 	"path"
@@ -276,11 +278,81 @@ func (f dotFileHidingFile) Readdir(n int) (fis []os.FileInfo, err error) {
 // Functions below here are used in the interpreter to request
 // files from the file handlers defined above
 
-func BuildRequestURL(path string, env *object.Environment) {
+// GetFile fetches
+func GetFile(file string, env *object.Environment) (*[]byte, error) {
+	rq := buildRequestURL(file, env)
+	res, err := sendRequest(rq, env)
 
+	if err != nil {
+		return nil, err
+	}
+
+	body, _ := ioutil.ReadAll(res.Body)
+
+	return &body, nil
 }
 
+func sendRequest(rq string, env *object.Environment) (*http.Response, error) {
+	res, err := env.GetClient().Get(rq)
+
+	if err != nil {
+		return nil, err
+	}
+
+	if res.StatusCode != 200 {
+		return nil, errors.New("File not found")
+	}
+
+	return res, nil
+}
+
+// build up a URL for addressing the target file
+func buildRequestURL(target string, env *object.Environment) string {
+	url := getURL(env)
+	cwd := getCWD(env)
+	target = convertDrive(target, cwd)
+
+	return url + target
+}
+
+// Get the URL of my server, he hides it in the HTML
+// and main pushes it into the environment object store
+func getURL(env *object.Environment) string {
+
+	mom, ok := env.Get(object.SERVER_URL)
+	if !ok {
+		mom = &object.String{Value: "http://localhost:8080/"}
+	}
+	url := mom.Inspect()
+	if url[len(url)-1:] != "/" {
+		url = url + "/"
+	}
+
+	return url
+}
+
+// Get the current working directory from the environment
+func getCWD(env *object.Environment) string {
+	drv, ok := env.Get(object.WORK_DRIVE)
+	if !ok { // if he wasn't set, use a default
+		drv = &object.String{Value: `C:\`}
+	}
+
+	return drv.Inspect()
+}
+
+// convert from:
+//		C:\DIRNAME\FILENAME.EXT
+// to
+//		driveC/DIRNAME/FILENAME.EXT
 func convertDrive(target, cwd string) string {
+	if len(target) == 0 {
+		cwd = strings.ReplaceAll(cwd, `\`, "/")
+		drv := "drive" + strings.ToUpper(cwd[0:1])
+		return drv
+	}
+
+	target = strings.ReplaceAll(target, `\`, "/")
 	if checkForDrive(target) {
 		// if he starts with a drive
 		// we can ignore current working directory
@@ -295,16 +367,20 @@ func convertDrive(target, cwd string) string {
 	}
 
 	// start from cwd
+	cwd = strings.ReplaceAll(cwd, `\`, "/")
 	drv := "drive" + strings.ToUpper(cwd[0:1])
 	return path.Join(drv, cwd[2:], target)
 }
 
+// check to see if a drive is specified
 func checkForDrive(path string) bool {
+	// less than 2 char can't be a drive spec
 	if len(path) < 2 {
 		//
 		return false
 	}
 
+	// letter followed by colon, it's a drive spec
 	if (unicode.IsLetter(rune(path[0:1][0]))) && (":" == path[1:2]) {
 		return true
 	}

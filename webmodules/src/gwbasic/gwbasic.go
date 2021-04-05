@@ -21,7 +21,7 @@ func registerCallbacks() {
 
 	env := object.NewTermEnvironment(term)
 	env.Set(object.SERVER_URL, &object.String{Value: momma.String()})
-	env.Set(object.WORK_DRIVE, &object.String{Value: "driveC"})
+	env.Set(object.WORK_DRIVE, &object.String{Value: `C:\`})
 
 	cli.Start(env)
 

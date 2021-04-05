@@ -179,14 +179,12 @@ func Test_FilesCommand(t *testing.T) {
 			for _, er := range p.Errors() {
 				fmt.Println(er)
 			}
+			t.Fatal("FILES command failed!")
 			return
 		}
 
 		Eval(env.Program, env.Program.CmdLineIter(), env)
 
-		if !*mt.sawCls {
-			t.Errorf("No call to Cls() seen")
-		}
 	}
 }
 

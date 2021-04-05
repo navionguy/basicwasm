@@ -436,6 +436,11 @@ func (ac *AutoCommand) String() string {
 	return out.String()
 }
 
+// BeepStatement triggers a beep, no parameters
+type BeepStatement struct {
+	Token token.Token
+}
+
 // CallExpression is used when calling built in functions
 type CallExpression struct {
 	Token     token.Token // The '(' token
@@ -461,6 +466,16 @@ func (ce *CallExpression) String() string {
 	out.WriteString(")")
 
 	return out.String()
+}
+
+// ChainStatement loads a program file
+type ChainStatement struct {
+	Token  token.Token
+	File   string
+	Line   int
+	Range  int
+	All    bool
+	Delete bool
 }
 
 // ClsStatement command to clear screen

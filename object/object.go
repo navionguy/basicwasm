@@ -5,6 +5,7 @@ import (
 	"bytes"
 	"fmt"
 	"math/rand"
+	"net/http"
 
 	"strings"
 
@@ -77,6 +78,7 @@ func newEnvironment() *Environment {
 	// initialize my random number generator
 	e.rnd = rand.New(rand.NewSource(37))
 	e.rndVal = e.rnd.Float32()
+	e.SetClient(http.DefaultClient)
 	return e
 }
 
@@ -100,6 +102,8 @@ type Environment struct {
 	rnd     *rand.Rand       // random number generator
 	rndVal  float32          // most recent generated value
 	traceOn bool             // is tracing turned on
+	client  *http.Client     // for making server requests
+
 }
 
 // Get attempts to retrieve an object from the environment
@@ -140,6 +144,17 @@ func (e *Environment) SetAuto(auto *ast.AutoCommand) {
 // GetAuto returns the line numbering parameters
 func (e *Environment) GetAuto() *ast.AutoCommand {
 	return e.autoOn
+}
+
+// GetClient returns my http client
+func (e *Environment) GetClient() *http.Client {
+	return e.client
+}
+
+// SetClient setter for the client element
+// mostly used for testing
+func (e *Environment) SetClient(cl *http.Client) {
+	e.client = cl
 }
 
 // Random returns a random number between 0 and 1

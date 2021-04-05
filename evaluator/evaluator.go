@@ -3,9 +3,7 @@ package evaluator
 import (
 	"bytes"
 	"fmt"
-	"io/ioutil"
 	"math"
-	"net/http"
 	"strconv"
 	"strings"
 
@@ -387,41 +385,10 @@ func allocArrayValue(typeid string) object.Object {
 // FILES instruct the system to list filenames for current directory
 // FILES "path" lists all files in the specified directory
 func evalFilesCommand(files *ast.FilesCommand, code *ast.Code, env *object.Environment) {
-	drv, ok := env.Get(object.WORK_DRIVE)
-	if !ok { // if he wasn't set, use a default
-		drv = &object.String{Value: "driveC"}
-	}
 
-	if len(files.Path) != 0 {
-
-	}
-
-	mom, ok := env.Get(object.SERVER_URL)
-	if !ok {
-		mom = &object.String{Value: "http://localhost:8080/"}
-	}
-
-	fmt.Printf(mom.Inspect() + drv.Inspect())
-	res, err := http.DefaultClient.Get(mom.Inspect() + drv.Inspect())
-
-	if err != nil {
-		env.Terminal().Println(err.Error())
-		return
-	}
-
-	if res.StatusCode != 200 {
-		env.Terminal().Println("File not found")
-		return
-	}
-
-	dir, err := ioutil.ReadAll(res.Body)
-	if err != nil {
-		env.Terminal().Println(err.Error())
-		return
-	}
-
+	dir, err := fileserv.GetFile(files.Path, env)
 	list := filelist.NewFileList()
-	err = list.Build(dir)
+	err = list.Build(*dir)
 	if err != nil {
 		env.Terminal().Println(err.Error())
 		return

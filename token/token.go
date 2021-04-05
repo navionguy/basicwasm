@@ -61,6 +61,8 @@ const (
 
 	// Keywords
 	AUTO    = "AUTO"
+	BEEP    = "BEEP"
+	CHAIN   = "CHAIN"
 	CLS     = "CLS"
 	CLEAR   = "CLEAR"
 	COMMON  = "COMMON"
