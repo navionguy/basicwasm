@@ -1,10 +1,10 @@
 package fileserv
 
 import (
+	"bufio"
 	"errors"
 	"flag"
 	"fmt"
-	"io/ioutil"
 	"net/http"
 	"os"
 	"path"
@@ -13,7 +13,10 @@ import (
 
 	"github.com/gorilla/mux"
 	"github.com/navionguy/basicwasm/filelist"
+	"github.com/navionguy/basicwasm/gwtoken"
+	"github.com/navionguy/basicwasm/lexer"
 	"github.com/navionguy/basicwasm/object"
+	"github.com/navionguy/basicwasm/parser"
 )
 
 // The first group of functions are used by the basicwasm server.
@@ -275,11 +278,12 @@ func (f dotFileHidingFile) Readdir(n int) (fis []os.FileInfo, err error) {
 	return
 }
 
-// Functions below here are used in the interpreter to request
-// files from the file handlers defined above
+/* *********************************************************************************************** */
+// Functions below here are used in the interpreter to request files from the file handlers defined above
+// and to work with the files to process them
 
 // GetFile fetches
-func GetFile(file string, env *object.Environment) (*[]byte, error) {
+func GetFile(file string, env *object.Environment) (*bufio.Reader, error) {
 	rq := buildRequestURL(file, env)
 	res, err := sendRequest(rq, env)
 
@@ -287,9 +291,9 @@ func GetFile(file string, env *object.Environment) (*[]byte, error) {
 		return nil, err
 	}
 
-	body, _ := ioutil.ReadAll(res.Body)
+	rdr := bufio.NewReader(res.Body)
 
-	return &body, nil
+	return rdr, nil
 }
 
 func sendRequest(rq string, env *object.Environment) (*http.Response, error) {
@@ -309,7 +313,7 @@ func sendRequest(rq string, env *object.Environment) (*http.Response, error) {
 // build up a URL for addressing the target file
 func buildRequestURL(target string, env *object.Environment) string {
 	url := getURL(env)
-	cwd := getCWD(env)
+	cwd := GetCWD(env)
 	target = convertDrive(target, cwd)
 
 	return url + target
@@ -331,8 +335,8 @@ func getURL(env *object.Environment) string {
 	return url
 }
 
-// Get the current working directory from the environment
-func getCWD(env *object.Environment) string {
+// GetCWD returns the current working directory from the environment
+func GetCWD(env *object.Environment) string {
 	drv, ok := env.Get(object.WORK_DRIVE)
 	if !ok { // if he wasn't set, use a default
 		drv = &object.String{Value: `C:\`}
@@ -423,10 +427,58 @@ func formatExtension(ext string) string {
 	return ext
 }
 
+// adds visual decoration so the user can spot when a name is a directory
 func setDirTag(isDir bool) string {
 	if isDir {
 		return "<dir>"
 	}
 
 	return "    "
+}
+
+// ParseFile decides they file format and then calls the correct parser
+func ParseFile(inp *bufio.Reader, env *object.Environment) {
+	bt, err := inp.Peek(1)
+
+	if err != nil {
+		env.Terminal().Println("Read file error, start byte")
+		return
+	}
+
+	switch bt[0] {
+	case gwtoken.TOKEN_FILE:
+		// file is tokenized in GWBasic format
+		gwtoken.ParseFile(inp, env)
+	case gwtoken.PROTECTED_FILE:
+		// file is a protected, GWBasic file
+	default:
+		// anything else is just an ascii file
+		parseAsciiFile(inp, env)
+	}
+}
+
+func parseAsciiFile(inp *bufio.Reader, env *object.Environment) {
+	eof := false
+
+	for !eof {
+		eof = readLine(inp, env)
+	}
+}
+
+func readLine(inp *bufio.Reader, env *object.Environment) bool {
+	bt, err := inp.ReadBytes(0x0a)
+
+	if err != nil {
+		return true
+	}
+
+	parseLine(string(bt), env)
+	return false
+}
+
+func parseLine(line string, env *object.Environment) {
+
+	l := lexer.New(line)
+	p := parser.New(l)
+	p.ParseProgram(env)
 }

@@ -100,6 +100,8 @@ type Token struct {
 
 var keywords = map[string]TokenType{
 	"auto":    AUTO,
+	"beep":    BEEP,
+	"chain":   CHAIN,
 	"clear":   CLEAR,
 	"cls":     CLS,
 	"data":    DATA,

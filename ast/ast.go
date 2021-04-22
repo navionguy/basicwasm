@@ -441,6 +441,15 @@ type BeepStatement struct {
 	Token token.Token
 }
 
+func (bp *BeepStatement) statementNode() {}
+
+// TokenLiteral returns my token literal
+func (bp *BeepStatement) TokenLiteral() string { return strings.ToUpper(bp.Token.Literal) }
+
+func (bp *BeepStatement) String() string {
+	return "BEEP"
+}
+
 // CallExpression is used when calling built in functions
 type CallExpression struct {
 	Token     token.Token // The '(' token
@@ -473,9 +482,35 @@ type ChainStatement struct {
 	Token  token.Token
 	File   string
 	Line   int
-	Range  int
+	RngBeg int
+	RngEnd int
 	All    bool
 	Delete bool
+}
+
+func (chn *ChainStatement) statementNode() {}
+
+// TokenLiteral returns my token literal
+func (chn *ChainStatement) TokenLiteral() string { return strings.ToUpper(chn.Token.Literal) }
+
+func (chn *ChainStatement) String() string {
+	lit := "CHAIN " + chn.File
+	if chn.Line > 0 {
+		lit = fmt.Sprintf("%s, %d", lit, chn.Line)
+	}
+	if chn.All {
+		lit = lit + ", ALL"
+	}
+	if chn.Delete {
+		lit = lit + ", DELETE"
+	}
+	if chn.RngBeg > 0 {
+		lit = fmt.Sprintf("%s %d-", lit, chn.RngBeg)
+	}
+	if chn.RngEnd > 0 {
+		lit = fmt.Sprintf("%s%d", lit, chn.RngEnd)
+	}
+	return lit
 }
 
 // ClsStatement command to clear screen

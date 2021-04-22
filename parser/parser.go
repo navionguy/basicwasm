@@ -179,6 +179,10 @@ func (p *Parser) parseStatement() ast.Statement {
 	switch p.curToken.Type {
 	case token.AUTO:
 		return p.parseAutoCommand()
+	case token.BEEP:
+		return p.parseBeepStatement()
+	case token.CHAIN:
+		return p.parseChainStatement()
 	case token.CLS:
 		return p.parseClsStatement()
 	case token.DATA:
@@ -266,6 +270,13 @@ func (p *Parser) parseAutoCommand() *ast.AutoCommand {
 	return auto
 }
 
+// he has no params, he just, well, beeps
+func (p *Parser) parseBeepStatement() *ast.BeepStatement {
+	beep := ast.BeepStatement{Token: p.curToken}
+
+	return &beep
+}
+
 // a questionable name for parsing a function definition
 func (p *Parser) parseBlockStatement() *ast.BlockStatement {
 	block := &ast.BlockStatement{Token: p.curToken}
@@ -280,6 +291,21 @@ func (p *Parser) parseBlockStatement() *ast.BlockStatement {
 	}
 
 	return block
+}
+
+// parseChainStatement()
+func (p *Parser) parseChainStatement() *ast.ChainStatement {
+	chain := ast.ChainStatement{Token: p.curToken}
+
+	if !p.peekTokenIs(token.STRING) {
+		p.errors = append(p.errors, "Syntax Error")
+		return nil
+	}
+
+	p.nextToken()
+	chain.File = p.curToken.Literal
+
+	return &chain
 }
 
 func (p *Parser) parseClsStatement() *ast.ClsStatement {

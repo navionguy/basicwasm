@@ -1,7 +1,10 @@
 package filelist
 
 import (
+	"bufio"
 	"encoding/json"
+	"errors"
+	"io/ioutil"
 	"os"
 	"sort"
 	"strings"
@@ -43,10 +46,20 @@ func (fl *FileList) AddFile(file os.FileInfo) {
 }
 
 // Build list takes the json form and builds a full FileList and sorts it
-func (fl *FileList) Build(jsn []byte) error {
+func (fl *FileList) Build(dir *bufio.Reader) error {
 	fl.Files = fl.Files[:0]
 
-	err := json.Unmarshal(jsn, &fl.Files)
+	jsn, err := ioutil.ReadAll(dir)
+
+	if err != nil {
+		return err
+	}
+
+	if !json.Valid(jsn) {
+		return errors.New("NotDir")
+	}
+
+	err = json.Unmarshal(jsn, &fl.Files)
 	if err != nil {
 		return err
 	}

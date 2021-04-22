@@ -1,21 +1,27 @@
 package evaluator
 
 import (
+	"errors"
 	"fmt"
+	"net/http"
+	"net/http/httptest"
 
 	"github.com/navionguy/basicwasm/decimal"
 	"github.com/navionguy/basicwasm/lexer"
 	"github.com/navionguy/basicwasm/object"
 	"github.com/navionguy/basicwasm/parser"
+	"github.com/stretchr/testify/assert"
 
 	"testing"
 )
 
 type mockTerm struct {
-	row    *int
-	col    *int
-	strVal *string
-	sawCls *bool
+	row     *int
+	col     *int
+	strVal  *string
+	sawStr  *string
+	sawCls  *bool
+	sawBeep *bool
 }
 
 func initMockTerm(mt *mockTerm) {
@@ -42,6 +48,14 @@ func (mt mockTerm) Print(msg string) {
 
 func (mt mockTerm) Println(msg string) {
 	fmt.Println(msg)
+	if mt.sawStr != nil {
+		*mt.sawStr = *mt.sawStr + msg
+	}
+}
+
+func (mt mockTerm) SoundBell() {
+	fmt.Print("\x07")
+	*mt.sawBeep = true
 }
 
 func (mt mockTerm) Locate(int, int) {
@@ -124,6 +138,69 @@ func TestAutoCommand(t *testing.T) {
 	}
 }
 
+func Test_BeepStatement(t *testing.T) {
+	l := lexer.New("BEEP")
+	p := parser.New(l)
+	var mt mockTerm
+	initMockTerm(&mt)
+	chk := false
+	mt.sawBeep = &chk
+	env := object.NewTermEnvironment(mt)
+
+	p.ParseCmd(env)
+
+	if len(p.Errors()) > 0 {
+		for _, er := range p.Errors() {
+			fmt.Println(er)
+		}
+		return
+	}
+
+	Eval(env.Program, env.Program.CmdLineIter(), env)
+
+	assert.True(t, chk, "Test_BeepStatement term.beep() not called!")
+}
+
+func Test_ChainStatement(t *testing.T) {
+	tests := []struct {
+		stmt string
+		rs   int // response code  eg '200'
+		send string
+	}{
+		{stmt: `CHAIN "start.bas"`, rs: 404, send: ``},
+		{stmt: `CHAIN "start.bas"`, rs: 200, send: `10 PRINT "Hello World!"`},
+	}
+
+	for _, tt := range tests {
+		l := lexer.New(tt.stmt)
+		p := parser.New(l)
+		var mt mockTerm
+		initMockTerm(&mt)
+		env := object.NewTermEnvironment(mt)
+		ts := httptest.NewServer(http.HandlerFunc(func(res http.ResponseWriter, req *http.Request) {
+			res.WriteHeader(tt.rs)
+			res.Write([]byte(tt.send))
+		}))
+		defer ts.Close()
+		url := object.String{Value: ts.URL}
+		/*		if len(tt.url) > 0 {
+				url = object.String{Value: tt.url}
+			}*/
+		env.Set(object.SERVER_URL, &url)
+
+		p.ParseCmd(env)
+
+		if len(p.Errors()) > 0 {
+			for _, er := range p.Errors() {
+				fmt.Println(er)
+			}
+			return
+		}
+
+		Eval(env.Program, env.Program.CmdLineIter(), env)
+	}
+}
+
 func TestClsStatement(t *testing.T) {
 	tests := []struct {
 		input string
@@ -157,8 +234,15 @@ func TestClsStatement(t *testing.T) {
 func Test_FilesCommand(t *testing.T) {
 	tests := []struct {
 		param string
+		cwd   string
+		send  string
+		exp   string
+		rs    int
+		err   bool
 	}{
-		{},
+		{param: "", cwd: `C:\`, send: "10 PRINT \"Main Menu\"\n", exp: "10 PRINT \"Main Menu\"\n", rs: 404, err: false},
+		{param: "", cwd: `C:\`, send: "10 PRINT \"Main Menu\"\n", exp: "10 PRINT \"Main Menu\"\n", rs: 200, err: false},
+		{param: "", cwd: `C:\`, send: `[{"name":"test.bas","isdir":false},{"name":"alongername.bas","isdir":true}]`, exp: `[{"name":"test.bas","isdir":false},{"name":"alongername.bas","isdir":true}]`, rs: 200, err: false},
 	}
 
 	for _, tt := range tests {
@@ -173,6 +257,20 @@ func Test_FilesCommand(t *testing.T) {
 		var mt mockTerm
 		initMockTerm(&mt)
 		env := object.NewTermEnvironment(mt)
+		ts := httptest.NewServer(http.HandlerFunc(func(res http.ResponseWriter, req *http.Request) {
+			res.WriteHeader(tt.rs)
+			res.Write([]byte(tt.send))
+		}))
+		defer ts.Close()
+
+		url := object.String{Value: ts.URL}
+		env.Set(object.SERVER_URL, &url)
+
+		if len(tt.cwd) > 0 {
+			drv := object.String{Value: tt.cwd}
+			env.Set(object.WORK_DRIVE, &drv)
+		}
+
 		p.ParseCmd(env)
 
 		if len(p.Errors()) > 0 {
@@ -185,6 +283,29 @@ func Test_FilesCommand(t *testing.T) {
 
 		Eval(env.Program, env.Program.CmdLineIter(), env)
 
+	}
+}
+
+func Test_CatchNotDir(t *testing.T) {
+	tests := []struct {
+		path string
+		send string
+		exp  string
+	}{
+		{path: "file.ext", send: "NotDir", exp: `C:\file.ext`},
+		{path: "file.ext", send: "File not found", exp: `File not found`},
+	}
+
+	for _, tt := range tests {
+		var mt mockTerm
+		initMockTerm(&mt)
+		var rec string
+		mt.sawStr = &rec
+		env := object.NewTermEnvironment(mt)
+		env.Set(object.WORK_DRIVE, &object.String{Value: `C:\`})
+
+		catchNotDir(tt.path, errors.New(tt.send), env)
+		assert.Equal(t, tt.exp, rec, "Test_CatchNotDir got unexpected return")
 	}
 }
 

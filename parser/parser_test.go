@@ -69,6 +69,72 @@ func TestAutoCommand(t *testing.T) {
 	}
 }
 
+func Test_BeepStatement(t *testing.T) {
+	l := lexer.New("BEEP")
+	p := New(l)
+	env := &object.Environment{}
+	p.ParseCmd(env)
+	program := env.Program
+
+	checkParserErrors(t, p)
+
+	itr := program.CmdLineIter()
+
+	if itr.Len() != 1 {
+		t.Fatal("program.Cmd does not contain single command")
+	}
+
+	stmt := itr.Value()
+
+	if stmt.TokenLiteral() != token.BEEP {
+		t.Fatal("TestBeepStatement didn't get an Beep Statement")
+	}
+
+	atc := stmt.(*ast.BeepStatement)
+
+	if atc == nil {
+		t.Fatal("TestBeepStatement couldn't extract BeepStatement object")
+	}
+
+}
+
+func Test_ChainStatement(t *testing.T) {
+	tests := []struct {
+		file string
+	}{
+		{file: `c:\menu\HCAL.BAS`},
+	}
+
+	for _, tt := range tests {
+		cmd := fmt.Sprintf(`CHAIN "%s"`, tt.file)
+		l := lexer.New(cmd)
+		p := New(l)
+		env := &object.Environment{}
+		p.ParseCmd(env)
+		program := env.Program
+
+		checkParserErrors(t, p)
+
+		itr := program.CmdLineIter()
+
+		if itr.Len() != 1 {
+			t.Fatal("program.Cmd does not contain single command")
+		}
+
+		stmt := itr.Value()
+
+		if stmt.TokenLiteral() != token.BEEP {
+			t.Fatal("TestChainStatement didn't get an Chain Statement")
+		}
+
+		atc := stmt.(*ast.ChainStatement)
+
+		if atc == nil {
+			t.Fatal("TestChainStatement couldn't extract ChainStatement object")
+		}
+	}
+}
+
 func Test_FilesCommand(t *testing.T) {
 	tests := []struct {
 		path string

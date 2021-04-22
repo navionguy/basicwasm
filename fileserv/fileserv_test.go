@@ -4,6 +4,7 @@ import (
 	"errors"
 	"fmt"
 	"io"
+	"io/ioutil"
 	"net/http"
 	"net/http/httptest"
 	"os"
@@ -534,7 +535,7 @@ func Test_GetCWD(t *testing.T) {
 			env.Set(object.WORK_DRIVE, &drv)
 		}
 
-		res := getCWD(env)
+		res := GetCWD(env)
 
 		assert.Equal(t, tt.exp, res, "Test_GetCWD fail, expected %s got %s", tt.exp, res)
 	}
@@ -638,8 +639,10 @@ func Test_GetFile(t *testing.T) {
 			assert.Error(t, err, "Test_GetFile succeeded will expecting error")
 		}
 
+		resb, err := ioutil.ReadAll(bt)
+
 		if len(tt.exp) > 0 {
-			res := string(*bt)
+			res := string(resb)
 
 			assert.Equal(t, tt.exp, res, "Test_GetFile fail, expected %s got %s", tt.exp, res)
 		}

@@ -56,6 +56,7 @@ type Console interface {
 	GetCursor() (int, int)
 	Read(col, row, len int) string
 	ReadKeys(count int) []byte
+	SoundBell()
 }
 
 // NewEnclosedEnvironment allows variables during function calls

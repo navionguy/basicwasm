@@ -43,7 +43,7 @@ func (t *Terminal) Print(msg string) {
 
 // SoundBell plays the current bell sound
 func (t *Terminal) SoundBell() {
-	t.term.Get("_core").Get("_soundService").Call("playBellSound")
+	js.Global().Get("document").Call("getElementById", "chatAudio").Call("play")
 }
 
 // Cls clears the terminal of all text

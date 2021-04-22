@@ -59,12 +59,17 @@
     </tbody>
   </table>
   <p id=momma></p>
+  <audio id="chatAudio" >
+    <source src=
+      "https://media.geeksforgeeks.org/wp-content/uploads/20190531135120/beep.mp3" 
+    type="audio/mpeg">
+</audio>
 </body>
-     <script>
+     <script> 
        var loc = location.href;
        document.getElementById('momma').innerHTML = loc;
         var printMessage
-        var term = new Terminal({cols:82, rows: 24, cursorStyle: "underline", WindowOptions: {fullscreenWin: true, setWinSizeChars: true}});
+        var term = new Terminal({cols:82, rows: 24, cursorStyle: 'underline', WindowOptions: {fullscreenWin: true, setWinSizeChars: true}});
         var fitAddon = new FitAddon.FitAddon();
         term.loadAddon( fitAddon );
 

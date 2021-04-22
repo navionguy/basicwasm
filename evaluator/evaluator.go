@@ -25,6 +25,12 @@ func Eval(node ast.Node, code *ast.Code, env *object.Environment) object.Object 
 	case *ast.AutoCommand:
 		evalAutoCommand(node, code, env)
 
+	case *ast.BeepStatement:
+		evalBeepStatement(node, code, env)
+
+	case *ast.ChainStatement:
+		evalChainStatement(node, code, env)
+
 	case *ast.ClsStatement:
 		evalClsStatement(node, code, env)
 
@@ -187,6 +193,11 @@ func evalAutoCommand(cmd *ast.AutoCommand, code *ast.Code, env *object.Environme
 	env.SetAuto(cmd)
 }
 
+// just sound the bell
+func evalBeepStatement(beep *ast.BeepStatement, code *ast.Code, env *object.Environment) {
+	env.Terminal().SoundBell()
+}
+
 func evalBlockStatement(block *ast.BlockStatement, code *ast.Code, env *object.Environment) object.Object {
 	var result object.Object
 
@@ -202,6 +213,18 @@ func evalBlockStatement(block *ast.BlockStatement, code *ast.Code, env *object.E
 	}
 
 	return result
+}
+
+// tries to load a new program and start it's execution.
+func evalChainStatement(chain *ast.ChainStatement, code *ast.Code, env *object.Environment) {
+	rdr, err := fileserv.GetFile(chain.File, env)
+
+	if err != nil {
+		env.Terminal().Println(err.Error())
+		return
+	}
+
+	fileserv.ParseFile(rdr, env)
 }
 
 func evalStatements(stmts *ast.Program, code *ast.Code, env *object.Environment) object.Object {
@@ -387,14 +410,30 @@ func allocArrayValue(typeid string) object.Object {
 func evalFilesCommand(files *ast.FilesCommand, code *ast.Code, env *object.Environment) {
 
 	dir, err := fileserv.GetFile(files.Path, env)
-	list := filelist.NewFileList()
-	err = list.Build(*dir)
 	if err != nil {
 		env.Terminal().Println(err.Error())
 		return
 	}
 
+	list := filelist.NewFileList()
+	err = list.Build(dir)
+	if err != nil {
+		catchNotDir(files.Path, err, env)
+		return
+	}
+
 	displayFiles(list, env)
+}
+
+func catchNotDir(path string, err error, env *object.Environment) {
+	if err.Error() != "NotDir" {
+		env.Terminal().Println(err.Error())
+		return
+	}
+
+	cwd := fileserv.GetCWD(env)
+	env.Terminal().Println(cwd)
+	env.Terminal().Println(path)
 }
 
 // mimic the way in which GWBasic display directory contents

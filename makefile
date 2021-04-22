@@ -21,6 +21,7 @@
 			./decimal/decimal.go \
 			./filelist/filelist.go \
 			./fileserv/fileserv.go \
+			./gwtoken/gwtoken.go \
 			./object/object.go \
  			./parser/parser.go \
 			./parser/parser_trace.go \
