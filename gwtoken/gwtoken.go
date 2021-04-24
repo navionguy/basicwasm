@@ -3,7 +3,6 @@ package gwtoken
 import (
 	"bufio"
 	"fmt"
-	"io"
 
 	"github.com/navionguy/basicwasm/lexer"
 	"github.com/navionguy/basicwasm/object"
@@ -15,19 +14,58 @@ const (
 	PROTECTED_FILE = 0xfe
 )
 
+var subBytesKey1 = []byte{0x0b, 0x0a, 0x09, 0x08, 0x07, 0x06, 0x05, 0x04, 0x03, 0x02, 0x01}
+var xorBytesKey1 = []byte{0x1e, 0x1d, 0xc4, 0x77, 0x26, 0x97, 0xe0, 0x74, 0x59, 0x88, 0x7c}
+
+var xorBytesKey2 = []byte{0xa9, 0x84, 0x8d, 0xcd, 0x75, 0x83, 0x43, 0x63, 0x24, 0x83, 0x19, 0xf7, 0x9a}
+var addBytesKey2 = []byte{0x0d, 0x0c, 0x0b, 0x0a, 0x09, 0x08, 0x07, 0x06, 0x05, 0x04, 0x03, 0x02, 0x01}
+
+type basReader interface {
+	Peek(int) ([]byte, error)
+	Read([]byte) (int, error)
+	ReadByte() (byte, error)
+	ReadBytes(byte) ([]byte, error)
+}
+
 type progRdr struct {
-	src     *bufio.Reader
+	src     basReader
 	eof     bool
 	offset  int    // offset of the current line
 	linenum int    // current line number being processed
 	lineInp string // the text to parse
 }
 
+type protReader struct {
+	src          *bufio.Reader
+	subKey1Index int
+	xorKey1Index int
+	xorKey2Index int
+	addKey2Index int
+}
+
+func ParseProtectedFile(src *bufio.Reader, env *object.Environment) {
+	prtRdr := protReader{src: src}
+	rdr := progRdr{src: &prtRdr}
+
+	bt := make([]byte, 1)
+	n, err := src.Read(bt)
+
+	if (err != nil) || (n != 1) {
+		env.Terminal().Println("File read error")
+		return
+	}
+
+	if bt[0] != PROTECTED_FILE {
+		env.Terminal().Println("Bad file mode")
+		return
+	}
+
+	rdr.readProg(env)
+}
+
 func ParseFile(src *bufio.Reader, env *object.Environment) {
 	bt := make([]byte, 1)
-	lr := io.LimitReader(src, 1)
-
-	n, err := lr.Read(bt)
+	n, err := src.Read(bt)
 
 	if (err != nil) || (n != 1) {
 		env.Terminal().Println("File read error")
@@ -79,10 +117,10 @@ func (rdr *progRdr) readToken() string {
 
 	switch tok {
 	case colon_TOK:
+		val = ":"
 		pk, err := rdr.src.Peek(1)
 		if err != nil {
 			rdr.eof = true
-			val = ":"
 			return val
 		}
 		if pk[0] == else_TOK {
@@ -182,6 +220,97 @@ func (rdr *progRdr) copyString() string {
 
 	val := string(str)
 	return val
+}
+
+// protReader hides an inner bufio.Reader and
+// decrypts the bytes as they com out
+
+func (pr *protReader) Peek(n int) ([]byte, error) {
+	bt, err := pr.src.Peek(n)
+
+	if len(bt) == 0 {
+		// nothing more to do
+		return bt, err
+	}
+
+	savSub1 := pr.subKey1Index
+	xorKey1 := pr.xorKey1Index
+	xorKey2 := pr.xorKey2Index
+	addKey2 := pr.addKey2Index
+
+	bt = pr.decryptBytes(bt)
+
+	pr.subKey1Index = savSub1
+	pr.xorKey1Index = xorKey1
+	pr.xorKey2Index = xorKey2
+	pr.addKey2Index = addKey2
+
+	return bt, err
+}
+
+func (pr *protReader) Read(bt []byte) (int, error) {
+	n, err := pr.src.Read(bt)
+
+	if n > 0 {
+		bt = pr.decryptBytes(bt[:n])
+	}
+
+	return n, err
+}
+
+func (pr *protReader) ReadByte() (byte, error) {
+	bt, err := pr.src.ReadByte()
+
+	bt = pr.decryptByte(bt)
+	return bt, err
+}
+
+func (pr *protReader) ReadBytes(delim byte) ([]byte, error) {
+	var bts []byte
+
+	bt, err := pr.src.ReadByte()
+
+	if err != nil {
+		return bts, err
+	}
+
+	bt = pr.decryptByte(bt)
+	bts = append(bts, bt)
+	for (bt != delim) && (err == nil) {
+		bt, err = pr.src.ReadByte()
+		bt = pr.decryptByte(bt)
+		bts = append(bts, bt)
+	}
+
+	return bts, err
+}
+
+func (pr *protReader) decryptBytes(bts []byte) []byte {
+	for i, bt := range bts {
+		bts[i] = pr.decryptByte(bt)
+	}
+
+	return bts
+}
+
+func (pr *protReader) decryptByte(bt byte) byte {
+	bt = (((bt - subBytesKey1[pr.subKey1Index]) ^ xorBytesKey1[pr.xorKey1Index]) ^ xorBytesKey2[pr.xorKey2Index]) + addBytesKey2[pr.addKey2Index]
+
+	pr.subKey1Index = pr.advIndex(pr.subKey1Index, 11)
+	pr.xorKey1Index = pr.advIndex(pr.xorKey1Index, 11)
+	pr.xorKey2Index = pr.advIndex(pr.xorKey2Index, 13)
+	pr.addKey2Index = pr.advIndex(pr.addKey2Index, 13)
+
+	return bt
+}
+
+func (pr *protReader) advIndex(id int, max int) int {
+	id++
+
+	if id < max {
+		return id
+	}
+	return 0
 }
 
 const (

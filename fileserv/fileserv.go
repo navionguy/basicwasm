@@ -451,6 +451,7 @@ func ParseFile(inp *bufio.Reader, env *object.Environment) {
 		gwtoken.ParseFile(inp, env)
 	case gwtoken.PROTECTED_FILE:
 		// file is a protected, GWBasic file
+		gwtoken.ParseProtectedFile(inp, env)
 	default:
 		// anything else is just an ascii file
 		parseAsciiFile(inp, env)
