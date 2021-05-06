@@ -469,11 +469,14 @@ func parseAsciiFile(inp *bufio.Reader, env *object.Environment) {
 func readLine(inp *bufio.Reader, env *object.Environment) bool {
 	bt, err := inp.ReadBytes(0x0a)
 
+	if len(bt) > 0 {
+		parseLine(string(bt), env)
+	}
+
 	if err != nil {
 		return true
 	}
 
-	parseLine(string(bt), env)
 	return false
 }
 
