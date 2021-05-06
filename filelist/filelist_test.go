@@ -1,6 +1,8 @@
 package filelist
 
 import (
+	"bufio"
+	"bytes"
 	"fmt"
 	"os"
 	"sort"
@@ -64,7 +66,7 @@ func Test_FilesJSON(t *testing.T) {
 	files = fl.JSON()
 	assert.Contains(t, string(files), marshaledFiles, "Test_FilesJSON unexpected results")
 
-	fl.Build([]byte(buildFiles))
+	fl.Build(bufio.NewReader(bytes.NewReader([]byte(buildFiles))))
 	assert.Len(t, fl.Files, 2, "Test_FilesJSON Build sent back %d elements, expected 2", len(fl.Files))
 }
 

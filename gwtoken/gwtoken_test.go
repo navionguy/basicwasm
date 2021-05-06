@@ -119,12 +119,12 @@ func Test_TokenTable(t *testing.T) {
 		inp []byte
 		exp []string
 	}{
-		{inp: []byte{colon_TOK}, exp: []string{":"}},              // special case, colon followed by nothing is legal
-		{inp: []byte{colon_TOK, else_TOK}, exp: []string{"ELSE"}}, // special case, colon followed by else is ELSE
+		{inp: []byte{':'}, exp: []string{":"}},              // special case, colon followed by nothing is legal
+		{inp: []byte{':', else_TOK}, exp: []string{"ELSE"}}, // special case, colon followed by else is ELSE
 		{inp: []byte{int1Byte_TOK, 0x0a}, exp: []string{"10"}},
 		{inp: []byte{int1Byte_TOK}, exp: []string{""}}, // error case
-		{inp: []byte{dblQuote_TOK}, exp: []string{`""`}},
-		{inp: []byte{eol_TOK, end_TOK, stop_TOK, width_TOK, colon_TOK, data_TOK, dblQuote_TOK, 'A', dblQuote_TOK, dim_TOK, else_TOK, end_TOK, for_TOK, goto_TOK, input_TOK},
+		{inp: []byte{'"'}, exp: []string{`""`}},
+		{inp: []byte{eol_TOK, end_TOK, stop_TOK, width_TOK, ':', data_TOK, '"', 'A', '"', dim_TOK, else_TOK, end_TOK, for_TOK, goto_TOK, input_TOK},
 			exp: []string{"", "END", "STOP", "WIDTH", ":", "DATA", `"A"`, "DIM", "ELSE", "END", "FOR", "GOTO", "INPUT"}},
 		{inp: []byte{let_TOK, next_TOK, read_TOK}, exp: []string{"LET", "NEXT", "READ"}},
 	}
@@ -177,6 +177,32 @@ func Test_DecryptBytes(t *testing.T) {
 	}
 }
 
+func Test_ReadProg(t *testing.T) {
+	tests := []struct {
+		inp   []byte
+		stmts int
+	}{
+		{inp: []byte{0x7C, 0x12, 0x0A, 0x00, 0x91, 0x20, 0x22, 0x48, 0x65, 0x6C,
+			0x6C, 0x6F, 0x22, 0x00, 0x87, 0x12, 0x14, 0x00, 0x59, 0x20, 0xE7,
+			0x20, 0x0F, 0x96, 0x00, 0x92, 0x12, 0x1E, 0x00, 0x5A, 0x20, 0xE7,
+			0x20, 0x0F, 0x30, 0x00, 0x00, 0x00, 0x1A}, stmts: 6},
+	}
+
+	for _, tt := range tests {
+		src := bufio.NewReader(bytes.NewReader(tt.inp))
+		rdr := progRdr{src: src}
+
+		var mt mockTerm
+		initMockTerm(&mt)
+		env := object.NewTermEnvironment(mt)
+
+		rdr.readProg(env)
+		itr := env.Program.StatementIter()
+
+		assert.Equal(t, tt.stmts, itr.Len(), "Test_readProg expected %d statements, got %d", tt.stmts, itr.Len())
+	}
+}
+
 func Test_ReadProtProg(t *testing.T) {
 	tests := []struct {
 		inp   []byte
@@ -202,7 +228,7 @@ func Test_ReadProtProg(t *testing.T) {
 	}
 }
 
-func Test_ReadF_Bytes(t *testing.T) {
+func Test_ReadFD_Bytes(t *testing.T) {
 	tests := []struct {
 		inp []byte
 		exp []string
@@ -288,11 +314,6 @@ func Test_BaseTokens(t *testing.T) {
 		{inp: []byte{0x1d}, exp: "0", tok: flt4Byte_TOK},
 		{inp: []byte{0x1f}, exp: "0", tok: flt8Byte_TOK},
 
-		{inp: []byte{0x28}, exp: "(", tok: opnParen_TOK},
-		{inp: []byte{0x29}, exp: ")", tok: clsParen_TOK},
-		{inp: []byte{0x5b}, exp: "[", tok: lBracket_TOK},
-		{inp: []byte{0x5d}, exp: "]", tok: rBracket_TOK},
-
 		{inp: []byte{0x81}, exp: "END", tok: end_TOK},
 		{inp: []byte{0x82}, exp: "FOR", tok: for_TOK},
 		{inp: []byte{0x83}, exp: "NEXT", tok: next_TOK},
@@ -308,6 +329,7 @@ func Test_BaseTokens(t *testing.T) {
 		{inp: []byte{0x8d}, exp: "GOSUB", tok: gosub_TOK},
 		{inp: []byte{0x8e}, exp: "RETURN", tok: return_TOK},
 		{inp: []byte{0x8f}, exp: "REM", tok: rem_TOK},
+		{inp: []byte{':', 0xa1}, exp: "ELSE", tok: ':'},
 
 		{inp: []byte{0x90}, exp: "STOP", tok: stop_TOK},
 		{inp: []byte{0x91}, exp: "PRINT", tok: print_TOK},
@@ -408,7 +430,7 @@ func Test_BaseTokens(t *testing.T) {
 	}
 
 	for _, tt := range tests {
-		assert.Equal(t, tt.inp[0], tt.tok, "FF page alignment, %x not equal %x", tt.inp[0], tt.tok)
+		assert.Equal(t, tt.inp[0], tt.tok, "main page alignment, %x not equal %x", tt.inp[0], tt.tok)
 		rdr := progRdr{src: bufio.NewReader(bytes.NewReader(tt.inp))}
 		res := rdr.readToken()
 		assert.Equal(t, tt.exp, res, "Testing main page, expected %s got %s", tt.exp, res)
@@ -515,7 +537,7 @@ func Test_FEPageTokens(t *testing.T) {
 	}
 
 	for _, tt := range tests {
-		assert.Equal(t, tt.inp[0], tt.tok, "FF page alignment, %x not equal %x", tt.inp[0], tt.tok)
+		assert.Equal(t, tt.inp[0], tt.tok, "FE page alignment, %x not equal %x", tt.inp[0], tt.tok)
 		rdr := progRdr{src: bufio.NewReader(bytes.NewReader(tt.inp))}
 		res := rdr.fePage()
 
@@ -539,7 +561,7 @@ func Test_FDPageTokens(t *testing.T) {
 	}
 
 	for _, tt := range tests {
-		assert.Equal(t, tt.inp[0], tt.tok, "FF page alignment, %x not equal %x", tt.inp[0], tt.tok)
+		assert.Equal(t, tt.inp[0], tt.tok, "FD page alignment, %x not equal %x", tt.inp[0], tt.tok)
 		rdr := progRdr{src: bufio.NewReader(bytes.NewReader(tt.inp))}
 		res := rdr.fdPage()
 

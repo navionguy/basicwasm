@@ -119,6 +119,7 @@ func (rdr *progRdr) readLine() {
 		val = rdr.readToken()
 		rdr.lineInp = rdr.lineInp + val
 	}
+	//rdr.readInt()
 }
 
 // reads one token and uses a (really large) switch stmt
@@ -156,9 +157,7 @@ func (rdr *progRdr) readToken() string {
 		val = "CLOSE"
 	case cls_TOK:
 		val = "CLS"
-	case clsParen_TOK:
-		val = ")"
-	case colon_TOK:
+	case ':':
 		val = ":"
 		pk, err := rdr.src.Peek(1)
 		if err != nil {
@@ -168,6 +167,8 @@ func (rdr *progRdr) readToken() string {
 		if pk[0] == else_TOK {
 			val = rdr.readToken()
 		}
+	case '"':
+		val = "\"" + rdr.readString()
 	case color_TOK:
 		val = "COLOR"
 	case const0_TOK, const1_TOK, const2_TOK, const3_TOK, const4_TOK, const5_TOK, const6_TOK, const7_TOK:
@@ -180,9 +181,6 @@ func (rdr *progRdr) readToken() string {
 		val = "CSRLIN"
 	case data_TOK:
 		val = "DATA"
-	case dblQuote_TOK:
-		val = rdr.copyString()
-		val = `"` + val
 	case delete_TOK:
 		val = "DELETE"
 	case def_TOK:
@@ -265,8 +263,6 @@ func (rdr *progRdr) readToken() string {
 		val = fmt.Sprintf("%d", rdr.readInt())
 	case key_TOK:
 		val = "KEY"
-	case lBracket_TOK:
-		val = "["
 	case let_TOK:
 		val = "LET"
 	case line_TOK:
@@ -309,8 +305,6 @@ func (rdr *progRdr) readToken() string {
 		val = "ON"
 	case open_TOK:
 		val = "OPEN"
-	case opnParen_TOK:
-		val = "("
 	case option_TOK:
 		val = "OPTION"
 	case or_TOK:
@@ -333,8 +327,6 @@ func (rdr *progRdr) readToken() string {
 		val = "^"
 	case randomize_TOK:
 		val = "RANDOMIZE"
-	case rBracket_TOK:
-		val = "]"
 	case read_TOK:
 		val = "READ"
 	case rem_TOK:
@@ -349,8 +341,6 @@ func (rdr *progRdr) readToken() string {
 		val = "RETURN"
 	case run_TOK:
 		val = "RUN"
-	case space_TOK:
-		val = " "
 	case save_TOK:
 		val = "SAVE"
 	case screen_TOK:
@@ -397,6 +387,10 @@ func (rdr *progRdr) readToken() string {
 		val = "WRITE"
 	case xor_TOK:
 		val = "XOR"
+	default:
+		if (tok >= 0x20) && (tok <= 0x7f) {
+			val = string(tok)
+		}
 	}
 	return val
 }
@@ -665,7 +659,7 @@ func (rdr *progRdr) readHexConst() string {
 
 // Handlers for the different progarm statements
 
-func (rdr *progRdr) copyString() string {
+func (rdr *progRdr) readString() string {
 	str, err := rdr.src.ReadBytes('"')
 
 	if err != nil {
@@ -874,13 +868,6 @@ const (
 	int2Byte_TOK = 0x1C
 	flt4Byte_TOK = 0x1d
 	flt8Byte_TOK = 0x1f
-	space_TOK    = 0x20
-	dblQuote_TOK = 0x22
-	opnParen_TOK = 0x28
-	clsParen_TOK = 0x29
-	colon_TOK    = 0x3a
-	lBracket_TOK = 0x5b
-	rBracket_TOK = 0x5d
 	fd_TOK       = 0xfd
 	fe_TOK       = 0xfe
 	ff_TOK       = 0xff
@@ -1097,7 +1084,7 @@ const (
 	csng_TOK
 	cdbl_TOK
 	fix_TOK
-	pen_TOK
+	pen_TOK //0xa0
 	stick_TOK
 	strig_TOK
 	eof_TOK

@@ -9,10 +9,11 @@ import (
 )
 
 type mockTerm struct {
-	row    int
-	col    int
-	strVal string
-	expChk *Expector
+	row     int
+	col     int
+	strVal  string
+	expChk  *Expector
+	sawBeep *bool
 }
 
 func (mt mockTerm) Cls() {
@@ -43,6 +44,11 @@ func (mt mockTerm) Read(col, row, len int) string {
 
 func (mt mockTerm) ReadKeys(count int) []byte {
 	return nil
+}
+
+func (mt mockTerm) SoundBell() {
+	fmt.Print("\x07")
+	*mt.sawBeep = true
 }
 
 type Expector struct {

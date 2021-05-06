@@ -1,6 +1,8 @@
 package fileserv
 
 import (
+	"bufio"
+	"bytes"
 	"errors"
 	"fmt"
 	"io"
@@ -13,6 +15,7 @@ import (
 	"time"
 
 	"github.com/gorilla/mux"
+	"github.com/navionguy/basicwasm/gwtoken"
 	"github.com/navionguy/basicwasm/object"
 	"github.com/stretchr/testify/assert"
 )
@@ -116,7 +119,6 @@ func (mf mockFS) Stat() (os.FileInfo, error) {
 }
 
 func (mf *mockFS) SawName() {
-	fmt.Println("sawName")
 	if mf.events != nil {
 		mf.events[sawName] = true
 	}
@@ -160,6 +162,85 @@ func (mi mockFI) Size() int64 {
 
 func (mi mockFI) Sys() interface{} {
 	return nil
+}
+
+type mockTerm struct {
+	row     *int
+	col     *int
+	strVal  *string
+	sawStr  *string
+	sawCls  *bool
+	sawBeep *bool
+}
+
+func initMockTerm(mt *mockTerm) {
+	mt.row = new(int)
+	*mt.row = 0
+
+	mt.col = new(int)
+	*mt.col = 0
+
+	mt.strVal = new(string)
+	*mt.strVal = ""
+
+	mt.sawCls = new(bool)
+	*mt.sawCls = false
+}
+
+func (mt mockTerm) Cls() {
+	*mt.sawCls = true
+}
+
+func (mt mockTerm) Print(msg string) {
+	fmt.Print(msg)
+}
+
+func (mt mockTerm) Println(msg string) {
+	fmt.Println(msg)
+	if mt.sawStr != nil {
+		*mt.sawStr = *mt.sawStr + msg
+	}
+}
+
+func (mt mockTerm) SoundBell() {
+	fmt.Print("\x07")
+	*mt.sawBeep = true
+}
+
+func (mt mockTerm) Locate(int, int) {
+}
+
+func (mt mockTerm) GetCursor() (int, int) {
+	return *mt.row, *mt.col
+}
+
+func (mt mockTerm) Read(col, row, len int) string {
+	// make sure your test is correct
+	trim := (row-1)*80 + (col - 1)
+
+	tstr := *mt.strVal
+
+	newstr := tstr[trim : trim+len]
+
+	return newstr
+}
+
+func (mt mockTerm) ReadKeys(count int) []byte {
+	if mt.strVal == nil {
+		return nil
+	}
+
+	bt := []byte(*mt.strVal)
+
+	if count >= len(bt) {
+		mt.strVal = nil
+		return bt
+	}
+
+	v := (*mt.strVal)[:count]
+	mt.strVal = &v
+
+	return bt[:count]
 }
 
 func Test_WrapSource(t *testing.T) {
@@ -639,12 +720,51 @@ func Test_GetFile(t *testing.T) {
 			assert.Error(t, err, "Test_GetFile succeeded will expecting error")
 		}
 
-		resb, err := ioutil.ReadAll(bt)
-
 		if len(tt.exp) > 0 {
-			res := string(resb)
+			resb, err := ioutil.ReadAll(bt)
 
-			assert.Equal(t, tt.exp, res, "Test_GetFile fail, expected %s got %s", tt.exp, res)
+			if err == nil {
+				res := string(resb)
+
+				assert.Equal(t, tt.exp, res, "Test_GetFile fail, expected %s got %s", tt.exp, res)
+			}
+		}
+	}
+}
+
+func Test_ParseFile(t *testing.T) {
+	tests := []struct {
+		inp   []byte
+		stmts int
+	}{
+		{inp: []byte{}},
+		{inp: []byte{gwtoken.TOKEN_FILE, 0x7C, 0x12, 0x0A, 0x00, 0x91, 0x20, 0x22, 0x48, 0x65, 0x6C,
+			0x6C, 0x6F, 0x22, 0x00, 0x87, 0x12, 0x14, 0x00, 0x59, 0x20, 0xE7,
+			0x20, 0x0F, 0x96, 0x00, 0x92, 0x12, 0x1E, 0x00, 0x5A, 0x20, 0xE7,
+			0x20, 0x0F, 0x30, 0x00, 0x00, 0x00, 0x1A}, stmts: 6},
+		{inp: []byte{0xFE, 0xD9, 0xA9, 0xBF, 0x54, 0xE2, 0x12, 0xBD, 0x59, 0x20,
+			0x65, 0x0D, 0x8F, 0xA2, 0x30, 0x98, 0xD3, 0x3E, 0xD3, 0xF1, 0x06,
+			0xE1, 0x44, 0x1C, 0x03, 0xAB, 0x04, 0x8F, 0xED, 0xF0, 0xB3, 0x38,
+			0x49, 0x62, 0x1B, 0x60, 0x62, 0x9B, 0x36, 0xF8, 0x1A}, stmts: 5},
+		{inp: []byte{0x31, 0x30, 0x20, 0x50, 0x52, 0x49, 0x4E, 0x54, 0x20, 0x22,
+			0x54, 0x68, 0x69, 0x73, 0x20, 0x69, 0x73, 0x20, 0x74, 0x68, 0x65, 0x20,
+			0x53, 0x74, 0x61, 0x72, 0x74, 0x20, 0x70, 0x72, 0x6F, 0x67, 0x72, 0x61,
+			0x6D, 0x2E, 0x22, 0x0A, 0x32, 0x30, 0x20, 0x50, 0x52, 0x49, 0x4E, 0x54,
+			0x20, 0x22, 0x53, 0x61, 0x76, 0x65, 0x64, 0x20, 0x61, 0x73, 0x20, 0x41,
+			0x53, 0x43, 0x49, 0x49, 0x2E, 0x22}, stmts: 2},
+	}
+
+	for _, tt := range tests {
+		bts := bytes.NewReader(tt.inp)
+		buf := bufio.NewReader(bts)
+		var trm mockTerm
+		env := object.NewTermEnvironment(trm)
+
+		ParseFile(buf, env)
+
+		if tt.stmts > 0 {
+			itr := env.Program.StatementIter()
+			assert.Equal(t, tt.stmts, itr.Len(), "Test_ParseFile() expected %d statements but got %d", tt.stmts, itr.Len())
 		}
 	}
 }

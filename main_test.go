@@ -27,7 +27,7 @@ func Test_Routes(t *testing.T) {
 		rtr := startup()
 		rr := httptest.NewRecorder()
 
-		hd := rtr.Get(tt.route).GetHandler()
+		hd := rtr.Get(tt.name).GetHandler()
 
 		hd.ServeHTTP(rr, rq)
 
