@@ -513,6 +513,34 @@ func (chn *ChainStatement) String() string {
 	return lit
 }
 
+// Clear clears all variables and closes open file
+type ClearCommand struct {
+	Token token.Token
+	Exp   [3]Expression // parameters I don't support
+}
+
+func (clr *ClearCommand) statementNode() {}
+
+func (clr *ClearCommand) TokenLiteral() string { return strings.ToUpper(clr.Token.Literal) }
+
+func (clr *ClearCommand) String() string {
+	rc := ""
+
+	// I build the output from right to left
+	// it just seemed easier
+	for i := 2; i >= 0; i-- {
+		if clr.Exp[i] != nil {
+			rc = clr.Exp[i].String() + rc
+			if i > 0 {
+				rc = "," + rc
+			}
+		}
+	}
+	rc = "CLEAR " + rc
+
+	return rc
+}
+
 // ClsStatement command to clear screen
 type ClsStatement struct {
 	Token token.Token
@@ -532,6 +560,72 @@ func (cls *ClsStatement) String() string {
 	return fmt.Sprintf("CLS %d", cls.Param)
 }
 
+// ColorStatement changes foreground/background colors
+type ColorStatement struct {
+	Token      token.Token
+	foreground Expression
+	background Expression
+	border     Expression
+	palette    Expression
+}
+
+func (color *ColorStatement) statementNode() {}
+
+func (color *ColorStatement) TokenLiteral() string { return strings.ToUpper(color.Token.Literal) }
+
+func (color *ColorStatement) String() string {
+	stmt := ""
+
+	if color.palette != nil {
+		stmt = fmt.Sprintf("COLOR %s,%s", color.background.String(), color.palette.String())
+		return stmt
+	}
+
+	if color.border != nil {
+		stmt = "," + color.border.String()
+	}
+
+	if color.background != nil {
+		stmt = "," + color.background.String() + stmt
+	} else if stmt != "" {
+		stmt = "," + stmt
+	}
+
+	if color.foreground != nil {
+		stmt = " " + color.foreground.String() + stmt
+	} else if stmt != "" {
+		stmt = " " + stmt
+	}
+
+	stmt = "COLOR" + stmt
+
+	return stmt
+}
+
+type CommonStatement struct {
+	Token token.Token
+	Vars  []*Identifier
+}
+
+func (cmn *CommonStatement) statementNode() {}
+
+func (cmn *CommonStatement) TokenLiteral() string { return strings.ToUpper(cmn.Token.Literal) }
+
+func (cmn *CommonStatement) String() string {
+	var out bytes.Buffer
+
+	params := []string{}
+	for _, v := range cmn.Vars {
+		params = append(params, v.String())
+	}
+
+	out.WriteString("COMMON ")
+	out.WriteString(strings.Join(params, ", "))
+
+	tmp := out.String()
+	return tmp
+}
+
 // FilesCommand gets list of files from basic server
 type FilesCommand struct {
 	Token token.Token
@@ -544,12 +638,10 @@ func (fls *FilesCommand) statementNode() {}
 func (fls *FilesCommand) TokenLiteral() string { return strings.ToUpper(fls.Token.Literal) }
 
 func (fls *FilesCommand) String() string {
-	if len(fls.Path) == 0 {
-		return "FILES"
-	}
-	fc := fmt.Sprintf("FILES %s", fls.Path)
 
-	return fc
+	fc := "FILES " + fls.Path
+
+	return strings.Trim(fc, " ")
 }
 
 // Identifier holds the token for the identifier in the statement
@@ -659,12 +751,41 @@ type LineNumStmt struct {
 func (lns *LineNumStmt) statementNode() {}
 
 // TokenLiteral returns the literal value
-func (lns *LineNumStmt) TokenLiteral() string {
-	return lns.Token.Literal
-}
+func (lns *LineNumStmt) TokenLiteral() string { return lns.Token.Literal }
 
 func (lns *LineNumStmt) String() string {
 	return fmt.Sprintf("%d ", lns.Value)
+}
+
+type LocateStatement struct {
+	Token token.Token
+	Parms [5]Expression
+}
+
+const (
+	Lct_row = iota
+	Lct_col
+	Lct_cursor
+	Lct_start
+	Lct_stop
+)
+
+func (lct *LocateStatement) statementNode() {}
+
+func (lct *LocateStatement) TokenLiteral() string { return strings.ToUpper(lct.Token.Literal) }
+
+func (lct *LocateStatement) String() string {
+	stmt := ""
+
+	for i := Lct_stop; i >= Lct_row; i-- {
+		if lct.Parms[i] != nil {
+			stmt = lct.Parms[i].String() + stmt
+		}
+		if (stmt != "") && (i > 0) {
+			stmt = "," + stmt
+		}
+	}
+	return "LOCATE " + stmt
 }
 
 // ExpressionStatement holds an expression
@@ -1200,8 +1321,7 @@ func (rem *RemStatement) statementNode() {}
 func (rem *RemStatement) TokenLiteral() string { return strings.ToUpper(rem.Token.Literal) }
 
 func (rem *RemStatement) String() string {
-	rc := strings.TrimRight(rem.Comment, " ")
-	return fmt.Sprint(rc)
+	return strings.ToUpper(rem.Token.Literal) + " " + strings.TrimRight(rem.Comment, " ")
 }
 
 // RunCommand clears all variables and starts execution
@@ -1210,6 +1330,7 @@ type RunCommand struct {
 	Token     token.Token
 	StartLine int
 	LoadFile  string
+	KeepOpen  bool
 }
 
 func (run *RunCommand) statementNode() {}
@@ -1218,14 +1339,21 @@ func (run *RunCommand) statementNode() {}
 func (run *RunCommand) TokenLiteral() string { return strings.ToUpper(run.Token.Literal) }
 
 func (run *RunCommand) String() string {
-	if run.StartLine != 0 {
-		return fmt.Sprintf("RUN %d", run.StartLine)
-	}
+	rc := "RUN"
 
 	if len(run.LoadFile) > 0 {
-		return fmt.Sprintf("RUN %s", run.LoadFile)
+		rc = rc + " " + run.LoadFile
 	}
-	return "RUN"
+
+	if run.StartLine != 0 {
+		rc = rc + " " + strconv.Itoa(run.StartLine)
+	}
+
+	if run.KeepOpen {
+		rc = rc + ",r"
+	}
+
+	return rc
 }
 
 // TroffCommand turns off tracing

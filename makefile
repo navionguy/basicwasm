@@ -11,23 +11,23 @@
 	go build -o basicwasm
 
 ./webmodules/gwbasic.wasm : ./webmodules/src/gwbasic/gwbasic.go \
-			./terminal/terminal.go \
-			./cli/cli.go \
-			./keybuffer/keybuffer.go \
-			./makefile \
-			./token/token.go \
-			./lexer/lexer.go \
 			./ast/ast.go \
+			./cli/cli.go \
 			./decimal/decimal.go \
+			./evaluator/builtins.go \
+			./evaluator/evaluator.go \
+			./evaluator/expressions.go \
 			./filelist/filelist.go \
 			./fileserv/fileserv.go \
 			./gwtoken/gwtoken.go \
+			./keybuffer/keybuffer.go \
+			./lexer/lexer.go \
+			./makefile \
 			./object/object.go \
  			./parser/parser.go \
 			./parser/parser_trace.go \
-			./evaluator/builtins.go \
-			./evaluator/expressions.go \
-			./evaluator/evaluator.go
+			./token/token.go \
+			./terminal/terminal.go \
 #	tinygo build -no-debug -o ./webmodules/gwbasic.wasm -target=wasm ./webmodules/src/gwbasic/gwbasic.go
 	GOOS=js GOARCH=wasm go build -ldflags "-s -w" -o ./webmodules/gwbasic.wasm ./webmodules/src/gwbasic/gwbasic.go
 

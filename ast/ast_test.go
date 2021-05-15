@@ -7,6 +7,7 @@ import (
 	"testing"
 
 	"github.com/navionguy/basicwasm/token"
+	"github.com/stretchr/testify/assert"
 )
 
 func TestStringAndToken(t *testing.T) {
@@ -44,6 +45,25 @@ func TestStringAndToken(t *testing.T) {
 	rc = program.TokenLiteral()
 	if rc != "GWBasic" {
 		t.Errorf("program.TokenLiteral() wrong. got=%q", program.TokenLiteral())
+	}
+}
+
+func Test_ClsStatement(t *testing.T) {
+	tests := []struct {
+		inp ClsStatement
+		exp string
+	}{
+		{inp: ClsStatement{Token: token.Token{Type: token.CLS, Literal: "CLS"}, Param: 1}, exp: "CLS 1"},
+		{inp: ClsStatement{Token: token.Token{Type: token.CLS, Literal: "CLS"}, Param: -1}, exp: "CLS"},
+	}
+
+	for _, tt := range tests {
+		cls := tt.inp
+
+		cls.statementNode()
+
+		assert.Equal(t, "CLS", cls.TokenLiteral(), "Cls command has incorrect TokenLiteral")
+		assert.Equal(t, tt.exp, cls.String(), "Clear command didn't build string correctly")
 	}
 }
 
@@ -130,6 +150,7 @@ func TestCodeMultiLines(t *testing.T) {
 	}
 
 	for _, tt := range tests {
+		stmt.statementNode()
 		sz = strings.Compare(stmt.String(), tt.exp)
 		if sz != 0 {
 			t.Fatalf("expected %s, got %s", tt.exp, stmt.String())
@@ -210,6 +231,73 @@ func TestCodeMultiStmts(t *testing.T) {
 		}
 		it.Next()
 		stmt = it.Value()
+	}
+}
+
+func Test_ColorStatement(t *testing.T) {
+	tests := []struct {
+		foreground int16
+		background int16
+		border     int16
+		palette    int16
+		exp        string
+	}{
+		{exp: "COLOR"},
+		{foreground: 1, exp: "COLOR 1"},
+		{foreground: 1, background: 2, exp: "COLOR 1,2"},
+		{foreground: 1, background: 2, border: 3, exp: "COLOR 1,2,3"},
+		{foreground: 1, border: 3, exp: "COLOR 1,,3"},
+		{border: 3, exp: "COLOR ,,3"},
+		{background: 2, border: 3, exp: "COLOR ,2,3"},
+		{background: 2, palette: 3, exp: "COLOR 2,3"},
+	}
+
+	for _, tt := range tests {
+		stmt := ColorStatement{Token: token.Token{Type: token.LINENUM, Literal: "COLOR"}}
+		if tt.palette != 0 {
+			// must be COLOR background, palette
+			stmt.background = &IntegerLiteral{Value: tt.background}
+			stmt.palette = &IntegerLiteral{Value: tt.palette}
+		} else {
+			if tt.foreground != 0 {
+				stmt.foreground = &IntegerLiteral{Value: tt.foreground}
+			}
+			if tt.background != 0 {
+				stmt.background = &IntegerLiteral{Value: tt.background}
+			}
+			if tt.border != 0 {
+				stmt.border = &IntegerLiteral{Value: tt.border}
+			}
+		}
+
+		stmt.statementNode()
+
+		assert.Equal(t, token.COLOR, stmt.TokenLiteral(), "Color statement returned wrong token")
+		assert.Equal(t, tt.exp, stmt.String(), "Color command didn't build string correctly")
+	}
+}
+
+func Test_CommonStatement(t *testing.T) {
+	tests := []struct {
+		vars []*Identifier
+		exp  string
+	}{
+		{vars: []*Identifier{{Token: token.Token{Type: token.IDENT, Literal: token.IDENT}, Value: "X"},
+			{Token: token.Token{Type: token.IDENT, Literal: token.IDENT}, Value: "Y"}},
+			exp: "COMMON X, Y"},
+	}
+
+	for _, tt := range tests {
+		stmt := CommonStatement{Token: token.Token{Type: token.COMMON, Literal: "COMMON"}}
+
+		for _, id := range tt.vars {
+			stmt.Vars = append(stmt.Vars, id)
+		}
+
+		stmt.statementNode()
+
+		assert.Equal(t, token.COMMON, stmt.TokenLiteral(), "Common statement returned wrong token")
+		assert.Equal(t, tt.exp, stmt.String(), "Common command didn't build string correctly")
 	}
 }
 
@@ -426,4 +514,121 @@ func ExampleStatement() {
 
 	// Output:
 	// 10 AUTO 10, 10 : ABS(1) : CLS 1 : LET myVar = anotherVar
+}
+
+func Test_ClearCommand(t *testing.T) {
+
+	cmd := &ClearCommand{
+		Token: token.Token{Type: token.CLEAR, Literal: "CLEAR"},
+		Exp:   [3]Expression{&IntegerLiteral{Value: 1}, &IntegerLiteral{Value: 2}, &IntegerLiteral{Value: 3}},
+	}
+
+	cmd.statementNode()
+
+	assert.Equal(t, "CLEAR", cmd.TokenLiteral(), "Clear command has incorrect TokenLiteral")
+	assert.Equal(t, cmd.String(), "CLEAR 1,2,3", "Clear command didn't build string correctly")
+}
+
+func Test_FilesCommand(t *testing.T) {
+
+	cmd := &FilesCommand{
+		Token: token.Token{Type: token.FILES, Literal: "FILES"},
+		Path:  "",
+	}
+
+	cmd.statementNode()
+
+	assert.Equal(t, "FILES", cmd.TokenLiteral(), "Files command has incorrect TokenLiteral")
+	assert.Equal(t, "FILES", cmd.String(), "Files command didn't build string correctly")
+}
+
+func Test_LocateStatement(t *testing.T) {
+	tests := []struct {
+		parms [Lct_stop + 1]Expression
+		exp   string
+	}{
+		{parms: [Lct_stop + 1]Expression{nil, &IntegerLiteral{Value: 12}}, exp: "LOCATE ,12"},
+		{parms: [Lct_stop + 1]Expression{&IntegerLiteral{Value: 12}}, exp: "LOCATE 12"},
+		{parms: [Lct_stop + 1]Expression{&IntegerLiteral{Value: 1}, &IntegerLiteral{Value: 12}}, exp: "LOCATE 1,12"},
+		{parms: [Lct_stop + 1]Expression{&IntegerLiteral{Value: 1},
+			&IntegerLiteral{Value: 12},
+			&IntegerLiteral{Value: 1},
+			&IntegerLiteral{Value: 3},
+			&IntegerLiteral{Value: 30}},
+			exp: "LOCATE 1,12,1,3,30"},
+	}
+
+	for _, tt := range tests {
+		stmt := LocateStatement{Token: token.Token{Type: token.LOCATE, Literal: "LOCATE"}}
+		for i := 0; i < len(tt.parms); i++ {
+			if tt.parms[i] != nil {
+				stmt.Parms[i] = tt.parms[i]
+			}
+		}
+		stmt.statementNode()
+
+		assert.Equal(t, "LOCATE", stmt.TokenLiteral(), "Locate statement has incorrect TokenLiteral")
+		assert.Equal(t, tt.exp, stmt.String(), "Locate statement didn't build string correctly")
+	}
+}
+
+func Test_PrintStatement(t *testing.T) {
+	prt := &PrintStatement{Token: token.Token{Type: token.PRINT, Literal: "PRINT"},
+		Items:      []Expression{&IntegerLiteral{Value: 12}, &StringLiteral{Value: "Fred"}},
+		Seperators: []string{",", ";"}}
+
+	prt.statementNode()
+
+	assert.Equal(t, "PRINT", prt.TokenLiteral(), "Print statement has incorrect TokenLiteral")
+	assert.Equal(t, `PRINT 12,"Fred";`, prt.String(), "Print statement didn't build string correctly")
+}
+
+func Test_RemStatement(t *testing.T) {
+	stmt := &RemStatement{Token: token.Token{Type: token.REM, Literal: "REM"}, Comment: "A Comment"}
+
+	stmt.statementNode()
+
+	assert.Equal(t, "REM", stmt.TokenLiteral(), "Rem statement has incorrect TokenLiteral")
+	assert.Equal(t, stmt.String(), "REM A Comment", "Rem statement didn't build string correctly")
+}
+
+func Test_RunCommand(t *testing.T) {
+	tests := []struct {
+		cmd RunCommand
+		exp string
+	}{
+		{cmd: RunCommand{Token: token.Token{Type: token.RUN, Literal: "RUN"}}, exp: "RUN"},
+		{cmd: RunCommand{Token: token.Token{Type: token.RUN, Literal: "RUN"}, StartLine: 100}, exp: "RUN 100"},
+		{cmd: RunCommand{Token: token.Token{Type: token.RUN, Literal: "RUN"}, LoadFile: `"START.BAS"`}, exp: `RUN "START.BAS"`},
+		{cmd: RunCommand{Token: token.Token{Type: token.RUN, Literal: "RUN"}, LoadFile: `"START.BAS"`, KeepOpen: true}, exp: `RUN "START.BAS",r`},
+	}
+
+	for _, tt := range tests {
+		cmd := &tt.cmd
+		cmd.statementNode()
+
+		assert.Equal(t, "RUN", cmd.TokenLiteral(), "Run command has incorrect TokenLiteral")
+		assert.Equal(t, tt.exp, cmd.String(), "Run command didn't build string correctly")
+	}
+}
+
+func Test_TronTroffCommands(t *testing.T) {
+
+	cmd := &TroffCommand{
+		Token: token.Token{Type: token.TROFF, Literal: "TROFF"},
+	}
+
+	cmd.statementNode()
+
+	assert.Equal(t, "TROFF", cmd.TokenLiteral(), "TROFF command has incorrect TokenLiteral")
+	assert.Equal(t, cmd.String(), "TROFF", "TROFF command didn't build string correctly")
+
+	cmd2 := &TronCommand{
+		Token: token.Token{Type: token.TRON, Literal: "TRON"},
+	}
+
+	cmd2.statementNode()
+
+	assert.Equal(t, "TRON", cmd2.TokenLiteral(), "TRON command has incorrect TokenLiteral")
+	assert.Equal(t, cmd2.String(), "TRON", "TRON command didn't build string correctly")
 }

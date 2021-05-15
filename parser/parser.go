@@ -183,6 +183,8 @@ func (p *Parser) parseStatement() ast.Statement {
 		return p.parseBeepStatement()
 	case token.CHAIN:
 		return p.parseChainStatement()
+	case token.CLEAR:
+		return p.parseClearCommand()
 	case token.CLS:
 		return p.parseClsStatement()
 	case token.DATA:
@@ -306,6 +308,25 @@ func (p *Parser) parseChainStatement() *ast.ChainStatement {
 	chain.File = p.curToken.Literal
 
 	return &chain
+}
+
+func (p *Parser) parseClearCommand() *ast.ClearCommand {
+	defer untrace(trace("parseClearStatement"))
+	clr := ast.ClearCommand{Token: p.curToken}
+
+	if p.chkEndOfStatement() {
+		return &clr // no parameters to the clear
+	}
+
+	for i := 0; (i < 3) && !p.chkEndOfStatement(); i++ {
+		p.nextToken()
+		if !p.curTokenIs(token.COMMA) {
+			clr.Exp[i] = p.parseExpression(LOWEST)
+			p.nextToken()
+		}
+	}
+
+	return &clr
 }
 
 func (p *Parser) parseClsStatement() *ast.ClsStatement {
@@ -778,7 +799,8 @@ func (p *Parser) parseReadStatement() *ast.ReadStatement {
 // not a hard one to parse
 func (p *Parser) parseRemStatement() *ast.RemStatement {
 	defer untrace(trace("parseRemStatement"))
-	stmt := &ast.RemStatement{Token: p.curToken, Comment: strings.ToUpper(p.curToken.Literal) + " "}
+	stmt := &ast.RemStatement{Token: p.curToken}
+	//stmt := &ast.RemStatement{Token: p.curToken, Comment: strings.ToUpper(p.curToken.Literal) + " "}
 
 	p.l.PassOn()
 	for !p.peekTokenIs(token.LINENUM) && !p.peekTokenIs(token.EOF) && !p.peekTokenIs(token.EOL) {

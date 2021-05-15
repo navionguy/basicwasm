@@ -11,6 +11,7 @@ import (
 	"github.com/navionguy/basicwasm/lexer"
 	"github.com/navionguy/basicwasm/object"
 	"github.com/navionguy/basicwasm/token"
+	"github.com/stretchr/testify/assert"
 )
 
 func TestAutoCommand(t *testing.T) {
@@ -123,7 +124,7 @@ func Test_ChainStatement(t *testing.T) {
 
 		stmt := itr.Value()
 
-		if stmt.TokenLiteral() != token.BEEP {
+		if stmt.TokenLiteral() != token.CHAIN {
 			t.Fatal("TestChainStatement didn't get an Chain Statement")
 		}
 
@@ -131,6 +132,48 @@ func Test_ChainStatement(t *testing.T) {
 
 		if atc == nil {
 			t.Fatal("TestChainStatement couldn't extract ChainStatement object")
+		}
+	}
+}
+
+func Test_Commands(t *testing.T) {
+	tests := []struct {
+		inp string
+		tk  string
+		lst string
+	}{
+		{inp: "CLEAR", tk: token.CLEAR, lst: "CLEAR "},
+		{inp: "CLEAR 32767", tk: token.CLEAR, lst: "CLEAR 32767"},
+		{inp: "CLEAR 2,32767,32767", tk: token.CLEAR, lst: "CLEAR 2,32767,32767"},
+		{inp: "CLEAR ,32767", tk: token.CLEAR, lst: "CLEAR ,32767"},
+		{inp: "FILES", tk: token.FILES, lst: "FILES"},
+	}
+
+	for _, tt := range tests {
+
+		l := lexer.New(tt.inp)
+		p := New(l)
+		env := &object.Environment{}
+		p.ParseCmd(env)
+		prog := env.Program
+
+		checkParserErrors(t, p)
+
+		itr := prog.CmdLineIter()
+
+		if itr.Len() != 1 {
+			t.Fatal("program.Cmd does not contain single command")
+		}
+
+		stmt := itr.Value()
+
+		if stmt.TokenLiteral() != tt.tk {
+			t.Fatalf("Test_Commands(%s) didn't get a %s command", tt.inp, tt.tk)
+		}
+
+		lst := stmt.String()
+		if tt.lst != "" {
+			assert.Equal(t, tt.lst, lst, "Test_Commands(%s) expected %s, got %s", tt.inp, tt.lst, lst)
 		}
 	}
 }
@@ -682,7 +725,7 @@ func TestRemStatement(t *testing.T) {
 		res string
 	}{
 		{inp: "10 REM A code comment", res: "REM A code comment"},
-		{inp: "20 REM", res: "REM"},
+		{inp: "20 REM", res: "REM "},
 		{inp: "30 ' Alternate form remark", res: "' Alternate form remark"},
 		{inp: "40 ' Once a remark : GOTO 20", res: "' Once a remark : GOTO 20"},
 	}

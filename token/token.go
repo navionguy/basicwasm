@@ -63,9 +63,11 @@ const (
 	AUTO    = "AUTO"
 	BEEP    = "BEEP"
 	CHAIN   = "CHAIN"
-	CLS     = "CLS"
 	CLEAR   = "CLEAR"
+	CLS     = "CLS"
+	COLOR   = "COLOR"
 	COMMON  = "COMMON"
+	CSRLIN  = "CSRLIN"
 	DATA    = "DATA"
 	DEF     = "DEF"
 	DIM     = "DIM"
@@ -80,6 +82,7 @@ const (
 	LIST    = "LIST"
 	LOCATE  = "LOCATE"
 	MOD     = "MOD"
+	NEW     = "NEW"
 	PRINT   = "PRINT"
 	READ    = "READ"
 	REM     = "REM"
@@ -104,6 +107,9 @@ var keywords = map[string]TokenType{
 	"chain":   CHAIN,
 	"clear":   CLEAR,
 	"cls":     CLS,
+	"color":   COLOR,
+	"common":  COMMON,
+	"csrlin":  CSRLIN,
 	"data":    DATA,
 	"def":     DEF,
 	"dim":     DIM,
@@ -118,6 +124,7 @@ var keywords = map[string]TokenType{
 	"list":    LIST,
 	"locate":  LOCATE,
 	"mod":     MOD,
+	"new":     NEW,
 	"print":   PRINT,
 	"read":    READ,
 	"rem":     REM,
