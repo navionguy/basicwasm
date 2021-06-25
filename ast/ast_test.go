@@ -236,39 +236,34 @@ func TestCodeMultiStmts(t *testing.T) {
 
 func Test_ColorStatement(t *testing.T) {
 	tests := []struct {
-		foreground int16
-		background int16
-		border     int16
-		palette    int16
-		exp        string
+		prms [3]Expression
+		exp  string
 	}{
 		{exp: "COLOR"},
-		{foreground: 1, exp: "COLOR 1"},
-		{foreground: 1, background: 2, exp: "COLOR 1,2"},
-		{foreground: 1, background: 2, border: 3, exp: "COLOR 1,2,3"},
-		{foreground: 1, border: 3, exp: "COLOR 1,,3"},
-		{border: 3, exp: "COLOR ,,3"},
-		{background: 2, border: 3, exp: "COLOR ,2,3"},
-		{background: 2, palette: 3, exp: "COLOR 2,3"},
+		{prms: [3]Expression{&IntegerLiteral{
+			Token: token.Token{Type: token.INT, Literal: "INT"},
+			Value: 1}}, exp: "COLOR 1"},
+		{prms: [3]Expression{&IntegerLiteral{
+			Token: token.Token{Type: token.INT, Literal: "INT"},
+			Value: 1}, &IntegerLiteral{
+			Token: token.Token{Type: token.INT, Literal: "INT"},
+			Value: 2}}, exp: "COLOR 1,2"},
+		{prms: [3]Expression{&IntegerLiteral{
+			Token: token.Token{Type: token.INT, Literal: "INT"},
+			Value: 1}, &IntegerLiteral{
+			Token: token.Token{Type: token.INT, Literal: "INT"},
+			Value: 2}, &IntegerLiteral{
+			Token: token.Token{Type: token.INT, Literal: "INT"},
+			Value: 3}}, exp: "COLOR 1,2,3"},
+		{prms: [3]Expression{nil, &IntegerLiteral{
+			Token: token.Token{Type: token.INT, Literal: "INT"},
+			Value: 2}, &IntegerLiteral{
+			Token: token.Token{Type: token.INT, Literal: "INT"},
+			Value: 3}}, exp: "COLOR ,2,3"},
 	}
 
 	for _, tt := range tests {
-		stmt := ColorStatement{Token: token.Token{Type: token.LINENUM, Literal: "COLOR"}}
-		if tt.palette != 0 {
-			// must be COLOR background, palette
-			stmt.background = &IntegerLiteral{Value: tt.background}
-			stmt.palette = &IntegerLiteral{Value: tt.palette}
-		} else {
-			if tt.foreground != 0 {
-				stmt.foreground = &IntegerLiteral{Value: tt.foreground}
-			}
-			if tt.background != 0 {
-				stmt.background = &IntegerLiteral{Value: tt.background}
-			}
-			if tt.border != 0 {
-				stmt.border = &IntegerLiteral{Value: tt.border}
-			}
-		}
+		stmt := ColorStatement{Token: token.Token{Type: token.LINENUM, Literal: "COLOR"}, Parms: tt.prms}
 
 		stmt.statementNode()
 
@@ -531,15 +526,21 @@ func Test_ClearCommand(t *testing.T) {
 
 func Test_FilesCommand(t *testing.T) {
 
-	cmd := &FilesCommand{
-		Token: token.Token{Type: token.FILES, Literal: "FILES"},
-		Path:  "",
+	tests := []struct {
+		cmd FilesCommand
+		exp string
+	}{
+		{cmd: FilesCommand{Token: token.Token{Type: token.FILES, Literal: "FILES"}, Path: ""}, exp: `FILES`},
+		{cmd: FilesCommand{Token: token.Token{Type: token.FILES, Literal: "FILES"}, Path: `C:\MENU`}, exp: `FILES "C:\MENU"`},
 	}
 
-	cmd.statementNode()
+	for _, tt := range tests {
+		tt.cmd.statementNode()
 
-	assert.Equal(t, "FILES", cmd.TokenLiteral(), "Files command has incorrect TokenLiteral")
-	assert.Equal(t, "FILES", cmd.String(), "Files command didn't build string correctly")
+		assert.Equal(t, "FILES", tt.cmd.TokenLiteral(), "Files command has incorrect TokenLiteral")
+		assert.Equal(t, tt.exp, tt.cmd.String(), "Files command didn't build string correctly")
+
+	}
 }
 
 func Test_LocateStatement(t *testing.T) {

@@ -1,8 +1,6 @@
 package evaluator
 
 import (
-	"fmt"
-
 	"github.com/navionguy/basicwasm/decimal"
 	"github.com/navionguy/basicwasm/object"
 )
@@ -98,81 +96,4 @@ var typeConverters = map[string]expression{
 		},
 
 	*/
-}
-
-func fixType(x interface{}) object.Object {
-	i16, ok := x.(int16)
-
-	if ok {
-		return &object.Integer{Value: i16}
-	}
-
-	i32, ok := x.(int32)
-
-	if ok {
-		return &object.IntDbl{Value: i32}
-	}
-
-	i, ok := x.(int)
-
-	if ok {
-		if i == int(int16(i)) {
-			return &object.Integer{Value: int16(i)}
-		}
-
-		// too big, convert to IntDbl
-		if i == int(int32(i)) {
-			return &object.IntDbl{Value: int32(i)}
-		}
-
-		fx := tryFixed(float64(i))
-
-		if fx != nil {
-			return fx
-		}
-
-		// int larger than 32 bits, make him a float
-		return &object.FloatDbl{Value: float64(i)}
-	}
-
-	f, ok := x.(float64)
-
-	if ok {
-		i := int16(f)
-		if f == float64(i) {
-			return &object.Integer{Value: i}
-		}
-
-		fxd := tryFixed(f)
-
-		if fxd != nil {
-			return fxd
-		}
-
-		if f == float64(float32(f)) {
-			return &object.FloatSgl{Value: float32(f)}
-		}
-		return &object.FloatDbl{Value: f}
-	}
-
-	fs, ok := x.(float32)
-
-	if ok {
-		return &object.FloatSgl{Value: fs}
-	}
-
-	return &object.Error{Message: "unknown type"}
-}
-
-func tryFixed(val float64) object.Object {
-	dec, err := decimal.NewFromString(fmt.Sprintf("%.8f", val))
-
-	if err != nil {
-		// can't convert him, give up
-		return nil
-	}
-
-	fxd := &object.Fixed{Value: dec.Round(-7)}
-
-	return fxd
 }

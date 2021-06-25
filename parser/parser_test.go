@@ -136,6 +136,82 @@ func Test_ChainStatement(t *testing.T) {
 	}
 }
 
+func TestCls(t *testing.T) {
+	tests := []struct {
+		input string
+		param int
+	}{
+		{"CLS", -1},
+		{"CLS 0", 0},
+	}
+
+	for _, tt := range tests {
+		l := lexer.New(tt.input)
+		p := New(l)
+		env := &object.Environment{}
+		p.ParseCmd(env)
+		program := env.Program
+		checkParserErrors(t, p)
+
+		if program.CmdLineIter().Len() != 1 {
+			t.Fatalf("program.Statements does not contain single command")
+		}
+
+		iter := program.CmdLineIter()
+		stmt := iter.Value()
+		clsStmt, ok := stmt.(*ast.ClsStatement)
+		if !ok {
+			t.Fatalf("stmt not *ast.ClsStatement. got=%T", stmt)
+		}
+		if clsStmt.TokenLiteral() != "CLS" {
+			t.Fatalf("clsStmt.TokenLiteral not 'CLS', got %q", clsStmt.TokenLiteral())
+		}
+		if tt.param != clsStmt.Param {
+			t.Fatalf("cls param expected %d, got %d", tt.param, clsStmt.Param)
+		}
+	}
+}
+
+func Test_ColorStatement(t *testing.T) {
+	tests := []struct {
+		inp string
+		erc int
+	}{
+		{inp: "COLOR 1,2,3", erc: 0},
+		{inp: "COLOR ,,3", erc: 0},
+		{inp: "COLOR", erc: 1},
+	}
+
+	for _, tt := range tests {
+		l := lexer.New(tt.inp)
+		p := New(l)
+		env := &object.Environment{}
+		p.ParseCmd(env)
+		program := env.Program
+		//checkParserErrors(t, p)
+
+		if program.CmdLineIter().Len() != 1 {
+			checkParserErrors(t, p)
+			t.Fatalf("program.Statements does not contain single command")
+		}
+
+		iter := program.CmdLineIter()
+
+		if tt.erc != len(p.errors) {
+			t.Fatalf("Test_ColorStatement got %d errors, expected %d", len(p.errors), tt.erc)
+		}
+
+		stmt := iter.Value()
+		colorStmt, ok := stmt.(*ast.ColorStatement)
+		if !ok {
+			t.Fatalf("stmt not *ast.ClsStatement. got=%T", stmt)
+		}
+		if colorStmt.TokenLiteral() != "COLOR" {
+			t.Fatalf("colorStmt.TokenLiteral not 'COLOR', got %q", colorStmt.TokenLiteral())
+		}
+	}
+}
+
 func Test_Commands(t *testing.T) {
 	tests := []struct {
 		inp string
@@ -147,6 +223,7 @@ func Test_Commands(t *testing.T) {
 		{inp: "CLEAR 2,32767,32767", tk: token.CLEAR, lst: "CLEAR 2,32767,32767"},
 		{inp: "CLEAR ,32767", tk: token.CLEAR, lst: "CLEAR ,32767"},
 		{inp: "FILES", tk: token.FILES, lst: "FILES"},
+		{inp: `FILES "C:\MENU"`, tk: token.FILES, lst: `FILES "C:\MENU"`},
 	}
 
 	for _, tt := range tests {
@@ -178,54 +255,194 @@ func Test_Commands(t *testing.T) {
 	}
 }
 
-func Test_FilesCommand(t *testing.T) {
+func Test_CommonStatement(t *testing.T) {
 	tests := []struct {
-		path string
+		inp string
+		cnt int
 	}{
-		{`"C:\PROG\"`},
-		{},
+		{inp: "COMMON A()", cnt: 1},
+		{inp: "COMMON A(), B[] : REM", cnt: 2},
 	}
 
 	for _, tt := range tests {
-		inp := "FILES"
-		if len(tt.path) > 0 {
-			inp = inp + " " + tt.path
-		}
-
-		l := lexer.New(inp)
+		l := lexer.New(tt.inp)
 		p := New(l)
 		env := &object.Environment{}
 		p.ParseCmd(env)
-		prog := env.Program
-
+		program := env.Program
 		checkParserErrors(t, p)
+		iter := program.CmdLineIter()
+		stmt := iter.Value()
 
-		itr := prog.CmdLineIter()
+		cmn, ok := stmt.(*ast.CommonStatement)
 
-		if itr.Len() != 1 {
-			t.Fatal("program.Cmd does not contain single command")
+		if !ok {
+			t.Fatalf("Test_CommonStatement didn't return correct object")
 		}
 
-		stmt := itr.Value()
+		assert.Equal(t, tt.cnt, len(cmn.Vars))
+	}
 
-		if stmt.TokenLiteral() != token.FILES {
-			t.Fatal("Test_FilesCommand didn't get a FILES command")
+}
+
+func TestDataStatement(t *testing.T) {
+	tkInt := token.Token{Type: token.INT, Literal: "INT"}
+	tkFixed := token.Token{Type: token.FIXED, Literal: "123.45"}
+	tkString := token.Token{Type: token.STRING, Literal: "STRING"}
+	tkFloatS := token.Token{Type: token.FLOAT, Literal: "3.14159E+0"}
+	tkFloatD := token.Token{Type: token.FLOAT, Literal: "3.14159D+0"}
+	tkDblInt := token.Token{Type: token.INTD, Literal: "INTD"}
+
+	fixed, _ := decimal.NewFromString("123.45")
+
+	tests := []struct {
+		inp     string           // source line
+		stmtNum int              // # of statements expected
+		lineNum int32            // line number
+		cnt     int              // number of expressions expected
+		exp     []ast.Expression // expected values
+	}{
+		{`10 DATA "Fred", George Foreman`, 2, 10, 2, []ast.Expression{
+			&ast.StringLiteral{Token: tkString, Value: "Fred"},
+			&ast.StringLiteral{Token: tkString, Value: "George Foreman"},
+		}},
+		{`20 DATA 123, 123.45, "Fred", 99999`, 2, 20, 4, []ast.Expression{
+			&ast.IntegerLiteral{Token: tkInt, Value: 123},
+			&ast.FixedLiteral{Token: tkFixed, Value: fixed},
+			&ast.StringLiteral{Token: tkString, Value: "Fred"},
+			&ast.DblIntegerLiteral{Token: tkDblInt, Value: 99999},
+		},
+		},
+		{`30 DATA "Fred", George : PRINT`, 3, 30, 2, []ast.Expression{
+			&ast.StringLiteral{Token: tkString, Value: "Fred"},
+			&ast.StringLiteral{Token: tkString, Value: "George"},
+		}},
+		{`40 DATA 3.14159E+0, 3.14159D+0`, 2, 40, 2, []ast.Expression{
+			&ast.FloatSingleLiteral{Token: tkFloatS, Value: 3.14159},
+			&ast.FloatDoubleLiteral{Token: tkFloatD, Value: 3.14159},
+		},
+		},
+	}
+
+	for _, tt := range tests {
+		l := lexer.New(tt.inp)
+		p := New(l)
+		env := &object.Environment{}
+		p.ParseProgram(env)
+		program := env.Program
+		checkParserErrors(t, p)
+		iter := program.StatementIter()
+		if iter.Len() != tt.stmtNum {
+			t.Fatalf("expected %d statements, got %d", tt.stmtNum, iter.Len())
+		}
+		stmt := iter.Value()
+
+		lm, ok := stmt.(*ast.LineNumStmt)
+
+		if !ok {
+			t.Fatalf("no line number, expected %d", tt.lineNum)
 		}
 
-		fls := stmt.(*ast.FilesCommand)
-
-		if fls == nil {
-			t.Fatal("Test_FilesCommand couldn't extract FilesCommand object")
+		if lm.Value != tt.lineNum {
+			t.Fatalf("expected line %d, got %d", tt.lineNum, lm.Value)
 		}
 
-		if (len(tt.path) > 0) || (len(fls.Path) > 0) {
-			if strings.Compare(fls.Path, tt.path) == 0 {
-				t.Fatalf("FILES cmd expected path %s, got %s\n", tt.path, fls.Path)
-			}
+		iter.Next()
+		stmt = iter.Value()
+
+		dstmt, ok := stmt.(*ast.DataStatement)
+
+		if !ok {
+			t.Fatalf("unexpected this is")
+		}
+
+		if len(dstmt.Consts) != tt.cnt {
+			t.Fatalf("expected %d constants, got %d!", tt.cnt, len(dstmt.Consts))
+		}
+
+		for i, want := range tt.exp {
+			compareStatements(tt.inp, dstmt.Consts[i], want, t)
 		}
 	}
 }
 
+func TestDimStatement(t *testing.T) {
+	type dimensions struct {
+		id   string
+		dims []int8
+	}
+	tests := []struct {
+		input   string
+		exp     string
+		stmtNum int
+		lineNum int32
+		numIDs  int8
+		dims    []dimensions
+	}{
+		{`10 DIM A(20)`, `DIM A(20)`, 2, 10, 1, []dimensions{{"A()", []int8{20}}}},
+		{`20 DIM A[20, 10]`, `DIM A[20,10]`, 2, 20, 1, []dimensions{{"A[]", []int8{20, 10}}}},
+		{`30 DIM A[20, 30],B[15,5]`, `DIM A[20,30], B[15,5]`, 2, 30, 2, []dimensions{{"A[]", []int8{20, 30}}, {"B[]", []int8{15, 5}}}},
+		{`40 DIM A(20)`, `DIM A(20)`, 2, 40, 1, []dimensions{{"A()", []int8{20}}}},
+		{`50 DIM A(20) : REM A Comment`, `DIM A(20)`, 3, 50, 1, []dimensions{{"A()", []int8{20}}}},
+	}
+
+	for _, tt := range tests {
+		l := lexer.New(tt.input)
+		p := New(l)
+		env := &object.Environment{}
+		p.ParseProgram(env)
+		program := env.Program
+		checkParserErrors(t, p)
+		iter := program.StatementIter()
+		if iter.Len() != tt.stmtNum {
+			t.Fatalf("expected %d statements, got %d", tt.stmtNum, iter.Len())
+		}
+		stmt := iter.Value()
+
+		lm, ok := stmt.(*ast.LineNumStmt)
+
+		if !ok {
+			t.Fatalf("no line number, expected %d", tt.lineNum)
+		}
+
+		if lm.Value != tt.lineNum {
+			t.Fatalf("expected line %d, got %d", tt.lineNum, lm.Value)
+		}
+
+		iter.Next()
+		stmt = iter.Value()
+
+		dstmt, ok := stmt.(*ast.DimStatement)
+
+		if !ok {
+			t.Fatalf("unexpected this is")
+		}
+
+		assert.Equal(t, tt.exp, dstmt.String(), "TestDimStatement got %s, expected %s", dstmt.String(), tt.exp)
+
+		if int8(len(dstmt.Vars)) != tt.numIDs {
+			t.Fatalf("expected %d dimensioned variables, got %d on %s", tt.numIDs, len(dstmt.Vars), tt.input)
+		}
+
+		for dNum, d := range tt.dims {
+			if dstmt.Vars[dNum].Token.Literal != d.id {
+				t.Fatalf("got literal %s, expected %s on line %s", dstmt.Vars[dNum].Token.Literal, d.id, tt.input)
+			}
+
+			for dnum, dim := range d.dims {
+				indExp, ok := dstmt.Vars[dNum].Index[dnum].Index.(*ast.IntegerLiteral)
+
+				if !ok {
+					t.Fatalf("dimension %d for %s is not an index", dnum, tt.input)
+				}
+
+				if int8(indExp.Value) != dim {
+					t.Fatalf("expeced dimension %d, got %d, on %s", dim, indExp.Value, tt.input)
+				}
+			}
+		}
+	}
+}
 func Test_LetStatementImplied(t *testing.T) {
 	input := `10 x = 5: y = 20`
 
@@ -405,7 +622,6 @@ func TestLineNumbers(t *testing.T) {
 
 	l := lexer.New(input)
 	p := New(l)
-	fmt.Println("TestLineNumbers Parsing")
 	env := &object.Environment{}
 	env.SetAuto(&ast.AutoCommand{Token: tk, Start: 30, Increment: 10})
 	p.ParseProgram(env)
@@ -466,158 +682,44 @@ func checkParserErrors(t *testing.T, p *Parser) {
 	t.FailNow()
 }
 
-func TestDataStatement(t *testing.T) {
-	tkInt := token.Token{Type: token.INT, Literal: "INT"}
-	tkFixed := token.Token{Type: token.FIXED, Literal: "123.45"}
-	tkString := token.Token{Type: token.STRING, Literal: "STRING"}
-	tkFloatS := token.Token{Type: token.FLOAT, Literal: "3.14159E+0"}
-	tkFloatD := token.Token{Type: token.FLOAT, Literal: "3.14159D+0"}
-	tkDblInt := token.Token{Type: token.INTD, Literal: "INTD"}
-
-	fixed, _ := decimal.NewFromString("123.45")
-
+func Test_LocateStatement(t *testing.T) {
 	tests := []struct {
-		inp     string           // source line
-		stmtNum int              // # of statements expected
-		lineNum int32            // line number
-		cnt     int              // number of expressions expected
-		exp     []ast.Expression // expected values
+		inp string
+		exp []ast.Expression
 	}{
-		{`10 DATA "Fred", George Foreman`, 2, 10, 2, []ast.Expression{
-			&ast.StringLiteral{Token: tkString, Value: "Fred"},
-			&ast.StringLiteral{Token: tkString, Value: "George Foreman"},
-		}},
-		{`20 DATA 123, 123.45, "Fred", 99999`, 2, 20, 4, []ast.Expression{
-			&ast.IntegerLiteral{Token: tkInt, Value: 123},
-			&ast.FixedLiteral{Token: tkFixed, Value: fixed},
-			&ast.StringLiteral{Token: tkString, Value: "Fred"},
-			&ast.DblIntegerLiteral{Token: tkDblInt, Value: 99999},
-		},
-		},
-		{`30 DATA "Fred", George : PRINT`, 3, 30, 2, []ast.Expression{
-			&ast.StringLiteral{Token: tkString, Value: "Fred"},
-			&ast.StringLiteral{Token: tkString, Value: "George"},
-		}},
-		{`40 DATA 3.14159E+0, 3.14159D+0`, 2, 40, 2, []ast.Expression{
-			&ast.FloatSingleLiteral{Token: tkFloatS, Value: 3.14159},
-			&ast.FloatDoubleLiteral{Token: tkFloatD, Value: 3.14159},
-		},
-		},
+		{inp: `LOCATE`},
+		{inp: `LOCATE 1,2`, exp: []ast.Expression{&ast.IntegerLiteral{Token: token.Token{Type: token.INT, Literal: "1"}, Value: 1},
+			&ast.IntegerLiteral{Token: token.Token{Type: token.INT, Literal: "2"}, Value: 2}}},
 	}
 
 	for _, tt := range tests {
 		l := lexer.New(tt.inp)
 		p := New(l)
 		env := &object.Environment{}
-		p.ParseProgram(env)
+		p.ParseCmd(env)
 		program := env.Program
-		checkParserErrors(t, p)
-		iter := program.StatementIter()
-		if iter.Len() != tt.stmtNum {
-			t.Fatalf("expected %d statements, got %d", tt.stmtNum, iter.Len())
-		}
-		stmt := iter.Value()
-
-		lm, ok := stmt.(*ast.LineNumStmt)
+		itr := program.CmdLineIter()
+		stmt := itr.Value()
+		lct, ok := stmt.(*ast.LocateStatement)
 
 		if !ok {
-			t.Fatalf("no line number, expected %d", tt.lineNum)
+			t.Fatalf("Test_LocateStatement didn't return Locate object")
 		}
 
-		if lm.Value != tt.lineNum {
-			t.Fatalf("expected line %d, got %d", tt.lineNum, lm.Value)
-		}
-
-		iter.Next()
-		stmt = iter.Value()
-
-		dstmt, ok := stmt.(*ast.DataStatement)
-
-		if !ok {
-			t.Fatalf("unexpected this is")
-		}
-
-		if len(dstmt.Consts) != tt.cnt {
-			t.Fatalf("expected %d constants, got %d!", tt.cnt, len(dstmt.Consts))
-		}
-
-		for i, want := range tt.exp {
-			compareStatements(tt.inp, dstmt.Consts[i], want, t)
-		}
-	}
-}
-
-func TestDimStatement(t *testing.T) {
-	type dimensions struct {
-		id   string
-		dims []int8
-	}
-	tests := []struct {
-		input   string
-		stmtNum int
-		lineNum int32
-		numIDs  int8
-		dims    []dimensions
-	}{
-		{`10 DIM A[20]`, 2, 10, 1, []dimensions{{"A[]", []int8{20}}}},
-		{`20 DIM A[20, 10]`, 2, 20, 1, []dimensions{{"A[]", []int8{20, 10}}}},
-		{`30 DIM A[20, 30],B[15,5]`, 2, 30, 2, []dimensions{{"A[]", []int8{20, 30}}, {"B[]", []int8{15, 5}}}},
-	}
-
-	for _, tt := range tests {
-		l := lexer.New(tt.input)
-		p := New(l)
-		env := &object.Environment{}
-		p.ParseProgram(env)
-		program := env.Program
-		checkParserErrors(t, p)
-		iter := program.StatementIter()
-		if iter.Len() != tt.stmtNum {
-			t.Fatalf("expected %d statements, got %d", tt.stmtNum, iter.Len())
-		}
-		stmt := iter.Value()
-
-		lm, ok := stmt.(*ast.LineNumStmt)
-
-		if !ok {
-			t.Fatalf("no line number, expected %d", tt.lineNum)
-		}
-
-		if lm.Value != tt.lineNum {
-			t.Fatalf("expected line %d, got %d", tt.lineNum, lm.Value)
-		}
-
-		iter.Next()
-		stmt = iter.Value()
-
-		dstmt, ok := stmt.(*ast.DimStatement)
-
-		if !ok {
-			t.Fatalf("unexpected this is")
-		}
-
-		dstmt.String()
-
-		if int8(len(dstmt.Vars)) != tt.numIDs {
-			t.Fatalf("expected %d dimensioned variables, got %d on %s", tt.numIDs, len(dstmt.Vars), tt.input)
-		}
-
-		for dNum, d := range tt.dims {
-			if dstmt.Vars[dNum].Value != d.id {
-				t.Fatalf("got id %s, expected %s on line %s", dstmt.Vars[dNum].Value, d.id, tt.input)
-			}
-
-			for dnum, dim := range d.dims {
-				indExp, ok := dstmt.Vars[dNum].Index[dnum].Index.(*ast.IntegerLiteral)
-
-				if !ok {
-					t.Fatalf("dimension %d for %s is not an index", dnum, tt.input)
-				}
-
-				if int8(indExp.Value) != dim {
-					t.Fatalf("expeced dimension %d, got %d, on %s", dim, indExp.Value, tt.input)
+		for i, res := range lct.Parms {
+			if res != nil {
+				if tt.exp[i] != nil {
+					assert.Equal(t, tt.exp[i], res, "parseLocateStatement param %d mismatch", i)
+				} else {
+					t.Fatalf("Test_LocateStatement got a param it didn't expect")
 				}
 			}
+		}
+
+		checkParserErrors(t, p)
+
+		if program == nil {
+			t.Fatalf("Test_LocateStatement ParseProgram*() returned nil")
 		}
 	}
 }
@@ -1123,7 +1225,7 @@ func TestOperatorPrecedenceParsing(t *testing.T) {
 		{"10 a + b / c", "10 A + B / C"},
 		{"10 a + b * c + d / e - f", "10 A + B * C + D / E - F"},
 		{"10 5 > 4 = 3 < 4", "10 5 > 4 = 3 < 4"},
-		{"20 ((5 < 4) <> (3 > 4))", "20 ((5 < 4) <> (3 > 4))"},
+		{"20 X = ((5 < 4) <> (3 > 4))", "20  X = ((5 < 4) <> (3 > 4))"},
 	}
 
 	for _, tt := range tests {
@@ -1154,7 +1256,7 @@ func TestParsingIndexExpressions(t *testing.T) {
 		{`50 num% = 46`, "NUM%", "%", 0, nil},
 		{`60 sng! = 3.14E+0`, "SNG!", "!", 0, nil},
 		{`70 dbl# = 3.14159E+0`, "DBL#", "#", 0, nil},
-		{`80 LET A[0] = 5 : LET A[1] = 2`, "A[]", "", 1, []string{"0"}},
+		{`80 LET A[0] = 5 : LET A(1) = 2`, "A[]", "", 1, []string{"0"}},
 		{`90 LET A$[0] = "Hello"`, "A$[]", "$", 1, []string{"0"}},
 	}
 
@@ -1425,6 +1527,24 @@ func TestRunCommand(t *testing.T) {
 	}
 }
 
+func TestCheckForFuncCall(t *testing.T) {
+	tst := []struct {
+		inp string
+		exp bool
+	}{
+		{inp: "LEN", exp: true},
+		{inp: "FNA", exp: true},
+		{inp: "MUFIN", exp: false},
+	}
+
+	for _, tt := range tst {
+		l := lexer.New(tt.inp)
+		p := New(l)
+		p.nextToken() // skip the starting EOL
+		p.checkForFuncCall()
+	}
+}
+
 func TestFunctionApplication(t *testing.T) {
 	tests := []struct {
 		input    string
@@ -1440,7 +1560,8 @@ func TestFunctionApplication(t *testing.T) {
 		{"80 DEF FNMUL(x,y)", 1},
 		{"90 DEF FNMUL(x,y = x * y", 1},
 		{"100 DEF FNMUL() = x * y", 0},
-		{"110 MKD$(65999)", 0},
+		{"110 X$ = MKD$(65999)", 0},
+		{"120 MKD$(65999)", 1},
 	}
 	for i, tt := range tests {
 		l := lexer.New(tt.input)
@@ -1488,43 +1609,6 @@ func TestEndStatements(t *testing.T) {
 		}
 		if endStmt.TokenLiteral() != "END" {
 			t.Fatalf("endStmt.TokenLiteral not 'END', got %q", endStmt.TokenLiteral())
-		}
-	}
-}
-
-func TestCls(t *testing.T) {
-	tests := []struct {
-		input string
-		param int
-	}{
-		{"CLS", -1},
-		{"CLS 0", 0},
-	}
-
-	for _, tt := range tests {
-		l := lexer.New(tt.input)
-		//l.NextToken()
-		p := New(l)
-		env := &object.Environment{}
-		p.ParseCmd(env)
-		program := env.Program
-		checkParserErrors(t, p)
-
-		if program.CmdLineIter().Len() != 1 {
-			t.Fatalf("program.Statements does not contain single command")
-		}
-
-		iter := program.CmdLineIter()
-		stmt := iter.Value()
-		clsStmt, ok := stmt.(*ast.ClsStatement)
-		if !ok {
-			t.Fatalf("stmt not *ast.ClsStatement. got=%T", stmt)
-		}
-		if clsStmt.TokenLiteral() != "CLS" {
-			t.Fatalf("clsStmt.TokenLiteral not 'CLS', got %q", clsStmt.TokenLiteral())
-		}
-		if tt.param != clsStmt.Param {
-			t.Fatalf("cls param expected %d, got %d", tt.param, clsStmt.Param)
 		}
 	}
 }

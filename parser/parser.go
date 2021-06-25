@@ -7,6 +7,7 @@ import (
 	"strings"
 
 	"github.com/navionguy/basicwasm/ast"
+	"github.com/navionguy/basicwasm/builtins"
 	"github.com/navionguy/basicwasm/decimal"
 	"github.com/navionguy/basicwasm/lexer"
 	"github.com/navionguy/basicwasm/object"
@@ -187,6 +188,10 @@ func (p *Parser) parseStatement() ast.Statement {
 		return p.parseClearCommand()
 	case token.CLS:
 		return p.parseClsStatement()
+	case token.COLOR:
+		return p.parseColorStatement()
+	case token.COMMON:
+		return p.parseCommonStatement()
 	case token.DATA:
 		return p.parseDataStatement()
 	case token.END:
@@ -206,10 +211,14 @@ func (p *Parser) parseStatement() ast.Statement {
 		return p.parseLineNumber()
 	case token.LIST:
 		return p.parseListStatement()
+	case token.LOCATE:
+		return p.parseLocateStatement()
 	case token.GOTO:
 		return p.parseGotoStatement()
 	case token.GOSUB:
 		return p.parseGosubStatement()
+	case token.IF:
+		return p.parseExpressionStatement()
 	case token.READ:
 		return p.parseReadStatement()
 	case token.REM:
@@ -229,16 +238,18 @@ func (p *Parser) parseStatement() ast.Statement {
 	case token.DIM:
 		return p.parseDimStatement()
 	default:
-		if strings.ContainsAny(p.peekToken.Literal, "=[$%!#") {
+		if strings.ContainsAny(p.peekToken.Literal, "=[($%!#") {
 			stmt := p.parseImpliedLetStatement(p.curToken.Literal)
 
-			if !p.peekTokenIs(token.LPAREN) {
+			if !p.checkForFuncCall() {
 				return stmt
 			}
 			// yikes!  It is actually a function call
 			// recover the full name
 
-			p.curToken = token.Token{Type: token.IDENT, Literal: stmt.Name.Value}
+			stmt.Value = p.parseCallExpression(stmt.Name)
+			return stmt
+			//p.curToken = token.Token{Type: token.IDENT, Literal: stmt.Name.Value}
 		}
 		return p.parseExpressionStatement()
 	}
@@ -284,13 +295,14 @@ func (p *Parser) parseBlockStatement() *ast.BlockStatement {
 	block := &ast.BlockStatement{Token: p.curToken}
 	block.Statements = []ast.Statement{}
 
-	for !p.curTokenIs(token.COLON) && !p.curTokenIs(token.EOF) {
+	for !p.curTokenIs(token.COLON) && !p.curTokenIs(token.EOF) && !p.curTokenIs(token.EOL) {
 		stmt := p.parseStatement()
 		if stmt != nil {
 			block.Statements = append(block.Statements, stmt)
 		}
 		p.nextToken()
 	}
+	//p.nextToken()
 
 	return block
 }
@@ -331,7 +343,7 @@ func (p *Parser) parseClearCommand() *ast.ClearCommand {
 
 func (p *Parser) parseClsStatement() *ast.ClsStatement {
 	defer untrace(trace("parseClsStatement"))
-	stmt := &ast.ClsStatement{Token: p.curToken, Param: -1}
+	stmt := ast.ClsStatement{Token: p.curToken, Param: -1}
 
 	if p.peekTokenIs(token.INT) {
 		p.nextToken()
@@ -340,7 +352,47 @@ func (p *Parser) parseClsStatement() *ast.ClsStatement {
 
 	p.nextToken()
 
-	return stmt
+	return &stmt
+}
+
+func (p *Parser) parseColorStatement() *ast.ColorStatement {
+	defer untrace(trace("parseColorStatement"))
+	stmt := ast.ColorStatement{Token: p.curToken}
+
+	if p.chkEndOfStatement() {
+		p.errors = append(p.errors, "Syntax error")
+		return &stmt
+	}
+
+	for i := 0; (i < 3) && !p.chkEndOfStatement(); i++ {
+		p.nextToken()
+		if !p.curTokenIs(token.COMMA) {
+			stmt.Parms[i] = p.parseExpression(LOWEST)
+			p.nextToken()
+		}
+	}
+
+	return &stmt
+}
+
+func (p *Parser) parseCommonStatement() *ast.CommonStatement {
+	defer untrace(trace("parseCommonStatement"))
+	stmt := ast.CommonStatement{Token: p.curToken}
+
+	for !p.chkEndOfStatement() {
+		p.nextToken()
+		stmt.Vars = append(stmt.Vars, p.innerParseIdentifier())
+
+		if p.peekTokenIs(token.COMMA) {
+			p.nextToken()
+		}
+	}
+
+	if p.peekTokenIs(token.COLON) {
+		p.nextToken()
+	}
+
+	return &stmt
 }
 
 func (p *Parser) parseDataStatement() *ast.DataStatement {
@@ -408,6 +460,26 @@ func (p *Parser) parseDataElement(elem string) ast.Expression {
 	}
 
 	return exp.Expression
+}
+
+func (p *Parser) parseDimStatement() *ast.DimStatement {
+	defer untrace(trace("parseDimStatement"))
+	exp := &ast.DimStatement{Token: p.curToken, Vars: []*ast.Identifier{}}
+
+	for !p.chkEndOfStatement() {
+		p.nextToken()
+		exp.Vars = append(exp.Vars, p.innerParseIdentifier())
+
+		if p.peekTokenIs(token.COMMA) {
+			p.nextToken()
+		}
+	}
+
+	if p.peekTokenIs(token.COLON) {
+		p.nextToken()
+	}
+
+	return exp
 }
 
 func (p *Parser) parseFilesCommand() *ast.FilesCommand {
@@ -710,7 +782,7 @@ func (p *Parser) parseImpliedLetStatement(id string) *ast.LetStatement {
 	stmt := &ast.LetStatement{Token: tk}
 	stmt.Name = p.innerParseIdentifier()
 
-	if p.peekTokenIs(token.LPAREN) {
+	if p.checkForFuncCall() {
 		// whoops, it's a function identifier
 		return stmt
 	}
@@ -734,9 +806,25 @@ func (p *Parser) finishParseLetStatment(stmt *ast.LetStatement) *ast.LetStatemen
 	return stmt
 }
 
+func (p *Parser) parseLocateStatement() *ast.LocateStatement {
+	defer untrace(trace("parseLocateStatement"))
+	stmt := ast.LocateStatement{Token: p.curToken}
+
+	for i := 0; (i < len(stmt.Parms)) && (!p.chkEndOfStatement()); i++ {
+		p.nextToken()
+		if !p.curTokenIs(token.COMMA) {
+			stmt.Parms[i] = p.parseExpression(LOWEST)
+			p.nextToken()
+		}
+	}
+
+	return &stmt
+}
+
 // goto - uncondition transfer to line
 func (p *Parser) parseGotoStatement() *ast.GotoStatement {
-	stmt := &ast.GotoStatement{Token: p.curToken, Goto: ""}
+	defer untrace(trace("parseGotoStatement"))
+	stmt := ast.GotoStatement{Token: p.curToken, Goto: ""}
 
 	if !p.expectPeek(token.INT) {
 		return nil
@@ -748,12 +836,13 @@ func (p *Parser) parseGotoStatement() *ast.GotoStatement {
 		p.nextToken()
 	}
 
-	return stmt
+	return &stmt
 }
 
 // gosub - uncondition transfer to subroutine
 func (p *Parser) parseGosubStatement() *ast.GosubStatement {
-	stmt := &ast.GosubStatement{Token: p.curToken, Gosub: ""}
+	defer untrace(trace("parseGosubStatement"))
+	stmt := ast.GosubStatement{Token: p.curToken, Gosub: ""}
 
 	if !p.expectPeek(token.INT) {
 		return nil
@@ -765,7 +854,7 @@ func (p *Parser) parseGosubStatement() *ast.GosubStatement {
 		p.nextToken()
 	}
 
-	return stmt
+	return &stmt
 }
 
 // read constant data from DATA statements
@@ -894,68 +983,46 @@ func (p *Parser) parseEndStatement() *ast.EndStatement {
 	return stmt
 }
 
-func (p *Parser) parseDimStatement() *ast.DimStatement {
-	defer untrace(trace("parseDimStatement"))
-	exp := &ast.DimStatement{Token: p.curToken, Vars: []*ast.Identifier{}}
-
-	for !p.peekTokenIs(token.EOF) && !p.peekTokenIs(token.EOL) && !p.peekTokenIs(token.COLON) {
-		p.nextToken()
-		exp.Vars = append(exp.Vars, p.innerParseIdentifier())
-
-		if p.peekTokenIs(token.COMMA) {
-			p.nextToken()
-		}
-	}
-
-	if p.peekTokenIs(token.COLON) {
-		p.nextToken()
-	}
-
-	return exp
-}
-
 func (p *Parser) parseIdentifier() ast.Expression {
 	defer untrace(trace("parseIdentifier"))
-	return p.innerParseIdentifier()
+	exp := p.innerParseIdentifier()
+
+	return exp
 }
 
 func (p *Parser) innerParseIdentifier() *ast.Identifier {
 	defer untrace(trace("innerParseIdentifier"))
 	exp := &ast.Identifier{Token: p.curToken, Value: strings.ToUpper(p.curToken.Literal)}
 
-	switch p.peekToken.Literal {
-	case "$", "%", "!", "#":
+	if strings.ContainsAny(p.peekToken.Literal, "$%!#") {
 		p.nextToken()
 		exp.Token.Literal = exp.Token.Literal + p.curToken.Literal
 		exp.Value = exp.Value + p.curToken.Literal
 		exp.Type = p.curToken.Literal
-
-	case "[":
-		p.nextToken()
-		exp.Token.Literal = exp.Token.Literal + "[]"
-		exp.Value = exp.Value + "[]"
-		exp.Array = true
-		exp.Index = make([]*ast.IndexExpression, 0)
-
-		for p.curToken.Literal != "]" {
-			exp.Index = append(exp.Index, p.innerParseIndexExpression(exp))
-			p.nextToken()
-		}
 	}
 
-	// is this a string intrinsic call?
-	if p.peekTokenIs("(") && strings.ContainsAny(exp.Token.Literal, "$") {
-		exp.Token.Literal += "("
+	if p.checkForFuncCall() {
 		return exp
 	}
 
-	// type might also be an array
-	if p.peekTokenIs("[") && strings.ContainsAny(exp.Token.Literal, "$%!#") {
-		exp.Token.Literal = exp.Token.Literal + "[]"
-		exp.Value = exp.Value + "[]"
+	if strings.ContainsAny(p.peekToken.Literal, "[(") {
+		p.nextToken()
+		if p.curTokenIs(")") {
+			return exp
+		}
+		exp.Token.Literal = exp.Token.Literal + p.curToken.Literal
+		exp.Value = exp.Value + "["
 		exp.Array = true
-		exp2 := p.innerParseIdentifier()
-		exp.Index = exp2.Index
+		exp.Index = make([]*ast.IndexExpression, 0)
+
+		for (p.curToken.Literal != "]") && (p.curToken.Literal != ")") {
+			if (p.peekToken.Literal != "]") && (p.peekToken.Literal != ")") {
+				exp.Index = append(exp.Index, p.innerParseIndexExpression(exp))
+			}
+			p.nextToken()
+		}
+		exp.Token.Literal = exp.Token.Literal + p.curToken.Literal
+		exp.Value = exp.Value + "]"
 	}
 
 	return exp
@@ -1124,11 +1191,52 @@ func (p *Parser) parseFunctionParameters() []*ast.Identifier {
 	return identifiers
 }
 
+func (p *Parser) checkForFuncCall() bool {
+	// user defined functions must start with FN
+	if (len(p.curToken.Literal) > 2) && (p.curToken.Literal[0:2] == "FN") {
+		return true
+	}
+
+	// not user defined, check for builtin
+	_, ok := builtins.Builtins[p.curToken.Literal]
+
+	if ok {
+		return true
+	}
+
+	return false
+}
+
 func (p *Parser) parseCallExpression(function ast.Expression) ast.Expression {
 	defer untrace(trace("parseCallExpression"))
 	exp := &ast.CallExpression{Token: p.curToken, Function: function}
-	exp.Arguments = p.parseExpressionList(token.RPAREN)
+	p.nextToken()
+	exp.Arguments = p.parseCallArguments()
 	return exp
+}
+
+func (p *Parser) parseCallArguments() []ast.Expression {
+	args := []ast.Expression{}
+
+	if p.peekTokenIs(token.RPAREN) {
+		p.nextToken()
+		return args
+	}
+
+	p.nextToken()
+	args = append(args, p.parseExpression(LOWEST))
+
+	for p.peekTokenIs(token.COMMA) {
+		p.nextToken()
+		p.nextToken()
+		args = append(args, p.parseExpression(LOWEST))
+	}
+
+	if !p.expectPeek(token.RPAREN) {
+		return nil
+	}
+
+	return args
 }
 
 func (p *Parser) parseIndexExpression(left ast.Expression) ast.Expression {
@@ -1163,7 +1271,7 @@ func (p *Parser) parseExpressionList(end token.TokenType) []ast.Expression {
 		list = append(list, p.parseExpression(LOWEST))
 	}
 
-	if !p.expectPeek(end) {
+	if !p.peekTokenIs(end) {
 		return nil
 	}
 

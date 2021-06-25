@@ -1,4 +1,4 @@
-package evaluator
+package builtins
 
 import (
 	"bytes"
@@ -8,6 +8,7 @@ import (
 	"strconv"
 
 	"github.com/navionguy/basicwasm/object"
+	"github.com/navionguy/basicwasm/token"
 )
 
 const syntaxErr = "Syntax error"
@@ -18,7 +19,7 @@ const illegalArgErr = "Illegal argument"
 const outOfDataErr = "Out of data"
 const unDefinedLineNumberErr = "Undefined line number"
 
-var builtins = map[string]*object.Builtin{
+var Builtins = map[string]*object.Builtin{
 	"ABS": { // absolute value
 		Fn: func(env *object.Environment, fn *object.Builtin, args ...object.Object) object.Object {
 			if len(args) != 1 {
@@ -92,20 +93,20 @@ var builtins = map[string]*object.Builtin{
 
 			switch arg := args[0].(type) {
 			case *object.Integer:
-				return fixType(math.Atan(float64(arg.Value)))
+				return FixType(env, math.Atan(float64(arg.Value)))
 
 			case *object.IntDbl:
-				return fixType(math.Atan(float64(arg.Value)))
+				return FixType(env, math.Atan(float64(arg.Value)))
 
 			case *object.Fixed:
 				val, _ := arg.Value.Float64()
-				return fixType(math.Atan(val))
+				return FixType(env, math.Atan(val))
 
 			case *object.FloatSgl:
-				return fixType(math.Atan(float64(arg.Value)))
+				return FixType(env, math.Atan(float64(arg.Value)))
 
 			case *object.FloatDbl:
-				return fixType(math.Atan(arg.Value))
+				return FixType(env, math.Atan(arg.Value))
 
 			case *object.TypedVar:
 				return fn.Fn(env, fn, arg.Value)
@@ -196,20 +197,20 @@ var builtins = map[string]*object.Builtin{
 
 			switch arg := args[0].(type) {
 			case *object.Integer:
-				return fixType(math.Cos(float64(arg.Value)))
+				return FixType(env, math.Cos(float64(arg.Value)))
 
 			case *object.IntDbl:
-				return fixType(math.Cos(float64(arg.Value)))
+				return FixType(env, math.Cos(float64(arg.Value)))
 
 			case *object.Fixed:
 				dc, _ := arg.Value.Float64()
-				return fixType(math.Cos(dc))
+				return FixType(env, math.Cos(dc))
 
 			case *object.FloatSgl:
-				return fixType(math.Cos(float64(arg.Value)))
+				return FixType(env, math.Cos(float64(arg.Value)))
 
 			case *object.FloatDbl:
-				return fixType(math.Cos(arg.Value))
+				return FixType(env, math.Cos(arg.Value))
 
 			case *object.TypedVar:
 				return fn.Fn(env, fn, arg.Value)
@@ -239,7 +240,7 @@ var builtins = map[string]*object.Builtin{
 				return arg
 
 			case *object.FloatDbl:
-				return fixType(float32(arg.Value))
+				return FixType(env, float32(arg.Value))
 
 			case *object.TypedVar:
 				return fn.Fn(env, fn, arg.Value)
@@ -261,7 +262,7 @@ var builtins = map[string]*object.Builtin{
 				return newError(env, typeMismatchErr)
 			}
 
-			return fixType(int(binary.LittleEndian.Uint64(str[:8])))
+			return FixType(env, int(binary.LittleEndian.Uint64(str[:8])))
 		},
 	},
 	"CVI": { // convert string to integer
@@ -276,7 +277,7 @@ var builtins = map[string]*object.Builtin{
 				return newError(env, typeMismatchErr)
 			}
 
-			return fixType(int16(binary.LittleEndian.Uint16(num[:2])))
+			return FixType(env, int16(binary.LittleEndian.Uint16(num[:2])))
 		},
 	},
 	"CVS": { // convert string to single precision float
@@ -291,7 +292,7 @@ var builtins = map[string]*object.Builtin{
 				return newError(env, typeMismatchErr)
 			}
 
-			return fixType(int32(binary.LittleEndian.Uint32(str[:4])))
+			return FixType(env, int32(binary.LittleEndian.Uint32(str[:4])))
 		},
 	},
 	"EXP": { // e^^x
@@ -396,16 +397,19 @@ var builtins = map[string]*object.Builtin{
 			a := 0
 			strt := 1
 
+			// if there are 3 params, the first is where to start looking
 			if len(args) == 3 {
 				f, _ := extractNumeric(args[a])
 				strt = int(f)
 				a++
 			}
 
+			// you can't start before the first character
 			if strt < 1 {
 				return newError(env, illegalArgErr)
 			}
 
+			// max start pos is 255
 			if strt > 255 {
 				return newError(env, illegalFuncCallErr)
 			}
@@ -415,10 +419,14 @@ var builtins = map[string]*object.Builtin{
 
 			sub, ok2, _ := extractString(args[a])
 
+			// if parms 2 & 3 aren't strings of some type, syntax error
 			if !ok || !ok2 {
 				return newError(env, syntaxErr)
 			}
 
+			// if start > length of the string
+			// or the substring is longer than the string
+			// you get zero
 			if (strt > len(bt)) || (len(sub) > len(bt)) {
 				return &object.Integer{Value: 0}
 			}
@@ -550,7 +558,7 @@ var builtins = map[string]*object.Builtin{
 				return newError(env, syntaxErr)
 			}
 
-			ct := int(fct)
+			ct := int(fct) // length of string to return
 			loc := int(floc)
 
 			if (loc < 1) || (loc > 255) || (ct < 0) || (ct > 255) {
@@ -869,13 +877,8 @@ var builtins = map[string]*object.Builtin{
 
 // Some common functionality
 
+// MKD$, MKI$, and MKS$ all return values as a Bstr
 func bstrEncode(size int, env *object.Environment, arg object.Object) object.Object {
-	// calculate max/min values
-
-	var max int64
-	max = (1 << ((int64(size) * 8) - 1)) - 1
-	min := -(max + 1)
-
 	var rc int64
 	switch ar := arg.(type) {
 	case *object.Integer:
@@ -898,10 +901,21 @@ func bstrEncode(size int, env *object.Environment, arg object.Object) object.Obj
 		return newError(env, typeMismatchErr)
 	}
 
+	// calculate max/min values
+	max := int64(1<<((int64(size)*8)-1) - 1)
+	min := -(max + 1)
+
 	if (rc < min) || rc > max {
 		return newError(env, overflowErr)
 	}
 
+	return buildBstr(size, rc)
+}
+
+// now that I have created the integer part
+// use the binary package to serialize rc
+// as a byte series, little Endian
+func buildBstr(size int, rc int64) object.Object {
 	bt := make([]byte, size)
 
 	switch size {
@@ -970,4 +984,128 @@ func extractString(obj object.Object) ([]byte, bool, bool) {
 	default:
 		return nil, false, false
 	}
+}
+
+func newError(env *object.Environment, format string, a ...interface{}) *object.Error {
+	msg := fmt.Sprintf(format, a...)
+	tk, ok := env.Get(token.LINENUM)
+
+	if ok {
+		msg += fmt.Sprintf(" in %d", tk.(*object.IntDbl).Value)
+	}
+
+	return &object.Error{Message: msg}
+}
+
+func FixType(env *object.Environment, val interface{}) object.Object {
+	// check the integer types
+	res := tryInteger(val)
+
+	if res != nil {
+		return res
+	}
+
+	res = tryFloat(val)
+
+	if res != nil {
+		return res
+	}
+
+	return newError(env, typeMismatchErr)
+}
+
+// see if value is an integer type
+func tryInteger(val interface{}) object.Object {
+	// is he a 16bit integer
+	i16, ok := val.(int16)
+	if ok {
+		return &object.Integer{Value: i16}
+	}
+
+	return tryInt32(val)
+}
+
+func tryInt32(val interface{}) object.Object {
+	//is he a 32bit integer
+	i32, ok := val.(int32)
+	if ok {
+		return shrinkI32(i32)
+	}
+
+	return tryInt64(val)
+}
+
+func tryInt64(val interface{}) object.Object {
+	i, ok := val.(int)
+
+	if ok {
+		return shrinkI64(i)
+	}
+
+	return nil
+}
+
+// will 32bit integer actually fit in int16
+func shrinkI32(i32 int32) object.Object {
+
+	i16 := int16(i32)
+	if int32(i16) == i32 {
+		// yes, return the smaller object
+		return &object.Integer{Value: i16}
+	}
+
+	return &object.IntDbl{Value: i32}
+}
+
+func shrinkI64(i64 int) object.Object {
+	i32 := int32(i64)
+	if int(i32) == i64 {
+		return shrinkI32(i32)
+	}
+	// have to return him as a 64 bit float
+
+	return &object.FloatDbl{Value: float64(i64)}
+}
+
+func tryFloat(val interface{}) object.Object {
+	f32, ok := val.(float32)
+
+	if ok {
+		return shrinkF32(f32)
+	}
+
+	return tryFloat64(val)
+}
+
+func tryFloat64(val interface{}) object.Object {
+	f64, ok := val.(float64)
+
+	if ok {
+		return shrinkF64(f64)
+	}
+
+	return nil
+}
+
+func shrinkF64(f64 float64) object.Object {
+	f32 := float32(f64)
+	if float64(f32) == f64 {
+		return shrinkF32(float32(f64))
+	}
+
+	i64 := int(f64)
+	if float64(i64) == f64 {
+		return shrinkI64(i64)
+	}
+
+	return &object.FloatDbl{Value: f64}
+}
+
+func shrinkF32(f32 float32) object.Object {
+	i32 := int32(f32)
+	if float32(i32) == f32 {
+		return shrinkI32(i32)
+	}
+
+	return &object.FloatSgl{Value: f32}
 }

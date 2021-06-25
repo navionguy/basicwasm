@@ -144,6 +144,7 @@ func prompt(env *object.Environment) {
 	env.SetAuto(auto)
 }
 
+// just display the error and then the prompt
 func giveError(err error, env *object.Environment) {
 	env.Terminal().Println(err.Error())
 	env.Terminal().Println("OK")

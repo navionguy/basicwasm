@@ -5,6 +5,7 @@ import (
 	"fmt"
 	"net/http"
 	"net/http/httptest"
+	"strings"
 
 	"github.com/navionguy/basicwasm/decimal"
 	"github.com/navionguy/basicwasm/lexer"
@@ -92,6 +93,105 @@ func (mt mockTerm) ReadKeys(count int) []byte {
 	mt.strVal = &v
 
 	return bt[:count]
+}
+
+func compareObjects(inp string, evald object.Object, want interface{}, t *testing.T) {
+	if evald == nil {
+		t.Fatalf("(%sd) got nil return value!", inp)
+	}
+
+	// if I got back a typed variable, I really care about what's inside
+
+	inner, ok := evald.(*object.TypedVar)
+
+	if ok {
+		evald = inner.Value
+	}
+
+	switch exp := want.(type) {
+	case int:
+		testIntegerObject(t, evald, int16(exp))
+	case *object.Integer:
+		testIntegerObject(t, evald, int16(exp.Value))
+	case *object.IntDbl:
+		id, ok := evald.(*object.IntDbl)
+
+		if !ok {
+			t.Fatalf("object is not IntegerDbl from %s, got %T", inp, evald)
+		}
+
+		if id.Value != exp.Value {
+			t.Fatalf("at %s, expected %d, got %d", inp, exp.Value, id.Value)
+		}
+	case *object.Fixed:
+		fx, ok := evald.(*object.Fixed)
+
+		if !ok {
+			t.Fatalf("object is not Fixed from %s, got %T", inp, evald)
+		}
+
+		if fx.Value.Cmp(exp.Value) != 0 {
+			t.Fatalf("at %s, expected %s, got %s", inp, exp.Value.String(), fx.Value.String())
+		}
+	case *object.FloatSgl:
+		flt, ok := evald.(*object.FloatSgl)
+
+		if !ok {
+			t.Fatalf("object is not FloatSgl from %s, got %T", inp, evald)
+		}
+
+		if flt.Value != exp.Value {
+			t.Fatalf("%s got %.9f, expected %.9f", inp, flt.Value, exp.Value)
+		}
+	case *object.FloatDbl:
+		flt, ok := evald.(*object.FloatDbl)
+
+		if !ok {
+			t.Fatalf("object is not FloatDbl from %s, got %T", inp, evald)
+		}
+
+		if flt.Value != exp.Value {
+			t.Fatalf("%s got %.16f, expected %.16f", inp, flt.Value, exp.Value)
+		}
+	case *object.String:
+		def, ok := evald.(*object.String)
+
+		if !ok {
+			t.Fatalf("object is not String from %s, got %T", inp, evald)
+		}
+
+		if strings.Compare(def.Value, exp.Value) != 0 {
+			t.Fatalf("%s got %s, expected %s", inp, def.Value, exp.Value)
+		}
+	case *object.BStr:
+		bs, ok := evald.(*object.BStr)
+
+		if !ok {
+			t.Fatalf("object is not a BStr from %s, got %T", inp, evald)
+		}
+
+		if len(bs.Value) != len(exp.Value) {
+			t.Fatalf("expected length %d, got length %d", len(exp.Value), len(bs.Value))
+		}
+
+		for i := range exp.Value {
+			if exp.Value[i] != bs.Value[i] {
+				t.Fatalf("difference in byte %d, expected %x, got %x", i, int(exp.Value[i]), int(bs.Value[i]))
+			}
+		}
+	case *object.Error:
+		err, ok := evald.(*object.Error)
+
+		if !ok {
+			t.Fatalf("object is not an error from %s, got %T", inp, evald)
+		}
+
+		if strings.Compare(err.Message, exp.Message) != 0 {
+			t.Fatalf("%s got %s, expected %s", inp, err.Message, exp.Message)
+		}
+	default:
+		t.Fatalf("compareObjects got unsupported type %T", exp)
+	}
 }
 
 func TestAutoCommand(t *testing.T) {
@@ -783,7 +883,7 @@ func ExampleT_int() {
 	}
 	// Output:
 	// 33060
-	// 10922.33
+	// 1.092233E+04
 	// 2
 	// 0
 	// 1
@@ -879,9 +979,9 @@ func ExampleT_float() {
 	// Output:
 	// 2.361234E+04
 	// 2.350314E+04
-	// 2.350300E+04
-	// 2.349700E+04
-	// 7.050000E+04
+	// 23503
+	// 23497
+	// 70500
 	// 1.920154E+00
 	// 0
 	// 0
@@ -929,10 +1029,10 @@ func ExampleT_floatDbl() {
 	// Output:
 	// 2.359880E+14
 	// -23186
-	// 23503.14
-	// 20358.5
+	// 2.350314E+04
+	// 2.035850E+04
 	// 70500
-	// 0.0052532
+	// 5.253191E-03
 	// 1
 	// 0
 	// 0
@@ -954,9 +1054,9 @@ func ExampleT_array() {
 	tests := []struct {
 		input string
 	}{
-		{`10 LET Y[0] = 5 : PRINT Y[0]`},
+		{`10 LET Y[0] = 5 : PRINT Y(0)`},
 		{`15 LET Y[0] = 4 : PRINT Y[5]`},
-		{`20 LET Y[0] = 5 : LET Y[1] = 1: PRINT Y[0]`},
+		{`20 LET Y(0) = 5 : LET Y[1] = 1: PRINT Y[0]`},
 		{`30 LET Y[0] = 5 : LET Y[1] = 1: PRINT Y[1]`},
 		{`40 LET Y$[0] = "Hello" : PRINT Y$[0]`},
 		{`50 LET Y$[0] = "Hello" : Y$[0] = "Goodbye" : PRINT Y$[0]`},

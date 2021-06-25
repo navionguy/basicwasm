@@ -145,3 +145,14 @@ func LookupIdent(ident string) TokenType {
 	}
 	return IDENT
 }
+
+var builtins = map[string]bool{
+	"ABS":  true,
+	"ASC":  true,
+	"ATN":  true,
+	"CDBL": true,
+	"CHR$": true,
+	"CINT": true,
+	"COS":  true,
+	"CSNG": true,
+}

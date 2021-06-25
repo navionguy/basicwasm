@@ -8,12 +8,21 @@ import (
 	"strings"
 
 	"github.com/navionguy/basicwasm/ast"
+	"github.com/navionguy/basicwasm/builtins"
 	"github.com/navionguy/basicwasm/decimal"
 	"github.com/navionguy/basicwasm/filelist"
 	"github.com/navionguy/basicwasm/fileserv"
 	"github.com/navionguy/basicwasm/object"
 	"github.com/navionguy/basicwasm/token"
 )
+
+const syntaxErr = "Syntax error"
+const typeMismatchErr = "Type mismatch"
+const overflowErr = "Overflow"
+const illegalFuncCallErr = "Illegal function call"
+const illegalArgErr = "Illegal argument"
+const outOfDataErr = "Out of data"
+const unDefinedLineNumberErr = "Undefined line number"
 
 // Eval returns the object at a node
 func Eval(node ast.Node, code *ast.Code, env *object.Environment) object.Object {
@@ -61,9 +70,9 @@ func Eval(node ast.Node, code *ast.Code, env *object.Environment) object.Object 
 			return val
 		}
 		// life gets more complicated, not less
-		if !strings.ContainsAny(node.Name.Token.Literal, "[$%!#") {
+		if !strings.ContainsAny(node.Name.Token.Literal, "[($%!#") {
 			env.Set(node.Name.Token.Literal, val)
-			break
+			return val
 		}
 		return saveVariable(code, env, node.Name, val)
 
@@ -225,6 +234,12 @@ func evalChainStatement(chain *ast.ChainStatement, code *ast.Code, env *object.E
 	}
 
 	fileserv.ParseFile(rdr, env)
+	env.Program.ConstData().Restore() // start at the first DATA statement
+
+	if chain.Line != 0 {
+		code.Jump(chain.Line)
+		return
+	}
 }
 
 func evalStatements(stmts *ast.Program, code *ast.Code, env *object.Environment) object.Object {
@@ -625,18 +640,18 @@ func evalStringInfixExpression(operator string, left, right object.Object, env *
 func evalIntegerInfixExpression(operator string, leftVal, rightVal int, env *object.Environment) object.Object {
 	switch operator {
 	case "+":
-		return fixType(leftVal + rightVal)
+		return builtins.FixType(env, leftVal+rightVal)
 	case "-":
-		return fixType(leftVal - rightVal)
+		return builtins.FixType(env, leftVal-rightVal)
 	case "*":
-		return fixType(leftVal * rightVal)
+		return builtins.FixType(env, leftVal*rightVal)
 	case "/":
-		return fixType(float64(leftVal) / float64(rightVal))
+		return builtins.FixType(env, float64(leftVal)/float64(rightVal))
 	case "\\":
 		// I'm learning stuff I never knew about GWBasic
 		return &object.Integer{Value: int16(leftVal) / int16(rightVal)}
 	case "MOD":
-		return fixType(leftVal % rightVal)
+		return builtins.FixType(env, leftVal%rightVal)
 	case "<":
 		return &object.Integer{Value: bool2int16(leftVal < rightVal)}
 	case "<=":
@@ -687,13 +702,13 @@ func evalFloatInfixExpression(operator string, leftVal, rightVal float32, env *o
 
 	switch operator {
 	case "+":
-		return fixType(leftVal + rightVal)
+		return builtins.FixType(env, leftVal+rightVal)
 	case "-":
-		return fixType(leftVal - rightVal)
+		return builtins.FixType(env, leftVal-rightVal)
 	case "*":
-		return fixType(leftVal * rightVal)
+		return builtins.FixType(env, leftVal*rightVal)
 	case "/":
-		return fixType(leftVal / rightVal)
+		return builtins.FixType(env, leftVal/rightVal)
 	case "<":
 		return &object.Integer{Value: bool2int16(leftVal < rightVal)}
 	case "<=":
@@ -715,13 +730,13 @@ func evalFloatDblInfixExpression(operator string, leftVal, rightVal float64, env
 
 	switch operator {
 	case "+":
-		return fixType(leftVal + rightVal)
+		return builtins.FixType(env, leftVal+rightVal)
 	case "-":
-		return fixType(leftVal - rightVal)
+		return builtins.FixType(env, leftVal-rightVal)
 	case "*":
-		return fixType(leftVal * rightVal)
+		return builtins.FixType(env, leftVal*rightVal)
 	case "/":
-		return fixType(leftVal / rightVal)
+		return builtins.FixType(env, leftVal/rightVal)
 	case "<":
 		return &object.Integer{Value: bool2int16(leftVal < rightVal)}
 	case "<=":
@@ -798,20 +813,20 @@ func unwrapReturnValue(obj object.Object) object.Object {
 
 func evalIdentifier(node *ast.Identifier, code *ast.Code, env *object.Environment) object.Object {
 
-	tk := node.Token.Literal
+	label := node.Value
 	val, ok := env.Get(node.Value)
-	if ok && (tk[len(tk)-1] != ']') {
+	if ok && (label[len(label)-1] != ']') {
 		return val
 	}
 
-	if ok && (tk[len(tk)-1] == ']') && (node.Index != nil) {
+	if builtin, ok := builtins.Builtins[node.Value]; ok {
+		return builtin
+	}
+
+	if ok && (label[len(label)-1] == ']') && (node.Index != nil) {
 		arrValue := evalIndexArray(node.Index, val, nil, code, env)
 
 		return arrValue
-	}
-
-	if builtin, ok := builtins[node.Value]; ok {
-		return builtin
 	}
 
 	return newError(env, "Syntax error")
@@ -879,8 +894,9 @@ func evalArrayIndexExpression(array, index, newVal object.Object, env *object.En
 	return newError(env, "Subscript out of range")
 }
 
+// saveVariable into the environment
 func saveVariable(code *ast.Code, env *object.Environment, name *ast.Identifier, val object.Object) object.Object {
-	sname := name.Token.Literal
+	sname := name.Value
 	cv, ok := env.Get(sname)
 
 	if !ok {
@@ -909,7 +925,7 @@ func saveVariable(code *ast.Code, env *object.Environment, name *ast.Identifier,
 
 func saveNewVariable(code *ast.Code, env *object.Environment, name *ast.Identifier, val object.Object) object.Object {
 
-	sname := name.String()
+	sname := name.Value
 	typeid, isarray := parseVarName(sname)
 
 	// handle it if he is an array
@@ -931,7 +947,7 @@ func saveNewVariable(code *ast.Code, env *object.Environment, name *ast.Identifi
 
 		if 10 > indValue.Value {
 			arr.Elements[indValue.Value] = val
-			env.Set(name.Token.Literal, arr)
+			env.Set(name.Value, arr)
 			return arr
 		}
 
@@ -996,10 +1012,16 @@ func checkTypes(typeid string, val object.Object) bool {
 
 func parseVarName(name string) (string, bool) {
 	parts := strings.Split(name, "[")
+	altparts := strings.Split(name, "(")
 
 	isarray := false
 	if len(parts) > 1 {
 		isarray = true
+	}
+
+	if len(altparts) > 1 {
+		isarray = true
+		parts = altparts
 	}
 
 	base := parts[0]

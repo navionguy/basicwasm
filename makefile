@@ -12,9 +12,9 @@
 
 ./webmodules/gwbasic.wasm : ./webmodules/src/gwbasic/gwbasic.go \
 			./ast/ast.go \
+			./builtins/builtins.go \
 			./cli/cli.go \
 			./decimal/decimal.go \
-			./evaluator/builtins.go \
 			./evaluator/evaluator.go \
 			./evaluator/expressions.go \
 			./filelist/filelist.go \

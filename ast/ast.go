@@ -300,6 +300,10 @@ func (cd *Code) Jump(target int) error {
 	return errors.New("Undefined line number")
 }
 
+func (cd *Code) start() {
+
+}
+
 // Next returns the next constant data item
 func (data *ConstData) Next() *Expression {
 	if data.data == nil {
@@ -480,8 +484,8 @@ func (ce *CallExpression) String() string {
 // ChainStatement loads a program file
 type ChainStatement struct {
 	Token  token.Token
-	File   string
-	Line   int
+	File   string // filename to chain in
+	Line   int    // line number to start execution
 	RngBeg int
 	RngEnd int
 	All    bool
@@ -562,11 +566,8 @@ func (cls *ClsStatement) String() string {
 
 // ColorStatement changes foreground/background colors
 type ColorStatement struct {
-	Token      token.Token
-	foreground Expression
-	background Expression
-	border     Expression
-	palette    Expression
+	Token token.Token
+	Parms [3]Expression
 }
 
 func (color *ColorStatement) statementNode() {}
@@ -576,28 +577,21 @@ func (color *ColorStatement) TokenLiteral() string { return strings.ToUpper(colo
 func (color *ColorStatement) String() string {
 	stmt := ""
 
-	if color.palette != nil {
-		stmt = fmt.Sprintf("COLOR %s,%s", color.background.String(), color.palette.String())
-		return stmt
+	for i := 2; i >= 0; i-- {
+		if stmt != "" {
+			stmt = "," + stmt
+		}
+
+		if color.Parms[i] != nil {
+			stmt = color.Parms[i].String() + stmt
+		}
 	}
 
-	if color.border != nil {
-		stmt = "," + color.border.String()
+	if stmt != "" {
+		stmt = "COLOR " + stmt
+	} else {
+		stmt = "COLOR"
 	}
-
-	if color.background != nil {
-		stmt = "," + color.background.String() + stmt
-	} else if stmt != "" {
-		stmt = "," + stmt
-	}
-
-	if color.foreground != nil {
-		stmt = " " + color.foreground.String() + stmt
-	} else if stmt != "" {
-		stmt = " " + stmt
-	}
-
-	stmt = "COLOR" + stmt
 
 	return stmt
 }
@@ -639,15 +633,18 @@ func (fls *FilesCommand) TokenLiteral() string { return strings.ToUpper(fls.Toke
 
 func (fls *FilesCommand) String() string {
 
-	fc := "FILES " + fls.Path
+	fc := "FILES"
+	if len(fls.Path) > 0 {
+		fc = fc + ` "` + fls.Path + `"`
+	}
 
 	return strings.Trim(fc, " ")
 }
 
 // Identifier holds the token for the identifier in the statement
 type Identifier struct {
-	Token token.Token // the token.IDENT token Value string
-	Value string
+	Token token.Token // the token.IDENT token Value string, arrays can be [] or ()
+	Value string      // for an array, will always have []
 	Type  string
 	Index []*IndexExpression
 	Array bool
@@ -658,7 +655,7 @@ func (i *Identifier) String() string {
 	var out bytes.Buffer
 
 	if i.Array {
-		out.WriteString(i.Value[:len(i.Value)-1])
+		out.WriteString(i.Token.Literal[:len(i.Token.Literal)-1])
 		for x, ind := range i.Index {
 			out.WriteString(ind.String())
 
@@ -666,7 +663,7 @@ func (i *Identifier) String() string {
 				out.WriteString(",")
 			}
 		}
-		out.WriteString("]")
+		out.WriteString(i.Token.Literal[len(i.Token.Literal)-1:])
 	} else {
 		out.WriteString(i.Value)
 	}

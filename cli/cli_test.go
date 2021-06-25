@@ -1,6 +1,7 @@
 package cli
 
 import (
+	"errors"
 	"fmt"
 	"strings"
 	"testing"
@@ -73,14 +74,15 @@ func TestExecCommand(t *testing.T) {
 		exp []string
 	}{
 		{inp: "10 CLS", exp: []string{"OK"}},
-		//		{inp: "20 PRINT X * Y", exp: []string{"OK"}},
-		{"LIST", []string{"10 CLS", "OK"}},
+		{inp: "20 PRINT X * Y", exp: []string{"OK"}},
+		{"LIST", []string{"10 CLS", "20 PRINT X * Y ", "OK"}},
 		{"nerf", []string{"Syntax error", "OK"}},
 		{"LET X = 5", []string{"OK"}},
+		{"LET Y = 2", []string{"OK"}},
 		{"PRINT X", []string{"5", "", "OK"}},
 		{"PRINT 45.2 / 3.4", []string{"13.29412", "", "OK"}},
-		{"CLS : LIST", []string{"10 CLS", "OK"}},
-		{"GOTO 10", []string{"OK"}},
+		{"CLS : LIST", []string{"10 CLS", "20 PRINT X * Y ", "OK"}},
+		{"GOTO 10", []string{"10", "", "OK"}},
 		{"AUTO 10", []string{"10*"}},
 	}
 
@@ -95,4 +97,27 @@ func TestExecCommand(t *testing.T) {
 			t.Fatalf("didn't expect that!")
 		}
 	}
+}
+
+func Test_GiveError(t *testing.T) {
+	tests := []struct {
+		inp string
+		exp []string
+	}{
+		{inp: "Syntax Error", exp: []string{"Syntax Error", "OK"}},
+	}
+
+	for _, tt := range tests {
+		var trm mockTerm
+		var eChk Expector
+		eChk.exp = tt.exp
+		trm.expChk = &eChk
+		env := object.NewTermEnvironment(trm)
+		terr := errors.New(tt.inp)
+		giveError(terr, env)
+		if eChk.failed {
+			t.Fatalf("GiveError didn't")
+		}
+	}
+
 }

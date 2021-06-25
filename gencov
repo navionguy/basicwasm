@@ -1,5 +1,6 @@
 ./runtests
 #
+sed -e 1d builtins.out >>coverage.out
 sed -e 1d cli.out >>coverage.out
 sed -e 1d decimal.out >>coverage.out
 sed -e 1d evaluator.out >>coverage.out
