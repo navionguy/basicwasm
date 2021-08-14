@@ -1,11 +1,55 @@
 package object
 
 import (
+	"fmt"
 	"strings"
 	"testing"
 
+	"github.com/navionguy/basicwasm/ast"
 	"github.com/navionguy/basicwasm/decimal"
+	"github.com/navionguy/basicwasm/token"
+	"github.com/stretchr/testify/assert"
 )
+
+type mockTerm struct {
+	row     int
+	col     int
+	strVal  string
+	sawBeep *bool
+}
+
+func (mt mockTerm) Cls() {
+
+}
+
+func (mt mockTerm) Print(msg string) {
+	fmt.Print(msg)
+}
+
+func (mt mockTerm) Println(msg string) {
+	fmt.Println(msg)
+}
+
+func (mt mockTerm) Locate(int, int) {
+
+}
+
+func (mt mockTerm) GetCursor() (int, int) {
+	return mt.row, mt.col
+}
+
+func (mt mockTerm) Read(col, row, len int) string {
+	return mt.strVal
+}
+
+func (mt mockTerm) ReadKeys(count int) []byte {
+	return nil
+}
+
+func (mt mockTerm) SoundBell() {
+	fmt.Print("\x07")
+	*mt.sawBeep = true
+}
 
 func TestBStr(t *testing.T) {
 	tests := []struct {
@@ -22,6 +66,10 @@ func TestBStr(t *testing.T) {
 
 		if strings.Compare(tt.out, bs.Inspect()) != 0 {
 			t.Fatalf("expected %s, got %s", tt.out, bs.Inspect())
+		}
+
+		if bs.Type() != BSTR_OBJ {
+			t.Fatalf("BSTR type not correct %v", bs.Type())
 		}
 	}
 }
@@ -81,6 +129,27 @@ func TestEnvironment(t *testing.T) {
 	}
 }
 
+func TestTermEnvironment(t *testing.T) {
+	var trm mockTerm
+	env := NewTermEnvironment(trm)
+
+	if env.Terminal() == nil {
+		t.Fatalf("Terminal failed to set!")
+	}
+
+	if env.GetTrace() || (env.GetAuto() != nil) || env.ProgramRunning() {
+		t.Fatalf("env defaults not false, %t, %t, %t", env.GetTrace(), (env.autoOn != nil), env.ProgramRunning())
+	}
+
+	env.SetTrace(true)
+	env.SetAuto(&ast.AutoCommand{})
+	env.SetRun(true)
+
+	if !env.GetTrace() || (env.GetAuto() == nil) || !env.ProgramRunning() || (env.GetClient() == nil) {
+		t.Fatalf("env defaults not changed, %t, %t, %t, %t", env.GetTrace(), (env.GetAuto() == nil), env.ProgramRunning(), (env.GetClient() == nil))
+	}
+}
+
 func testIntEnvGet(t *testing.T, env Environment, item string, exp Object) bool {
 	obj, ok := env.Get(item)
 
@@ -136,4 +205,25 @@ func TestRandom(t *testing.T) {
 			t.Fatalf("Random returned %.9f, expected %.9f!  That's too random!!!", rc.Value, tt.exp)
 		}
 	}
+}
+
+func TestFunction(t *testing.T) {
+	tkBlk := token.Token{Literal: "{"}
+	tkBep := token.Token{Literal: "BEEP"}
+	stmt := ast.BeepStatement{Token: tkBep}
+	fn := &Function{Body: &ast.BlockStatement{Token: tkBlk, Statements: []ast.Statement{&stmt}}}
+
+	if fn.Type() != FUNCTION_OBJ {
+		t.Fatalf("Function gave incorrect type %v", fn.Type())
+	}
+}
+
+func TestReturnValue(t *testing.T) {
+	fn := &ReturnValue{Value: &Integer{Value: 404}}
+
+	if fn.Type() != RETURN_VALUE_OBJ {
+		t.Fatalf("ReturnValue gave incorrect type %v", fn.Type())
+	}
+
+	assert.EqualValues(t, fn.Inspect(), "404", "Return value didn't set correctly.")
 }

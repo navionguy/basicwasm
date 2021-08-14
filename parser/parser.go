@@ -1218,12 +1218,11 @@ func (p *Parser) parseCallExpression(function ast.Expression) ast.Expression {
 func (p *Parser) parseCallArguments() []ast.Expression {
 	args := []ast.Expression{}
 
-	if p.peekTokenIs(token.RPAREN) {
+	if p.curTokenIs(token.RPAREN) {
 		p.nextToken()
 		return args
 	}
 
-	p.nextToken()
 	args = append(args, p.parseExpression(LOWEST))
 
 	for p.peekTokenIs(token.COMMA) {

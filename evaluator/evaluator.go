@@ -1,6 +1,7 @@
 package evaluator
 
 import (
+	"bufio"
 	"bytes"
 	"fmt"
 	"math"
@@ -226,20 +227,54 @@ func evalBlockStatement(block *ast.BlockStatement, code *ast.Code, env *object.E
 
 // tries to load a new program and start it's execution.
 func evalChainStatement(chain *ast.ChainStatement, code *ast.Code, env *object.Environment) {
+	rdr := evalChainLoad(code, chain, env)
+
+	// if file doesn't load, get out
+	if rdr == nil {
+		return
+	}
+}
+
+// attempt to pull down the  desired file
+func evalChainLoad(code *ast.Code, chain *ast.ChainStatement, env *object.Environment) *bufio.Reader {
 	rdr, err := fileserv.GetFile(chain.File, env)
 
 	if err != nil {
 		env.Terminal().Println(err.Error())
-		return
+		return nil
 	}
 
+	evalChainParse(rdr, code, chain, env)
+
+	return rdr
+}
+
+// parse the file into an executable AST
+func evalChainParse(rdr *bufio.Reader, code *ast.Code, chain *ast.ChainStatement, env *object.Environment) {
 	fileserv.ParseFile(rdr, env)
 	env.Program.ConstData().Restore() // start at the first DATA statement
 
-	if chain.Line != 0 {
-		code.Jump(chain.Line)
-		return
+	// go figure out how to start execution
+	evalChainStart(chain, code, env)
+}
+
+// either start execution, or move to the first statement in the new AST
+func evalChainStart(chain *ast.ChainStatement, code *ast.Code, env *object.Environment) {
+
+	// if we are not running, time to start
+	if !env.ProgramRunning() {
+		evalChainExecute(chain, env)
 	}
+}
+
+// executing a command entry, start program execution
+func evalChainExecute(chain *ast.ChainStatement, env *object.Environment) object.Object {
+	pcode := env.Program.StatementIter()
+	env.Program.ConstData().Restore()
+
+	rc := evalRunStart(pcode, env)
+
+	return rc
 }
 
 func evalStatements(stmts *ast.Program, code *ast.Code, env *object.Environment) object.Object {
@@ -334,7 +369,18 @@ func evalRunCommand(run *ast.RunCommand, code *ast.Code, env *object.Environment
 	pcode := env.Program.StatementIter()
 	env.Program.ConstData().Restore()
 
-	return Eval(env.Program, pcode, env)
+	rc := evalRunStart(pcode, env)
+
+	return rc
+}
+
+// actually go execute the code
+func evalRunStart(pcode *ast.Code, env *object.Environment) object.Object {
+	env.SetRun(true)
+	rc := Eval(env.Program, pcode, env)
+	env.SetRun(false)
+
+	return rc
 }
 
 // turn off tracing

@@ -681,7 +681,7 @@ func TestFunctionApplication(t *testing.T) {
 		input    string
 		expected int16
 	}{
-		{"10 DEF FNID(x) = x : FNID(5)", 5},
+		{"10 DEF FNID(x) = x : y = FNID(5)", 5},
 		{"20 DEF FNMUL(x,y) = x*y : FNMUL(2,3)", 6},
 		{"30 DEF FNSKIP(x)= (x + 2): FNSKIP(3)", 5},
 	}

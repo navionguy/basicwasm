@@ -104,7 +104,7 @@ type Environment struct {
 	rndVal  float32          // most recent generated value
 	traceOn bool             // is tracing turned on
 	client  *http.Client     // for making server requests
-
+	run     bool             // program is currently execute, if false, a command is executing
 }
 
 // Get attempts to retrieve an object from the environment
@@ -156,6 +156,16 @@ func (e *Environment) GetClient() *http.Client {
 // mostly used for testing
 func (e *Environment) SetClient(cl *http.Client) {
 	e.client = cl
+}
+
+// SetRun controls the "a program is running"
+func (e *Environment) SetRun(run bool) {
+	e.run = run
+}
+
+// Quick test to see if program is currently running
+func (e *Environment) ProgramRunning() bool {
+	return e.run
 }
 
 // Random returns a random number between 0 and 1
@@ -325,6 +335,7 @@ func (f *Function) Inspect() string {
 	out.WriteString(strings.Join(params, ", "))
 	out.WriteString(") ")
 	out.WriteString(f.Body.String())
+	out.WriteString("foo")
 
 	return out.String()
 }

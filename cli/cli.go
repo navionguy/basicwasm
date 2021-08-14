@@ -61,13 +61,7 @@ func execCommand(input string, env *object.Environment) {
 	l := lexer.New(input)
 	p := parser.New(l)
 
-	/*if checkForLineNum(input) {
-		// fresh line of code
-		bExc = false
-		p.ParseProgram(env)
-	} else {*/
 	p.ParseCmd(env)
-	//}
 
 	if len(p.Errors()) > 0 {
 		for _, m := range p.Errors() {

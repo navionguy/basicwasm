@@ -138,6 +138,7 @@ var keywords = map[string]TokenType{
 	"using":   USING,
 }
 
+// LookupIdent returns a TokenType object
 func LookupIdent(ident string) TokenType {
 
 	if tok, ok := keywords[strings.ToLower(ident)]; ok {
