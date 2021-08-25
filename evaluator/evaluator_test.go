@@ -3,9 +3,12 @@ package evaluator
 import (
 	"errors"
 	"fmt"
+	"io"
 	"net/http"
 	"net/http/httptest"
+	"os"
 	"strings"
+	"time"
 
 	"github.com/navionguy/basicwasm/decimal"
 	"github.com/navionguy/basicwasm/lexer"
@@ -15,6 +18,150 @@ import (
 
 	"testing"
 )
+
+const (
+	sawOpen    = "sawOpen"
+	sawReadDir = "sawReadDir"
+	sawStat    = "sawStat"
+	sawName    = "sawName"
+)
+
+type mockFS struct {
+	file       string // filename
+	statErr    bool   // return an error when stat is called
+	readErr    *bool  // return error from read call
+	openAlways bool   // return a file handle no matter what
+	events     map[string]bool
+
+	// desired Readdir results
+	names []string
+	err   int
+}
+
+func (mf mockFS) ServeHTTP(w http.ResponseWriter, r *http.Request) {
+}
+
+func (mf mockFS) Open(file string) (http.File, error) {
+	if mf.events != nil {
+		mf.events[sawOpen] = true
+	}
+	if (mf.file != file) && !mf.openAlways {
+		return nil, fmt.Errorf("got %s, wanted %s", file, mf.file)
+	}
+	return mf, nil
+}
+
+func (mf mockFS) Read(p []byte) (int, error) {
+
+	if *mf.readErr {
+		return 0, io.EOF
+	}
+	if len(mf.file) > 0 {
+		l := len(p)
+		if len(mf.file) < l {
+			l = len(mf.file)
+			*mf.readErr = true // he has read it all
+		}
+		rc := copy(p, []byte(mf.file[:l]))
+		return rc, nil
+	}
+
+	return 0, nil
+}
+
+func (mf mockFS) Readdir(n int) ([]os.FileInfo, error) {
+	if mf.events != nil {
+		mf.events[sawReadDir] = true
+	}
+	if mf.err != http.StatusOK {
+		return nil, io.EOF
+	}
+
+	var mi []os.FileInfo
+	for _, nm := range mf.names {
+		nmi := mockFI{name: nm, mom: &mf}
+		mi = append(mi, nmi)
+	}
+
+	return mi, nil
+}
+
+func (mf mockFS) Seek(offset int64, whence int) (int64, error) {
+	var rc int64
+	switch whence {
+	case io.SeekEnd:
+		rc = int64(len(mf.file))
+		if len(mf.names) > 0 {
+			rc = int64(len(mf.names))
+		}
+	case io.SeekStart:
+		rc = 0
+	}
+	return rc, nil
+}
+
+func (mf mockFS) Stat() (os.FileInfo, error) {
+	if mf.events != nil {
+		mf.events[sawStat] = true
+	}
+	if mf.statErr {
+		return nil, errors.New("a faked error")
+	}
+
+	nmi := mockFI{name: mf.file, mom: &mf}
+
+	for _, f := range mf.names {
+		nmi.files = append(nmi.files, f)
+	}
+
+	return nmi, nil
+}
+
+func (mf *mockFS) SawName() {
+	if mf.events != nil {
+		mf.events[sawName] = true
+	}
+}
+
+func (mf mockFS) Close() error {
+	return nil
+}
+
+type mockFI struct {
+	name  string
+	files []string
+	mom   *mockFS
+}
+
+func (mi mockFI) IsDir() bool {
+	if len(mi.files) > 1 {
+		return true
+	}
+	return false
+}
+
+func (mi mockFI) ModTime() time.Time {
+	return time.Now()
+}
+
+func (mi mockFI) Mode() os.FileMode {
+	return os.ModeDir
+}
+
+func (mi mockFI) Name() string {
+	if mi.mom != nil {
+		mi.mom.SawName()
+	}
+	return mi.name
+}
+
+func (mi mockFI) Size() int64 {
+	return int64(len(mi.name))
+}
+
+func (mi mockFI) Sys() interface{} {
+	return nil
+}
 
 type mockTerm struct {
 	row     *int
@@ -1356,11 +1503,11 @@ func TestBuiltinFunctions(t *testing.T) {
 		case string:
 			errObj, ok := evaluated.(*object.Error)
 			if !ok {
-				t.Errorf("object is not Error. got=%T (%+v)", evaluated, evaluated)
+				t.Errorf("object is not Error. got=%T (%+v) test %s", evaluated, evaluated, tt.input)
 				continue
 			}
 			if errObj.Message != expected {
-				t.Errorf("wrong error message. expected=%q, got=%q", expected, errObj.Message)
+				t.Errorf("wrong error message. expected=%q, got=%q test %s", expected, errObj.Message, tt.input)
 			}
 		}
 	}

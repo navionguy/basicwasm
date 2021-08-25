@@ -358,26 +358,57 @@ func evalRestoreStatement(rst *ast.RestoreStatement, code *ast.Code, env *object
 }
 
 // actually run the program
-// ToDo: implement loading a program by name
 // ToDo: close open data files (as soon as I support data files)
 func evalRunCommand(run *ast.RunCommand, code *ast.Code, env *object.Environment) object.Object {
-	// ToDo: need to clear the variable space
-	if run.StartLine > 0 {
-		code.Jump(run.StartLine)
+	if run.LoadFile != "" {
+		// load the source file then run it
+		return evalRunLoad(run, env)
 	}
 
+	return evalRunCheckStartLineNum(run, env)
+}
+
+// pull the file down from the server
+func evalRunLoad(run *ast.RunCommand, env *object.Environment) object.Object {
+	rdr, err := fileserv.GetFile(run.LoadFile, env)
+
+	if err != nil {
+		env.Terminal().Println(err.Error())
+		return nil
+	}
+
+	return evalRunParse(rdr, run, env)
+}
+
+// Parse the code in the reader try to run it.
+func evalRunParse(rdr *bufio.Reader, run *ast.RunCommand, env *object.Environment) object.Object {
+	// create a new program code space
+	env.Program.New()
+	if !run.KeepOpen {
+		// ToDo: once I implement files, I'll need a way to close them all at once
+	}
+
+	// parse the loaded file into an AST for evaluation
+	fileserv.ParseFile(rdr, env)
+
+	return evalRunCheckStartLineNum(run, env)
+}
+
+func evalRunCheckStartLineNum(run *ast.RunCommand, env *object.Environment) object.Object {
 	pcode := env.Program.StatementIter()
 	env.Program.ConstData().Restore()
 
-	rc := evalRunStart(pcode, env)
+	if run.StartLine > 0 {
+		pcode.Jump(run.StartLine)
+	}
 
-	return rc
+	return evalRunStart(pcode, env)
 }
 
 // actually go execute the code
-func evalRunStart(pcode *ast.Code, env *object.Environment) object.Object {
+func evalRunStart(code *ast.Code, env *object.Environment) object.Object {
 	env.SetRun(true)
-	rc := Eval(env.Program, pcode, env)
+	rc := Eval(env.Program, code, env)
 	env.SetRun(false)
 
 	return rc

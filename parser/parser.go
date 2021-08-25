@@ -1215,8 +1215,13 @@ func (p *Parser) parseCallExpression(function ast.Expression) ast.Expression {
 	return exp
 }
 
+//
 func (p *Parser) parseCallArguments() []ast.Expression {
 	args := []ast.Expression{}
+
+	if p.curTokenIs(token.LPAREN) {
+		p.nextToken() // skip past the left brace
+	}
 
 	if p.curTokenIs(token.RPAREN) {
 		p.nextToken()
@@ -1231,8 +1236,10 @@ func (p *Parser) parseCallArguments() []ast.Expression {
 		args = append(args, p.parseExpression(LOWEST))
 	}
 
-	if !p.expectPeek(token.RPAREN) {
-		return nil
+	//if !p.expectPeek(token.RPAREN) {
+	if p.peekTokenIs(token.RPAREN) {
+		p.nextToken()
+		//return nil
 	}
 
 	return args
