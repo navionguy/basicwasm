@@ -861,8 +861,8 @@ func applyFunction(fn object.Object, args []object.Object, code *ast.Code, env *
 	switch fn := fn.(type) {
 	case *object.Function:
 		extendedEnv := extendFunctionEnv(fn, args)
-		evaluated := Eval(fn.Body, code, extendedEnv)
-		return unwrapReturnValue(evaluated)
+		obj := Eval(fn.Body, code, extendedEnv)
+		return obj
 
 	case *object.Builtin:
 		return fn.Fn(env, fn, args...)
@@ -879,13 +879,6 @@ func extendFunctionEnv(fn *object.Function, args []object.Object) *object.Enviro
 		env.Set(param.Value, args[paramIdx])
 	}
 	return env
-}
-
-func unwrapReturnValue(obj object.Object) object.Object {
-	if returnValue, ok := obj.(*object.ReturnValue); ok {
-		return returnValue.Value
-	}
-	return obj
 }
 
 func evalIdentifier(node *ast.Identifier, code *ast.Code, env *object.Environment) object.Object {

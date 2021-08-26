@@ -3,15 +3,13 @@ package evaluator
 import (
 	"errors"
 	"fmt"
-	"io"
 	"net/http"
 	"net/http/httptest"
-	"os"
 	"strings"
-	"time"
 
 	"github.com/navionguy/basicwasm/decimal"
 	"github.com/navionguy/basicwasm/lexer"
+	"github.com/navionguy/basicwasm/mocks"
 	"github.com/navionguy/basicwasm/object"
 	"github.com/navionguy/basicwasm/parser"
 	"github.com/stretchr/testify/assert"
@@ -19,227 +17,18 @@ import (
 	"testing"
 )
 
-const (
-	sawOpen    = "sawOpen"
-	sawReadDir = "sawReadDir"
-	sawStat    = "sawStat"
-	sawName    = "sawName"
-)
+func initMockTerm(mt *mocks.MockTerm) {
+	mt.Row = new(int)
+	*mt.Row = 0
 
-type mockFS struct {
-	file       string // filename
-	statErr    bool   // return an error when stat is called
-	readErr    *bool  // return error from read call
-	openAlways bool   // return a file handle no matter what
-	events     map[string]bool
+	mt.Col = new(int)
+	*mt.Col = 0
 
-	// desired Readdir results
-	names []string
-	err   int
-}
+	mt.StrVal = new(string)
+	*mt.StrVal = ""
 
-func (mf mockFS) ServeHTTP(w http.ResponseWriter, r *http.Request) {
-}
-
-func (mf mockFS) Open(file string) (http.File, error) {
-	if mf.events != nil {
-		mf.events[sawOpen] = true
-	}
-	if (mf.file != file) && !mf.openAlways {
-		return nil, fmt.Errorf("got %s, wanted %s", file, mf.file)
-	}
-	return mf, nil
-}
-
-func (mf mockFS) Read(p []byte) (int, error) {
-
-	if *mf.readErr {
-		return 0, io.EOF
-	}
-	if len(mf.file) > 0 {
-		l := len(p)
-		if len(mf.file) < l {
-			l = len(mf.file)
-			*mf.readErr = true // he has read it all
-		}
-		rc := copy(p, []byte(mf.file[:l]))
-		return rc, nil
-	}
-
-	return 0, nil
-}
-
-func (mf mockFS) Readdir(n int) ([]os.FileInfo, error) {
-	if mf.events != nil {
-		mf.events[sawReadDir] = true
-	}
-	if mf.err != http.StatusOK {
-		return nil, io.EOF
-	}
-
-	var mi []os.FileInfo
-	for _, nm := range mf.names {
-		nmi := mockFI{name: nm, mom: &mf}
-		mi = append(mi, nmi)
-	}
-
-	return mi, nil
-}
-
-func (mf mockFS) Seek(offset int64, whence int) (int64, error) {
-	var rc int64
-	switch whence {
-	case io.SeekEnd:
-		rc = int64(len(mf.file))
-		if len(mf.names) > 0 {
-			rc = int64(len(mf.names))
-		}
-	case io.SeekStart:
-		rc = 0
-	}
-	return rc, nil
-}
-
-func (mf mockFS) Stat() (os.FileInfo, error) {
-	if mf.events != nil {
-		mf.events[sawStat] = true
-	}
-	if mf.statErr {
-		return nil, errors.New("a faked error")
-	}
-
-	nmi := mockFI{name: mf.file, mom: &mf}
-
-	for _, f := range mf.names {
-		nmi.files = append(nmi.files, f)
-	}
-
-	return nmi, nil
-}
-
-func (mf *mockFS) SawName() {
-	if mf.events != nil {
-		mf.events[sawName] = true
-	}
-}
-
-func (mf mockFS) Close() error {
-	return nil
-}
-
-type mockFI struct {
-	name  string
-	files []string
-	mom   *mockFS
-}
-
-func (mi mockFI) IsDir() bool {
-	if len(mi.files) > 1 {
-		return true
-	}
-	return false
-}
-
-func (mi mockFI) ModTime() time.Time {
-	return time.Now()
-}
-
-func (mi mockFI) Mode() os.FileMode {
-	return os.ModeDir
-}
-
-func (mi mockFI) Name() string {
-	if mi.mom != nil {
-		mi.mom.SawName()
-	}
-	return mi.name
-}
-
-func (mi mockFI) Size() int64 {
-	return int64(len(mi.name))
-}
-
-func (mi mockFI) Sys() interface{} {
-	return nil
-}
-
-type mockTerm struct {
-	row     *int
-	col     *int
-	strVal  *string
-	sawStr  *string
-	sawCls  *bool
-	sawBeep *bool
-}
-
-func initMockTerm(mt *mockTerm) {
-	mt.row = new(int)
-	*mt.row = 0
-
-	mt.col = new(int)
-	*mt.col = 0
-
-	mt.strVal = new(string)
-	*mt.strVal = ""
-
-	mt.sawCls = new(bool)
-	*mt.sawCls = false
-}
-
-func (mt mockTerm) Cls() {
-	*mt.sawCls = true
-}
-
-func (mt mockTerm) Print(msg string) {
-	fmt.Print(msg)
-}
-
-func (mt mockTerm) Println(msg string) {
-	fmt.Println(msg)
-	if mt.sawStr != nil {
-		*mt.sawStr = *mt.sawStr + msg
-	}
-}
-
-func (mt mockTerm) SoundBell() {
-	fmt.Print("\x07")
-	*mt.sawBeep = true
-}
-
-func (mt mockTerm) Locate(int, int) {
-}
-
-func (mt mockTerm) GetCursor() (int, int) {
-	return *mt.row, *mt.col
-}
-
-func (mt mockTerm) Read(col, row, len int) string {
-	// make sure your test is correct
-	trim := (row-1)*80 + (col - 1)
-
-	tstr := *mt.strVal
-
-	newstr := tstr[trim : trim+len]
-
-	return newstr
-}
-
-func (mt mockTerm) ReadKeys(count int) []byte {
-	if mt.strVal == nil {
-		return nil
-	}
-
-	bt := []byte(*mt.strVal)
-
-	if count >= len(bt) {
-		mt.strVal = nil
-		return bt
-	}
-
-	v := (*mt.strVal)[:count]
-	mt.strVal = &v
-
-	return bt[:count]
+	mt.SawCls = new(bool)
+	*mt.SawCls = false
 }
 
 func compareObjects(inp string, evald object.Object, want interface{}, t *testing.T) {
@@ -356,7 +145,7 @@ func TestAutoCommand(t *testing.T) {
 
 	for _, tt := range tests {
 
-		var mt mockTerm
+		var mt mocks.MockTerm
 		initMockTerm(&mt)
 		env := object.NewTermEnvironment(mt)
 		l := lexer.New(tt.inp)
@@ -388,10 +177,10 @@ func TestAutoCommand(t *testing.T) {
 func Test_BeepStatement(t *testing.T) {
 	l := lexer.New("BEEP")
 	p := parser.New(l)
-	var mt mockTerm
+	var mt mocks.MockTerm
 	initMockTerm(&mt)
 	chk := false
-	mt.sawBeep = &chk
+	mt.SawBeep = &chk
 	env := object.NewTermEnvironment(mt)
 
 	p.ParseCmd(env)
@@ -421,7 +210,7 @@ func Test_ChainStatement(t *testing.T) {
 	for _, tt := range tests {
 		l := lexer.New(tt.stmt)
 		p := parser.New(l)
-		var mt mockTerm
+		var mt mocks.MockTerm
 		initMockTerm(&mt)
 		env := object.NewTermEnvironment(mt)
 		ts := httptest.NewServer(http.HandlerFunc(func(res http.ResponseWriter, req *http.Request) {
@@ -458,7 +247,7 @@ func TestClsStatement(t *testing.T) {
 	for _, tt := range tests {
 		l := lexer.New(tt.input)
 		p := parser.New(l)
-		var mt mockTerm
+		var mt mocks.MockTerm
 		initMockTerm(&mt)
 		env := object.NewTermEnvironment(mt)
 		p.ParseCmd(env)
@@ -472,7 +261,7 @@ func TestClsStatement(t *testing.T) {
 
 		Eval(env.Program, env.Program.CmdLineIter(), env)
 
-		if !*mt.sawCls {
+		if !*mt.SawCls {
 			t.Errorf("No call to Cls() seen")
 		}
 	}
@@ -501,7 +290,7 @@ func Test_FilesCommand(t *testing.T) {
 
 		l := lexer.New(cmd)
 		p := parser.New(l)
-		var mt mockTerm
+		var mt mocks.MockTerm
 		initMockTerm(&mt)
 		env := object.NewTermEnvironment(mt)
 		ts := httptest.NewServer(http.HandlerFunc(func(res http.ResponseWriter, req *http.Request) {
@@ -544,10 +333,10 @@ func Test_CatchNotDir(t *testing.T) {
 	}
 
 	for _, tt := range tests {
-		var mt mockTerm
+		var mt mocks.MockTerm
 		initMockTerm(&mt)
 		var rec string
-		mt.sawStr = &rec
+		mt.SawStr = &rec
 		env := object.NewTermEnvironment(mt)
 		env.Set(object.WORK_DRIVE, &object.String{Value: `C:\`})
 
@@ -599,7 +388,7 @@ func TestDblInetegerExpression(t *testing.T) {
 func testEval(input string) object.Object {
 	l := lexer.New(input)
 	p := parser.New(l)
-	var mt mockTerm
+	var mt mocks.MockTerm
 	initMockTerm(&mt)
 	env := object.NewTermEnvironment(mt)
 	p.ParseProgram(env)
@@ -615,9 +404,9 @@ func testEval(input string) object.Object {
 func testEvalWithTerm(input string, keys string) object.Object {
 	l := lexer.New(input)
 	p := parser.New(l)
-	var mt mockTerm
+	var mt mocks.MockTerm
 	initMockTerm(&mt)
-	mt.strVal = &keys
+	mt.StrVal = &keys
 	env := object.NewTermEnvironment(mt)
 	p.ParseProgram(env)
 	program := env.Program
@@ -808,7 +597,7 @@ func TestInvalidFunctionName(t *testing.T) {
 	for _, tt := range tests {
 		l := lexer.New(tt.input)
 		p := parser.New(l)
-		var mt mockTerm
+		var mt mocks.MockTerm
 		initMockTerm(&mt)
 		env := object.NewTermEnvironment(mt)
 		p.ParseProgram(env)
@@ -915,6 +704,10 @@ func TestRestoreStatement(t *testing.T) {
 	}
 }
 
+func TestRunParameters(t *testing.T) {
+
+}
+
 func TestTronTroffCommands(t *testing.T) {
 	tests := []struct {
 		inp string
@@ -925,7 +718,7 @@ func TestTronTroffCommands(t *testing.T) {
 	}
 
 	for _, tt := range tests {
-		var mt mockTerm
+		var mt mocks.MockTerm
 		initMockTerm(&mt)
 		env := object.NewTermEnvironment(mt)
 		l := lexer.New(tt.inp)
@@ -1316,7 +1109,7 @@ func ExampleT_list() {
 
 	l := lexer.New(src)
 	p := parser.New(l)
-	var mt mockTerm
+	var mt mocks.MockTerm
 	initMockTerm(&mt)
 	env := object.NewTermEnvironment(mt)
 	p.ParseProgram(env)
@@ -1357,7 +1150,7 @@ func ExampleT_list2() {
 
 	l := lexer.New(src)
 	p := parser.New(l)
-	var mt mockTerm
+	var mt mocks.MockTerm
 	initMockTerm(&mt)
 	env := object.NewTermEnvironment(mt)
 	p.ParseProgram(env)
@@ -1397,7 +1190,7 @@ func ExampleT_list3() {
 
 	l := lexer.New(src)
 	p := parser.New(l)
-	var mt mockTerm
+	var mt mocks.MockTerm
 	initMockTerm(&mt)
 	env := object.NewTermEnvironment(mt)
 	p.ParseProgram(env)
@@ -1432,7 +1225,7 @@ func ExampleT_list4() {
 
 	l := lexer.New(src)
 	p := parser.New(l)
-	var mt mockTerm
+	var mt mocks.MockTerm
 	initMockTerm(&mt)
 	env := object.NewTermEnvironment(mt)
 	p.ParseProgram(env)
@@ -1465,7 +1258,7 @@ func ExampleT_Run() {
 
 	l := lexer.New(src)
 	p := parser.New(l)
-	var mt mockTerm
+	var mt mocks.MockTerm
 	initMockTerm(&mt)
 	env := object.NewTermEnvironment(mt)
 	p.ParseProgram(env)
