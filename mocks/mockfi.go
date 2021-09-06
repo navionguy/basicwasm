@@ -8,6 +8,7 @@ import (
 type MockFI struct {
 	Fname string
 	Files []string
+	Ftext string  // the mocked file contents
 	Mom   *MockFS // *may* point to the FileSystem mock that holds this file
 }
 
@@ -34,7 +35,11 @@ func (mi MockFI) Name() string {
 }
 
 func (mi MockFI) Size() int64 {
-	return int64(len(mi.Fname))
+	rc := int64(len(mi.Fname))
+	if len(mi.Ftext) > 0 {
+		rc = int64(len(mi.Ftext))
+	}
+	return rc
 }
 
 func (mi MockFI) Sys() interface{} {

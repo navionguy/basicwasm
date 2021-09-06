@@ -17,6 +17,7 @@ const (
 
 type MockFS struct {
 	File       string // Filename
+	Content    string // text in the file
 	StatErr    bool   // return an error when stat is called
 	ReadErr    *bool  // return error from read call
 	OpenAlways bool   // return a file handle no matter what
@@ -25,9 +26,6 @@ type MockFS struct {
 	// desired Readdir results
 	Names []string
 	Err   int
-}
-
-func (mf MockFS) ServeHTTP(w http.ResponseWriter, r *http.Request) {
 }
 
 func (mf MockFS) Open(file string) (http.File, error) {
@@ -45,13 +43,14 @@ func (mf MockFS) Read(p []byte) (int, error) {
 	if *mf.ReadErr {
 		return 0, io.EOF
 	}
-	if len(mf.File) > 0 {
+	ct := []byte(mf.Content)
+	if len(ct) > 0 {
 		l := len(p)
-		if len(mf.File) < l {
-			l = len(mf.File)
+		if len(ct) < l {
+			l = len(ct)
 			*mf.ReadErr = true // he has read it all
 		}
-		rc := copy(p, []byte(mf.File[:l]))
+		rc := copy(p, []byte(ct[:l]))
 		return rc, nil
 	}
 
@@ -83,6 +82,9 @@ func (mf MockFS) Seek(offset int64, whence int) (int64, error) {
 		if len(mf.Names) > 0 {
 			rc = int64(len(mf.Names))
 		}
+		if len(mf.Content) > 0 {
+			rc = int64(len(mf.Content))
+		}
 	case io.SeekStart:
 		rc = 0
 	}
@@ -97,7 +99,7 @@ func (mf MockFS) Stat() (os.FileInfo, error) {
 		return nil, errors.New("a faked error")
 	}
 
-	nmi := MockFI{Fname: mf.File, Mom: &mf}
+	nmi := MockFI{Fname: mf.File, Ftext: mf.Content, Mom: &mf}
 
 	for _, f := range mf.Names {
 		nmi.Files = append(nmi.Files, f)

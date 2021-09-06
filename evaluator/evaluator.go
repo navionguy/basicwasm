@@ -158,7 +158,7 @@ func Eval(node ast.Node, code *ast.Code, env *object.Environment) object.Object 
 		return nil // nothing to be done
 
 	case *ast.RunCommand:
-		return evalRunCommand(node, code, env)
+		return evalRunCommand(node, env)
 
 	case *ast.CallExpression:
 		function := Eval(node.Function, code, env)
@@ -359,7 +359,7 @@ func evalRestoreStatement(rst *ast.RestoreStatement, code *ast.Code, env *object
 
 // actually run the program
 // ToDo: close open data files (as soon as I support data files)
-func evalRunCommand(run *ast.RunCommand, code *ast.Code, env *object.Environment) object.Object {
+func evalRunCommand(run *ast.RunCommand, env *object.Environment) object.Object {
 	if run.LoadFile != "" {
 		// load the source file then run it
 		return evalRunLoad(run, env)
@@ -374,7 +374,8 @@ func evalRunLoad(run *ast.RunCommand, env *object.Environment) object.Object {
 
 	if err != nil {
 		env.Terminal().Println(err.Error())
-		return nil
+		rc := &object.Error{Message: err.Error()}
+		return rc
 	}
 
 	return evalRunParse(rdr, run, env)
@@ -395,11 +396,18 @@ func evalRunParse(rdr *bufio.Reader, run *ast.RunCommand, env *object.Environmen
 }
 
 func evalRunCheckStartLineNum(run *ast.RunCommand, env *object.Environment) object.Object {
+	//	env.Terminal().Println("evalRunCheckStartLineNum")
 	pcode := env.Program.StatementIter()
 	env.Program.ConstData().Restore()
 
 	if run.StartLine > 0 {
-		pcode.Jump(run.StartLine)
+		env.Terminal().Println("checking start line num")
+		err := pcode.Jump(run.StartLine)
+
+		if err != nil {
+			env.Terminal().Println(err.Error())
+			return newError(env, err.Error())
+		}
 	}
 
 	return evalRunStart(pcode, env)

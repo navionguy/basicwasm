@@ -183,6 +183,7 @@ func Test_ServeFile(t *testing.T) {
 	tests := []struct {
 		testid  string
 		fname   string
+		ftext   string
 		mtype   string
 		res     int
 		want    string
@@ -193,22 +194,24 @@ func Test_ServeFile(t *testing.T) {
 		{testid: "read fail", fname: "hello.bas", mtype: "text/plain; charset=ASCII", res: 503, want: "", readErr: true},
 		{testid: "dir", fname: "/", mtype: "application/json", res: 200,
 			want:  `[{"name":"hello.bas","isdir":false},{"name":"test.bas","isdir":false},{"name":"menu.bas","isdir":false}]`,
+			ftext: `[{"name":"hello.bas","isdir":false},{"name":"test.bas","isdir":false},{"name":"menu.bas","isdir":false}]`,
 			files: []string{"hello.bas", "test.bas", "menu.bas"}},
 		{testid: "stat Error", fname: "hello.bas", res: 500, want: "", statErr: true},
 		{testid: "file not found", fname: "hello.bas", res: 404, want: ""},
-		{testid: "read from root", fname: "", res: 200, mtype: "text/plain; charset=ASCII", want: "/"},
-		{testid: "read file", fname: "hello.bas", mtype: "text/plain; charset=ASCII", res: 200, want: "hello.bas"},
+		{testid: "read from root", fname: "/", res: 200, mtype: "text/plain; charset=ASCII", want: "/", ftext: "/"},
+		{testid: "read file", fname: "hello.bas", mtype: "text/plain; charset=ASCII", res: 200, want: "hello.bas", ftext: "hello.bas"},
+		{testid: "read prog", fname: `hello.bas`, mtype: "text/plain; charset=ASCII", res: 200, want: `10 PRINT "Hello"`, ftext: `10 PRINT "Hello"`},
 	}
 
 	for _, tt := range tests {
-		fs := mocks.MockFS{File: tt.fname, Err: tt.res, StatErr: tt.statErr, ReadErr: &tt.readErr}
+		fs := mocks.MockFS{File: tt.fname, Err: tt.res, StatErr: tt.statErr, ReadErr: &tt.readErr, Content: tt.ftext}
 		fs.Events = make(map[string]bool)
 		for _, name := range tt.files {
 			fs.Names = append(fs.Names, name)
 		}
 		// setup certain errors
 		if len(tt.fname) == 0 {
-			fs.File = tt.want // empty name should be treated as root
+			fs.File = tt.fname // empty name should be treated as root
 		}
 		if tt.res == 404 {
 			fs.File = "" // no known files throws an error

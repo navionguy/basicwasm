@@ -59,6 +59,12 @@ type Console interface {
 	SoundBell()
 }
 
+// HttpClient allows me to mock an http.Client, minimally
+type HttpClient interface {
+	//Do(req *http.Request) (*http.Response, error)
+	Get(url string) (*http.Response, error)
+}
+
 // NewEnclosedEnvironment allows variables during function calls
 func NewEnclosedEnvironment(outer *Environment) *Environment {
 	env := newEnvironment()
@@ -79,7 +85,8 @@ func newEnvironment() *Environment {
 	// initialize my random number generator
 	e.rnd = rand.New(rand.NewSource(37))
 	e.rndVal = e.rnd.Float32()
-	e.SetClient(http.DefaultClient)
+	dc := http.DefaultClient
+	e.SetClient(dc)
 	return e
 }
 
@@ -103,7 +110,7 @@ type Environment struct {
 	rnd     *rand.Rand       // random number generator
 	rndVal  float32          // most recent generated value
 	traceOn bool             // is tracing turned on
-	client  *http.Client     // for making server requests
+	client  HttpClient       // for making server requests
 	run     bool             // program is currently execute, if false, a command is executing
 }
 
@@ -148,13 +155,13 @@ func (e *Environment) GetAuto() *ast.AutoCommand {
 }
 
 // GetClient returns my http client
-func (e *Environment) GetClient() *http.Client {
+func (e *Environment) GetClient() HttpClient {
 	return e.client
 }
 
 // SetClient setter for the client element
 // mostly used for testing
-func (e *Environment) SetClient(cl *http.Client) {
+func (e *Environment) SetClient(cl HttpClient) {
 	e.client = cl
 }
 
@@ -225,7 +232,7 @@ func (i *Integer) Inspect() string { return fmt.Sprintf("%d", i.Value) }
 
 // IntDbl values
 type IntDbl struct {
-	Value int32
+	Value int32 // 32bit value
 }
 
 // Type returns my type
@@ -236,7 +243,7 @@ func (id *IntDbl) Inspect() string { return fmt.Sprintf("%d", id.Value) }
 
 // Single precision floats
 type FloatSgl struct {
-	Value float32
+	Value float32 // value of the float
 }
 
 func (fs *FloatSgl) Type() ObjectType { return FLOATSGL_OBJ }

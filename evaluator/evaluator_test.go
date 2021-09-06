@@ -7,6 +7,7 @@ import (
 	"net/http/httptest"
 	"strings"
 
+	"github.com/navionguy/basicwasm/ast"
 	"github.com/navionguy/basicwasm/decimal"
 	"github.com/navionguy/basicwasm/lexer"
 	"github.com/navionguy/basicwasm/mocks"
@@ -128,6 +129,20 @@ func compareObjects(inp string, evald object.Object, want interface{}, t *testin
 	default:
 		t.Fatalf("compareObjects got unsupported type %T", exp)
 	}
+}
+
+// TODO FULLY test applyFunction()
+func TestApplyFuncion(t *testing.T) {
+	fn := &object.Integer{}
+	args := []object.Object{}
+	var mt mocks.MockTerm
+	env := object.NewTermEnvironment(mt)
+
+	rc := applyFunction(fn, args, nil, env)
+
+	_, ok := rc.(*object.Error)
+
+	assert.Truef(t, ok, "failed to get error, instead got object %T", rc)
 }
 
 func TestAutoCommand(t *testing.T) {
@@ -705,7 +720,39 @@ func TestRestoreStatement(t *testing.T) {
 }
 
 func TestRunParameters(t *testing.T) {
+	tests := []struct {
+		src  string // source code of the file to run
+		strt int    // line # to start on
+		url  string // give an incorrect url so I can get an error
+		exp  object.Object
+	}{
+		{src: `10 PRINT "Hello!"`},
+		{src: `10 PRINT "Goodbye!"`, strt: 10},
+		{src: `10 PRINT "Fail!"`, strt: 10, url: "http://localhost:8000/driveC/noprog.txt", exp: &object.Error{}},
+		{src: `10 PRINT "Not found."`, strt: 20, exp: &object.Error{}},
+	}
 
+	for _, tt := range tests {
+		var mt mocks.MockTerm
+		initMockTerm(&mt)
+		env := object.NewTermEnvironment(mt)
+		mc := &mocks.MockClient{Contents: tt.src, Url: tt.url}
+		env.SetClient(mc)
+		cmd := ast.RunCommand{LoadFile: "HELLO.BAS", StartLine: tt.strt}
+		rc := evalRunCommand(&cmd, env)
+
+		if (rc != nil) && (tt.exp == nil) {
+			t.Fatalf("eval of %s returned a non-nil result %T", tt.src, rc)
+		}
+
+		if tt.exp != nil {
+			rct := fmt.Sprintf("%T", rc)
+			expt := fmt.Sprintf("%T", tt.exp)
+			if rct != expt {
+				t.Fatalf("(%s) expected object of type %T, got result type %T", tt.src, tt.exp, rc)
+			}
+		}
+	}
 }
 
 func TestTronTroffCommands(t *testing.T) {
