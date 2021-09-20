@@ -9,6 +9,7 @@ import (
 	"strings"
 
 	"github.com/navionguy/basicwasm/ast"
+	"github.com/navionguy/basicwasm/berrors"
 	"github.com/navionguy/basicwasm/builtins"
 	"github.com/navionguy/basicwasm/decimal"
 	"github.com/navionguy/basicwasm/filelist"
@@ -41,6 +42,9 @@ func Eval(node ast.Node, code *ast.Code, env *object.Environment) object.Object 
 	case *ast.ChainStatement:
 		evalChainStatement(node, code, env)
 
+	case *ast.ClearCommand:
+		evalClearCommand(node, code, env)
+
 	case *ast.ClsStatement:
 		evalClsStatement(node, code, env)
 
@@ -53,11 +57,18 @@ func Eval(node ast.Node, code *ast.Code, env *object.Environment) object.Object 
 	case *ast.BlockStatement:
 		return evalBlockStatement(node, code, env)
 
+	case *ast.EndStatement:
+		code.Jump(code.Len())
+		return &object.Integer{Value: 0}
+
 	case *ast.FilesCommand:
 		evalFilesCommand(node, code, env)
 
 	case *ast.ExpressionStatement:
 		return Eval(node.Expression, code, env)
+
+	case *ast.GotoStatement:
+		return evalGotoStatement(strings.Trim(node.Goto, " "), code, env)
 
 	case *ast.GroupedExpression:
 		return Eval(node.Exp, code, env)
@@ -86,18 +97,14 @@ func Eval(node ast.Node, code *ast.Code, env *object.Environment) object.Object 
 		return ln
 
 	case *ast.ListStatement:
-		evalListStatement(code, node, env)
+		evalListStatement(node, code, env)
 		return nil
 
-	case *ast.GotoStatement:
-		return evalGotoStatement(strings.Trim(node.Goto, " "), code, env)
-
-	case *ast.EndStatement:
-		code.Jump(code.Len())
-		return &object.Integer{Value: 0}
+	case *ast.LoadCommand:
+		return evalLoadCommand(node, code, env)
 
 	case *ast.OctalConstant:
-		return evalOctalConstant(node, code, env)
+		return evalOctalConstant(node, env)
 
 	case *ast.PrintStatement:
 		evalPrintStatement(node, code, env)
@@ -158,7 +165,7 @@ func Eval(node ast.Node, code *ast.Code, env *object.Environment) object.Object 
 		return nil // nothing to be done
 
 	case *ast.RunCommand:
-		return evalRunCommand(node, env)
+		return evalRunCommand(node, code, env)
 
 	case *ast.CallExpression:
 		function := Eval(node.Function, code, env)
@@ -226,45 +233,49 @@ func evalBlockStatement(block *ast.BlockStatement, code *ast.Code, env *object.E
 }
 
 // tries to load a new program and start it's execution.
-func evalChainStatement(chain *ast.ChainStatement, code *ast.Code, env *object.Environment) {
-	rdr := evalChainLoad(code, chain, env)
+func evalChainStatement(chain *ast.ChainStatement, code *ast.Code, env *object.Environment) object.Object {
+	res := Eval(chain.Path, code, env)
 
-	// if file doesn't load, get out
-	if rdr == nil {
-		return
+	// make sure the result is a string
+	fn, ok := res.(*object.String)
+
+	if !ok {
+		return stdError(env, berrors.TypeMismatch)
 	}
+	return evalChainLoad(fn.Value, code, chain, env)
 }
 
 // attempt to pull down the  desired file
-func evalChainLoad(code *ast.Code, chain *ast.ChainStatement, env *object.Environment) *bufio.Reader {
-	rdr, err := fileserv.GetFile(chain.File, env)
+func evalChainLoad(file string, code *ast.Code, chain *ast.ChainStatement, env *object.Environment) object.Object {
+	rdr, err := fileserv.GetFile(file, env)
 
 	if err != nil {
 		env.Terminal().Println(err.Error())
 		return nil
 	}
 
-	evalChainParse(rdr, code, chain, env)
-
-	return rdr
+	return evalChainParse(rdr, code, chain, env)
 }
 
 // parse the file into an executable AST
-func evalChainParse(rdr *bufio.Reader, code *ast.Code, chain *ast.ChainStatement, env *object.Environment) {
+func evalChainParse(rdr *bufio.Reader, code *ast.Code, chain *ast.ChainStatement, env *object.Environment) object.Object {
 	fileserv.ParseFile(rdr, env)
 	env.Program.ConstData().Restore() // start at the first DATA statement
 
 	// go figure out how to start execution
-	evalChainStart(chain, code, env)
+	return evalChainStart(chain, code, env)
 }
 
 // either start execution, or move to the first statement in the new AST
-func evalChainStart(chain *ast.ChainStatement, code *ast.Code, env *object.Environment) {
+func evalChainStart(chain *ast.ChainStatement, code *ast.Code, env *object.Environment) object.Object {
 
 	// if we are not running, time to start
 	if !env.ProgramRunning() {
-		evalChainExecute(chain, env)
+		return evalChainExecute(chain, env)
 	}
+
+	// ToDo: we are running
+	return nil
 }
 
 // executing a command entry, start program execution
@@ -275,6 +286,11 @@ func evalChainExecute(chain *ast.ChainStatement, env *object.Environment) object
 	rc := evalRunStart(pcode, env)
 
 	return rc
+}
+
+// clear all variables and close all files
+func evalClearCommand(clear *ast.ClearCommand, code *ast.Code, env *object.Environment) {
+
 }
 
 func evalStatements(stmts *ast.Program, code *ast.Code, env *object.Environment) object.Object {
@@ -359,25 +375,35 @@ func evalRestoreStatement(rst *ast.RestoreStatement, code *ast.Code, env *object
 
 // actually run the program
 // ToDo: close open data files (as soon as I support data files)
-func evalRunCommand(run *ast.RunCommand, env *object.Environment) object.Object {
-	if run.LoadFile != "" {
+func evalRunCommand(run *ast.RunCommand, code *ast.Code, env *object.Environment) object.Object {
+	if run.LoadFile != nil {
 		// load the source file then run it
-		return evalRunLoad(run, env)
+		return evalRunLoad(run, code, env)
 	}
 
 	return evalRunCheckStartLineNum(run, env)
 }
 
 // pull the file down from the server
-func evalRunLoad(run *ast.RunCommand, env *object.Environment) object.Object {
-	rdr, err := fileserv.GetFile(run.LoadFile, env)
+func evalRunLoad(run *ast.RunCommand, code *ast.Code, env *object.Environment) object.Object {
+	val := Eval(run.LoadFile, code, env)
 
-	if err != nil {
-		env.Terminal().Println(err.Error())
-		rc := &object.Error{Message: err.Error()}
-		return rc
+	fname, ok := val.(*object.String)
+
+	if !ok {
+		stdError(env, berrors.TypeMismatch)
 	}
 
+	return evalRunFetch(fname.Value, run, env)
+}
+
+func evalRunFetch(file string, run *ast.RunCommand, env *object.Environment) object.Object {
+	rdr, err := fileserv.GetFile(file, env)
+
+	if err != nil {
+		stdError(env, berrors.Syntax)
+		return nil
+	}
 	return evalRunParse(rdr, run, env)
 }
 
@@ -401,12 +427,10 @@ func evalRunCheckStartLineNum(run *ast.RunCommand, env *object.Environment) obje
 	env.Program.ConstData().Restore()
 
 	if run.StartLine > 0 {
-		env.Terminal().Println("checking start line num")
 		err := pcode.Jump(run.StartLine)
 
-		if err != nil {
-			env.Terminal().Println(err.Error())
-			return newError(env, err.Error())
+		if len(err) > 0 {
+			return stdError(env, berrors.UnDefinedLineNumber)
 		}
 	}
 
@@ -556,14 +580,14 @@ func evalGotoStatement(jmp string, code *ast.Code, env *object.Environment) obje
 	v, err := strconv.Atoi(strings.Trim(jmp, " "))
 
 	if err != nil {
-		return newError(env, syntaxErr)
+		return stdError(env, berrors.Syntax)
 	}
 	v2 := v
 
-	err = code.Jump(v2)
+	msg := code.Jump(v2)
 
-	if err != nil {
-		return newError(env, err.Error())
+	if len(msg) > 0 {
+		return stdError(env, berrors.UnDefinedLineNumber)
 	}
 
 	return &object.Integer{Value: int16(v)}
@@ -583,7 +607,7 @@ func evalHexConstant(stmt *ast.HexConstant, code *ast.Code, env *object.Environm
 	return &object.Integer{Value: int16(dst)}
 }
 
-func evalListStatement(code *ast.Code, stmt *ast.ListStatement, env *object.Environment) {
+func evalListStatement(stmt *ast.ListStatement, code *ast.Code, env *object.Environment) {
 	var out bytes.Buffer
 	cd := env.Program.StatementIter()
 	start := 0
@@ -635,7 +659,48 @@ func evalListStatement(code *ast.Code, stmt *ast.ListStatement, env *object.Envi
 	env.Terminal().Println(out.String())
 }
 
-func evalOctalConstant(stmt *ast.OctalConstant, code *ast.Code, env *object.Environment) object.Object {
+// evalLoadCommand - load and parse the target program
+func evalLoadCommand(stmt *ast.LoadCommand, code *ast.Code, env *object.Environment) object.Object {
+	// get the target file name
+	res := Eval(stmt.Path, code, env)
+	str, ok := res.(*object.String)
+
+	if !ok {
+		return stdError(env, berrors.TypeMismatch)
+	}
+
+	return evalLoadGetFile(str.Value, stmt, code, env)
+}
+
+// calls the file server looking for a source file
+func evalLoadGetFile(file string, stmt *ast.LoadCommand, code *ast.Code, env *object.Environment) object.Object {
+	rdr, err := fileserv.GetFile(file, env)
+
+	if err != nil {
+		// server sent an error, get out
+		return &object.Error{Message: err.Error()}
+	}
+
+	return evalLoadParse(rdr, stmt, code, env)
+}
+
+// parse in the loaded file
+func evalLoadParse(rdr *bufio.Reader, stmt *ast.LoadCommand, code *ast.Code, env *object.Environment) object.Object {
+	// flush the old program
+	env.Program = nil
+	fileserv.ParseFile(rdr, env)
+
+	if !stmt.KeppOpen {
+		// he does not want to start execution
+		return nil
+	}
+
+	newCode := env.Program.StatementIter()
+	return evalRunStart(newCode, env)
+}
+
+// convert a string octal constant into an integer
+func evalOctalConstant(stmt *ast.OctalConstant, env *object.Environment) object.Object {
 
 	dst, err := strconv.ParseInt(stmt.Value, 8, 16)
 
@@ -1121,6 +1186,20 @@ func newError(env *object.Environment, format string, a ...interface{}) *object.
 	}
 
 	return &object.Error{Message: msg}
+}
+
+// output the passed error number as a message
+func stdError(env *object.Environment, berr int) *object.Error {
+	msg := berrors.TextForError(berr)
+
+	if env.ProgramRunning() {
+		tk, ok := env.Get(token.LINENUM)
+
+		if ok {
+			msg += fmt.Sprintf(" in %d", tk.(*object.IntDbl).Value)
+		}
+	}
+	return &object.Error{Message: msg, Code: berr}
 }
 
 func checkType(obj object.Object, want object.ObjectType) bool {

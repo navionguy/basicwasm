@@ -220,6 +220,7 @@ func Test_ChainStatement(t *testing.T) {
 	}{
 		{stmt: `CHAIN "start.bas"`, rs: 404, send: ``},
 		{stmt: `CHAIN "start.bas"`, rs: 200, send: `10 PRINT "Hello World!"`},
+		{stmt: `CHAIN 5`, rs: 200, send: `10 PRINT`},
 	}
 
 	for _, tt := range tests {
@@ -234,9 +235,6 @@ func Test_ChainStatement(t *testing.T) {
 		}))
 		defer ts.Close()
 		url := object.String{Value: ts.URL}
-		/*		if len(tt.url) > 0 {
-				url = object.String{Value: tt.url}
-			}*/
 		env.Set(object.SERVER_URL, &url)
 
 		p.ParseCmd(env)
@@ -433,6 +431,28 @@ func testEvalWithTerm(input string, keys string) object.Object {
 	return Eval(program, program.StatementIter(), env)
 }
 
+func testEvalWithClient(input string, file string, err *error) object.Object {
+	l := lexer.New(input)
+	p := parser.New(l)
+	var mt mocks.MockTerm
+	initMockTerm(&mt)
+	env := object.NewTermEnvironment(mt)
+	mc := &mocks.MockClient{Contents: file}
+	if err != nil {
+		mc.Err = *err
+	}
+	env.SetClient(mc)
+
+	p.ParseCmd(env)
+	program := env.Program
+
+	if len(p.Errors()) > 0 {
+		return nil
+	}
+
+	return Eval(program, program.CmdLineIter(), env)
+}
+
 func testIntegerObject(t *testing.T, obj object.Object, expected int16) bool {
 	result, ok := obj.(*object.Integer)
 	if !ok {
@@ -502,6 +522,37 @@ func TestLetStatements(t *testing.T) {
 	}
 	for _, tt := range tests {
 		testIntegerObject(t, testEval(tt.input), tt.expected)
+	}
+}
+
+func Test_LoadCommand(t *testing.T) {
+	tests := []struct {
+		src  string // source code of the file to run
+		cmd  string // the load command to
+		fail bool   // should not get a file
+		emsg string // an error I want the httpClient to return
+	}{
+		{src: `10 PRINT "Hello!"`, cmd: `LOAD "HELLO.BAS"`},
+		{src: `10 PRINT "Goodbye!"`, cmd: `LOAD 5`, fail: true},
+		{src: `10 PRINT "And I Ran!"`, cmd: `LOAD "HELLO.BAS",R`},
+		{src: `10 PRINT "And I don't run"`, cmd: `LOAD "HELLO.BAS",R`, emsg: "File not found"},
+	}
+
+	for _, tt := range tests {
+		//rc := testEvalWithClient(tt.cmd, tt.src)
+		var emsg *error
+
+		if len(tt.emsg) != 0 {
+			err := errors.New(tt.emsg)
+			emsg = &err
+		}
+		rc := testEvalWithClient(tt.cmd, tt.src, emsg)
+
+		fmt.Printf("%s got %T\n", tt.src, rc)
+
+		if tt.fail && (rc == nil) {
+			t.Fatalf("%s should have errored, but didn't", tt.cmd)
+		}
 	}
 }
 
@@ -728,7 +779,7 @@ func TestRunParameters(t *testing.T) {
 	}{
 		{src: `10 PRINT "Hello!"`},
 		{src: `10 PRINT "Goodbye!"`, strt: 10},
-		{src: `10 PRINT "Fail!"`, strt: 10, url: "http://localhost:8000/driveC/noprog.txt", exp: &object.Error{}},
+		{src: `10 PRINT "Fail!"`, strt: 10, url: "http://localhost:8000/driveC/noprog.txt"},
 		{src: `10 PRINT "Not found."`, strt: 20, exp: &object.Error{}},
 	}
 
@@ -738,8 +789,9 @@ func TestRunParameters(t *testing.T) {
 		env := object.NewTermEnvironment(mt)
 		mc := &mocks.MockClient{Contents: tt.src, Url: tt.url}
 		env.SetClient(mc)
-		cmd := ast.RunCommand{LoadFile: "HELLO.BAS", StartLine: tt.strt}
-		rc := evalRunCommand(&cmd, env)
+		cmd := ast.RunCommand{LoadFile: &ast.StringLiteral{Value: "HELLO.BAS"}, StartLine: tt.strt}
+		code := env.Program.CmdLineIter()
+		rc := evalRunCommand(&cmd, code, env)
 
 		if (rc != nil) && (tt.exp == nil) {
 			t.Fatalf("eval of %s returned a non-nil result %T", tt.src, rc)
@@ -1128,7 +1180,7 @@ func ExampleT_errors() {
 	}
 
 	// Output:
-	// Undefined line number in 10
+	// Undefined line number
 	// Undefined user function in 20
 	// 5
 	// index out of range in 40

@@ -101,13 +101,13 @@ func execCommand(input string, env *object.Environment) {
 			strt, err := strconv.Atoi(cmd.(*ast.GotoStatement).Goto)
 
 			if err != nil {
-				giveError(err, env)
+				giveError(err.Error(), env)
 				return
 			}
-			err = srcIter.Jump(strt)
+			errmsg := srcIter.Jump(strt)
 
 			if err != nil {
-				giveError(err, env)
+				giveError(errmsg, env)
 				return
 			}
 			evaluator.Eval(stmt, srcIter, env)
@@ -139,8 +139,8 @@ func prompt(env *object.Environment) {
 }
 
 // just display the error and then the prompt
-func giveError(err error, env *object.Environment) {
-	env.Terminal().Println(err.Error())
+func giveError(err string, env *object.Environment) {
+	env.Terminal().Println(err)
 	env.Terminal().Println("OK")
 	env.Program.CmdComplete()
 	return

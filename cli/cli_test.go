@@ -114,7 +114,7 @@ func Test_GiveError(t *testing.T) {
 		trm.expChk = &eChk
 		env := object.NewTermEnvironment(trm)
 		terr := errors.New(tt.inp)
-		giveError(terr, env)
+		giveError(terr.Error(), env)
 		if eChk.failed {
 			t.Fatalf("GiveError didn't")
 		}

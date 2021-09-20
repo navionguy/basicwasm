@@ -12,6 +12,7 @@
 
 ./webmodules/gwbasic.wasm : ./webmodules/src/gwbasic/gwbasic.go \
 			./ast/ast.go \
+			./berrors/berrors.go \
 			./builtins/builtins.go \
 			./cli/cli.go \
 			./decimal/decimal.go \

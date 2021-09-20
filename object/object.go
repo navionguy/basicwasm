@@ -268,7 +268,8 @@ func (f *Fixed) Type() ObjectType { return FIXED_OBJ }
 func (f *Fixed) Inspect() string  { return f.Value.String() }
 
 type Error struct {
-	Message string
+	Message string // text error message
+	Code    int    // basic internal error code
 }
 
 func (e *Error) Type() ObjectType { return ERROR_OBJ }

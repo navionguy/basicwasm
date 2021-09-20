@@ -101,19 +101,29 @@ func Test_BeepStatement(t *testing.T) {
 
 func Test_ChainStatement(t *testing.T) {
 	tests := []struct {
-		file string
+		cmd    string // command to parse
+		file   string // file name that should be in ChainCommand object
+		merge  bool
+		all    bool
+		delete bool
+		error  bool // I expect to get a parsing error
 	}{
-		{file: `c:\menu\HCAL.BAS`},
+		{cmd: `CHAIN "C:\MENU\HCAL.BAS", 100,all,delete 100-1000`, file: `c:\menu\HCAL.BAS`, all: true, delete: true},
+		{cmd: `CHAIN MERGE "C:\MENU\HIWORLD.BAS"`, file: `c:\menu\HIWORLD.BAS`, merge: true},
+		{cmd: `CHAIN "C:\MENU\START.BAS", 100,fred`, file: `c:\menu\START.BAS`, error: true},
 	}
 
 	for _, tt := range tests {
-		cmd := fmt.Sprintf(`CHAIN "%s"`, tt.file)
-		l := lexer.New(cmd)
+		l := lexer.New(tt.cmd)
 		p := New(l)
 		env := &object.Environment{}
 		p.ParseCmd(env)
 		program := env.Program
 
+		if tt.error {
+			assert.NotEmpty(t, p.errors, "Cmd %s didn't signal an error", tt.cmd)
+			continue
+		}
 		checkParserErrors(t, p)
 
 		itr := program.CmdLineIter()
@@ -132,6 +142,10 @@ func Test_ChainStatement(t *testing.T) {
 
 		if atc == nil {
 			t.Fatal("TestChainStatement couldn't extract ChainStatement object")
+		} else {
+			assert.Equalf(t, tt.all, atc.All, "%s 'all' flag mismatch", tt.cmd)
+			assert.Equalf(t, tt.delete, atc.Delete, "%s 'delete' flag mismatch", tt.cmd)
+			assert.Equalf(t, tt.merge, atc.Merge, "%s 'merge' flag mismatch", tt.cmd)
 		}
 	}
 }
@@ -680,6 +694,42 @@ func checkParserErrors(t *testing.T, p *Parser) {
 		t.Errorf("parser error: %q", msg)
 	}
 	t.FailNow()
+}
+
+func Test_LoadCommand(t *testing.T) {
+	tests := []struct {
+		inp      string           // command to parse
+		exp      *ast.LoadCommand // object type I expect
+		keepOpen bool             // flag should be set
+	}{
+		{inp: `LOAD "HEWORLD.BAS"`, exp: &ast.LoadCommand{}},
+		{inp: `LOAD "HIWORLD.BAS",R`, exp: &ast.LoadCommand{}, keepOpen: true},
+		{inp: `LOAD "HERWORLD.BAS",F`},
+	}
+
+	for _, tt := range tests {
+		l := lexer.New(tt.inp)
+		p := New(l)
+		env := &object.Environment{}
+		fmt.Println(tt.inp)
+		p.ParseCmd(env)
+		program := env.Program
+		itr := program.CmdLineIter()
+		stmt := itr.Value()
+		cmd, ok := stmt.(*ast.LoadCommand)
+
+		if !ok && (tt.exp != nil) {
+			t.Fatalf("(%s) parse didn't return LoadCommand, got %T instead", tt.inp, stmt)
+		}
+
+		if ok && tt.keepOpen && !cmd.KeppOpen {
+			t.Fatalf("(%s) parse failed to set KeepOpen", tt.inp)
+		}
+
+		if !ok && (tt.exp == nil) && (len(p.errors) == 0) {
+			t.Fatalf("(%s) parse failed to report error", tt.inp)
+		}
+	}
 }
 
 func Test_LocateStatement(t *testing.T) {
@@ -1483,10 +1533,14 @@ func TestRunCommand(t *testing.T) {
 		inp   string
 		start int
 		file  string
+		err   bool // I expect parsing to faile
 	}{
-		{"RUN", 0, ""},
-		{"RUN 20", 20, ""},
-		{"RUN \"TESTFILE.BAS\"", 0, "TESTFILE.BAS"},
+		{inp: "RUN"},
+		{inp: "RUN 20", start: 20},
+		{inp: `RUN "TESTFILE.BAS"`, file: `"TESTFILE.BAS"`},
+		{inp: `RUN "TESTFILE.BAS",r`, file: `"TESTFILE.BAS"`},
+		{inp: `RUN "TESTFILE.BAS",k`, file: `"TESTFILE.BAS"`, err: true},
+		{inp: `RUN "TESTFILE.BAS",-`, file: `"TESTFILE.BAS"`, err: true},
 	}
 
 	fmt.Println("TestRunCommand Parsing")
@@ -1497,6 +1551,10 @@ func TestRunCommand(t *testing.T) {
 		p.ParseCmd(env)
 		program := env.Program
 
+		if tt.err {
+			assert.Len(t, p.errors, 1, "test %s expected one error, got %d", tt.inp, len(p.errors))
+			continue
+		}
 		checkParserErrors(t, p)
 
 		itr := program.CmdLineIter()
@@ -1521,8 +1579,8 @@ func TestRunCommand(t *testing.T) {
 			t.Fatalf("TestRunCommand got start = %d, expected %d", atc.StartLine, tt.start)
 		}
 
-		if atc.LoadFile != tt.file {
-			t.Fatalf("TestRunCommand got LoadFile = %s, expected %s", atc.LoadFile, tt.file)
+		if atc.LoadFile != nil {
+			assert.Equalf(t, tt.file, atc.LoadFile.String(), "TestRun(%s) expected %s, got %s", tt.inp, tt.file, atc.LoadFile.String())
 		}
 	}
 }

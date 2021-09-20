@@ -48,6 +48,31 @@ func TestStringAndToken(t *testing.T) {
 	}
 }
 
+func Test_ChainStatement(t *testing.T) {
+	tests := []struct {
+		cmd ChainStatement
+		exp string
+	}{
+		{cmd: ChainStatement{Token: token.Token{Type: token.CHAIN, Literal: "CHAIN"},
+			Path: &StringLiteral{Token: token.Token{Type: token.STRING, Literal: "HIWORLD.BAS"}, Value: "HIWORLD.BAS"}},
+			exp: `CHAIN "HIWORLD.BAS"`},
+		{cmd: ChainStatement{Token: token.Token{Type: token.CHAIN, Literal: "CHAIN"},
+			Path: &StringLiteral{Token: token.Token{Type: token.STRING, Literal: "HIWORLD.BAS"}, Value: "HIWORLD.BAS"},
+			Line: &IntegerLiteral{Value: 100}, All: true, Delete: true, Merge: true,
+			Range: &InfixExpression{Token: token.Token{Type: token.MINUS, Literal: "-"},
+				Left: &IntegerLiteral{Value: 100}, Operator: "-", Right: &IntegerLiteral{Value: 500}}},
+			exp: `CHAIN MERGE "HIWORLD.BAS", 100, ALL, DELETE 100 - 500`},
+	}
+
+	for _, tt := range tests {
+		tt.cmd.statementNode()
+
+		assert.Equal(t, tt.cmd.Token.Literal, tt.cmd.TokenLiteral(), "(%s) Token.Literal and TokenLiteral() mismatch", tt.exp, tt.cmd.Token.Literal, tt.cmd.TokenLiteral())
+
+		assert.Equal(t, tt.exp, tt.cmd.String(), "(%s) came back as %s", tt.exp, tt.cmd.String())
+	}
+}
+
 func Test_ClsStatement(t *testing.T) {
 	tests := []struct {
 		inp ClsStatement
@@ -165,13 +190,13 @@ func TestCodeMultiLines(t *testing.T) {
 
 	err := program.code.Jump(10)
 
-	if err != nil {
-		t.Fatal("code.Jump to line 10 failed!")
+	if len(err) > 0 {
+		t.Fatalf("code.Jump to line 10 failed with %s!", err)
 	}
 
 	err = program.code.Jump(400)
 
-	if err == nil {
+	if len(err) == 0 {
 		t.Fatal("code.Jump to non-existant line succeeded!")
 	}
 }
@@ -543,6 +568,29 @@ func Test_FilesCommand(t *testing.T) {
 	}
 }
 
+// exercise the InfixExpression structure
+func Test_InfixExpression(t *testing.T) {
+	tests := []struct {
+		exp   string
+		typ   token.TokenType
+		lit   string
+		left  Expression
+		right Expression
+	}{
+		{exp: "100 - 1000", typ: token.MINUS, lit: "-", left: &IntegerLiteral{Value: 100}, right: &IntegerLiteral{Value: 1000}},
+	}
+
+	for _, tt := range tests {
+		exp := InfixExpression{Token: token.Token{Type: tt.typ, Literal: tt.lit}, Left: tt.left, Right: tt.right, Operator: tt.lit}
+
+		exp.expressionNode()
+
+		assert.Equalf(t, tt.lit, exp.TokenLiteral(), "%s returned literal %s", tt.exp, exp.TokenLiteral())
+
+		assert.Equalf(t, tt.exp, exp.String(), "exp %s got %s instead", tt.exp, exp.String())
+	}
+}
+
 func Test_LocateStatement(t *testing.T) {
 	tests := []struct {
 		parms [Lct_stop + 1]Expression
@@ -573,6 +621,52 @@ func Test_LocateStatement(t *testing.T) {
 	}
 }
 
+func Test_LoadCommand(t *testing.T) {
+
+	tests := []struct {
+		cmd LoadCommand
+		exp string
+	}{
+		{cmd: LoadCommand{Token: token.Token{Type: token.LOAD, Literal: "LOAD"},
+			Path: &StringLiteral{Token: token.Token{Type: token.STRING, Literal: "HIWORLD.BAS"}, Value: "HIWORLD.BAS"}},
+			exp: `LOAD "HIWORLD.BAS"`},
+		{cmd: LoadCommand{Token: token.Token{Type: token.LOAD, Literal: "LOAD"},
+			Path: &StringLiteral{Token: token.Token{Type: token.STRING, Literal: "HIWORLD.BAS"}, Value: "HIWORLD.BAS"}, KeppOpen: true},
+			exp: `LOAD "HIWORLD.BAS",R`},
+		//{cmd: LoadCommand{Token: token.Token{Type: token.LOAD, Literal: "LOAD"}, Path: `HIWORLD.BAS`}, exp: `LOAD "HIWORLD.BAS"`},
+		//{cmd: LoadCommand{Token: token.Token{Type: token.LOAD, Literal: "LOAD"}, Path: `HIWORLD.BAS`, KeppOpen: true}, exp: `LOAD "HIWORLD.BAS",R`},
+	}
+
+	for _, tt := range tests {
+		tt.cmd.statementNode()
+
+		assert.Equal(t, tt.cmd.Token.Literal, tt.cmd.TokenLiteral(), "Load command has incorrect TokenLiteral")
+		assert.Equal(t, tt.exp, tt.cmd.String(), "Load command didn't build string correctly")
+
+	}
+}
+
+func Test_PrefixExpression(t *testing.T) {
+	tests := []struct {
+		exp string
+		typ token.TokenType
+		lit string
+		val int16
+	}{
+		{exp: "-37", typ: token.MINUS, lit: "-", val: 37},
+	}
+
+	for _, tt := range tests {
+		exp := PrefixExpression{Token: token.Token{Type: tt.typ, Literal: tt.lit}, Operator: tt.lit, Right: &IntegerLiteral{Value: tt.val}}
+
+		exp.expressionNode()
+
+		assert.Equalf(t, tt.lit, exp.TokenLiteral(), "%s returned literal %s", tt.exp, exp.TokenLiteral())
+
+		assert.Equalf(t, tt.exp, exp.String(), "expected %s got %s", tt.exp, exp.String())
+	}
+}
+
 func Test_PrintStatement(t *testing.T) {
 	prt := &PrintStatement{Token: token.Token{Type: token.PRINT, Literal: "PRINT"},
 		Items:      []Expression{&IntegerLiteral{Value: 12}, &StringLiteral{Value: "Fred"}},
@@ -600,8 +694,8 @@ func Test_RunCommand(t *testing.T) {
 	}{
 		{cmd: RunCommand{Token: token.Token{Type: token.RUN, Literal: "RUN"}}, exp: "RUN"},
 		{cmd: RunCommand{Token: token.Token{Type: token.RUN, Literal: "RUN"}, StartLine: 100}, exp: "RUN 100"},
-		{cmd: RunCommand{Token: token.Token{Type: token.RUN, Literal: "RUN"}, LoadFile: `"START.BAS"`}, exp: `RUN "START.BAS"`},
-		{cmd: RunCommand{Token: token.Token{Type: token.RUN, Literal: "RUN"}, LoadFile: `"START.BAS"`, KeepOpen: true}, exp: `RUN "START.BAS",r`},
+		{cmd: RunCommand{Token: token.Token{Type: token.RUN, Literal: "RUN"}, LoadFile: &StringLiteral{Value: `START.BAS`}}, exp: `RUN "START.BAS"`},
+		{cmd: RunCommand{Token: token.Token{Type: token.RUN, Literal: "RUN"}, LoadFile: &StringLiteral{Value: `START.BAS`}, KeepOpen: true}, exp: `RUN "START.BAS",r`},
 	}
 
 	for _, tt := range tests {

@@ -7,6 +7,7 @@ import (
 	"strconv"
 	"strings"
 
+	"github.com/navionguy/basicwasm/berrors"
 	"github.com/navionguy/basicwasm/decimal"
 	"github.com/navionguy/basicwasm/token"
 )
@@ -287,17 +288,17 @@ func (cd *Code) Exists(target int) bool {
 }
 
 // Jump to the target line in the AST
-func (cd *Code) Jump(target int) error {
+func (cd *Code) Jump(target int) string {
 	i, ok := cd.findLine(target)
 
 	if ok {
 		cd.currIndex = i
-		return nil
+		return ""
 	}
 	// stop execution
 	cd.currIndex = cd.Len()
 
-	return errors.New("Undefined line number")
+	return berrors.TextForError(berrors.UnDefinedLineNumber)
 }
 
 func (cd *Code) start() {
@@ -484,12 +485,12 @@ func (ce *CallExpression) String() string {
 // ChainStatement loads a program file
 type ChainStatement struct {
 	Token  token.Token
-	File   string // filename to chain in
-	Line   int    // line number to start execution
-	RngBeg int
-	RngEnd int
-	All    bool
-	Delete bool
+	Path   Expression // filespec for file to chain in
+	Line   Expression // line number to start execution
+	Range  Expression // range of line numbers to delete
+	All    bool       // signals keep all variable values
+	Delete bool       // specifies a range of lines deleted before Chaining to new overlay
+	Merge  bool       // overlays current program with called progarm, files stay open
 }
 
 func (chn *ChainStatement) statementNode() {}
@@ -498,21 +499,22 @@ func (chn *ChainStatement) statementNode() {}
 func (chn *ChainStatement) TokenLiteral() string { return strings.ToUpper(chn.Token.Literal) }
 
 func (chn *ChainStatement) String() string {
-	lit := "CHAIN " + chn.File
-	if chn.Line > 0 {
-		lit = fmt.Sprintf("%s, %d", lit, chn.Line)
+	lit := "CHAIN "
+	if chn.Merge {
+		lit = lit + "MERGE "
+	}
+	lit = lit + chn.Path.String()
+	if chn.Line != nil {
+		lit = lit + ", " + chn.Line.String()
 	}
 	if chn.All {
 		lit = lit + ", ALL"
 	}
 	if chn.Delete {
-		lit = lit + ", DELETE"
-	}
-	if chn.RngBeg > 0 {
-		lit = fmt.Sprintf("%s %d-", lit, chn.RngBeg)
-	}
-	if chn.RngEnd > 0 {
-		lit = fmt.Sprintf("%s%d", lit, chn.RngEnd)
+		lit = lit + ", DELETE "
+		if chn.Range != nil {
+			lit = lit + chn.Range.String()
+		}
 	}
 	return lit
 }
@@ -755,6 +757,30 @@ func (lns *LineNumStmt) String() string {
 	return fmt.Sprintf("%d ", lns.Value)
 }
 
+// Load command loads a source file and optionally starts it
+type LoadCommand struct {
+	Token    token.Token
+	Path     Expression // program file to load
+	KeppOpen bool       // keep all open files open
+}
+
+func (ld *LoadCommand) statementNode() {}
+
+// TokenLiteral returns my token literal
+func (ld *LoadCommand) TokenLiteral() string { return strings.ToUpper(ld.Token.Literal) }
+
+func (ld *LoadCommand) String() string {
+
+	lc := "LOAD " + ld.Path.String()
+
+	if ld.KeppOpen {
+		lc = lc + ",R"
+	}
+
+	return lc
+}
+
+// locate and optional configure the look of the cursor
 type LocateStatement struct {
 	Token token.Token
 	Parms [5]Expression
@@ -1051,9 +1077,9 @@ func (il *StringLiteral) TokenLiteral() string { return il.Token.Literal }
 // String returns literal as a string
 func (il *StringLiteral) String() string {
 	var out bytes.Buffer
-	out.WriteString("\"")
+	out.WriteString(`"`)
 	out.WriteString(il.Value)
-	out.WriteString("\"")
+	out.WriteString(`"`)
 	return out.String()
 }
 
@@ -1327,7 +1353,7 @@ func (rem *RemStatement) String() string {
 type RunCommand struct {
 	Token     token.Token
 	StartLine int
-	LoadFile  string
+	LoadFile  Expression
 	KeepOpen  bool
 }
 
@@ -1339,8 +1365,8 @@ func (run *RunCommand) TokenLiteral() string { return strings.ToUpper(run.Token.
 func (run *RunCommand) String() string {
 	rc := "RUN"
 
-	if len(run.LoadFile) > 0 {
-		rc = rc + " " + run.LoadFile
+	if run.LoadFile != nil {
+		rc = rc + " " + run.LoadFile.String()
 	}
 
 	if run.StartLine != 0 {

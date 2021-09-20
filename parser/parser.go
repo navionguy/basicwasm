@@ -7,6 +7,7 @@ import (
 	"strings"
 
 	"github.com/navionguy/basicwasm/ast"
+	"github.com/navionguy/basicwasm/berrors"
 	"github.com/navionguy/basicwasm/builtins"
 	"github.com/navionguy/basicwasm/decimal"
 	"github.com/navionguy/basicwasm/lexer"
@@ -46,12 +47,13 @@ var precedences = map[token.TokenType]int{
 
 // Parser an instance
 type Parser struct {
-	l      *lexer.Lexer
-	errors []string
+	l      *lexer.Lexer // the lexer feeding me tokens
+	errors []string     // array of error messages, TODO: stop parsing after first error
 
 	curToken  token.Token
 	peekToken token.Token
-	curLine   int
+	curLine   int  // current line number being parsed
+	cmdInput  bool // are we parsing from the terminal?
 	env       *object.Environment
 
 	prefixParseFns map[token.TokenType]prefixParseFn
@@ -163,7 +165,8 @@ func (p *Parser) ParseCmd(env *object.Environment) {
 		env.Program.New() // make sure to initialize the new program
 	}
 
-	for !p.curTokenIs(token.EOF) {
+	p.cmdInput = true
+	for (!p.curTokenIs(token.EOF)) && (len(p.errors) == 0) {
 		stmt := p.parseStatement()
 		if stmt != nil {
 			env.Program.AddCmdStmt(stmt)
@@ -213,6 +216,8 @@ func (p *Parser) parseStatement() ast.Statement {
 		return p.parseListStatement()
 	case token.LOCATE:
 		return p.parseLocateStatement()
+	case token.LOAD:
+		return p.parseLoadCommand()
 	case token.GOTO:
 		return p.parseGotoStatement()
 	case token.GOSUB:
@@ -311,15 +316,58 @@ func (p *Parser) parseBlockStatement() *ast.BlockStatement {
 func (p *Parser) parseChainStatement() *ast.ChainStatement {
 	chain := ast.ChainStatement{Token: p.curToken}
 
-	if !p.peekTokenIs(token.STRING) {
-		p.errors = append(p.errors, "Syntax Error")
-		return nil
+	p.nextToken()
+
+	// check for merge option
+	if p.curTokenIs(token.MERGE) {
+		chain.Merge = true
+		p.nextToken()
 	}
 
-	p.nextToken()
-	chain.File = p.curToken.Literal
+	return p.parseChainPath(&chain)
+}
 
-	return &chain
+// parse out the path for file to chain in
+func (p *Parser) parseChainPath(chain *ast.ChainStatement) *ast.ChainStatement {
+	chain.Path = p.parseExpression(LOWEST)
+
+	if !p.peekTokenIs(token.COMMA) {
+		return chain
+	}
+
+	return p.parseChainParams(chain)
+}
+
+// parse any parameters to the chain statement
+func (p *Parser) parseChainParams(chain *ast.ChainStatement) *ast.ChainStatement {
+	for i := 0; p.peekTokenIs(token.COMMA); i++ {
+		p.nextToken()
+		p.parseChainParameter(i, chain)
+	}
+	return chain
+}
+
+// parse the next chain statement parameter
+func (p *Parser) parseChainParameter(param int, chain *ast.ChainStatement) {
+	if p.peekTokenIs(token.COMMA) {
+		return
+	}
+	p.nextToken()
+
+	switch param {
+	case 0: // start at linenum
+		chain.Line = p.parseExpression(LOWEST)
+	case 1: // ALL preserve variables
+		if !p.curTokenIs(token.ALL) {
+			p.reportError(berrors.Syntax)
+		}
+		chain.All = true
+	case 2: // DELETE range of lines
+		chain.Delete = true
+		p.nextToken()
+		chain.Range = p.parseExpression(LOWEST)
+	}
+	return
 }
 
 func (p *Parser) parseClearCommand() *ast.ClearCommand {
@@ -360,7 +408,7 @@ func (p *Parser) parseColorStatement() *ast.ColorStatement {
 	stmt := ast.ColorStatement{Token: p.curToken}
 
 	if p.chkEndOfStatement() {
-		p.errors = append(p.errors, "Syntax error")
+		p.reportError(berrors.Syntax)
 		return &stmt
 	}
 
@@ -499,8 +547,7 @@ func (p *Parser) parseIntegerLiteral() ast.Expression {
 	lit := &ast.IntegerLiteral{Token: p.curToken}
 	value, err := strconv.Atoi(p.curToken.Literal)
 	if err != nil {
-		msg := fmt.Sprintf("could not parse %q as integer line %d", p.curToken.Literal, p.curLine)
-		p.errors = append(p.errors, msg)
+		p.reportError(berrors.Syntax)
 		return nil
 	}
 
@@ -533,8 +580,7 @@ func (p *Parser) parseOctalConstant() ast.Expression {
 
 	if p.curTokenIs(token.IDENT) {
 		if strings.Compare(p.curToken.Literal, "O") != 0 {
-			msg := fmt.Sprintf("could not parse %q as octal prefix line %d", p.curToken.Literal, p.curLine)
-			p.errors = append(p.errors, msg)
+			p.reportError(berrors.Syntax)
 			return nil
 		}
 		lit.Token = token.Token{Type: token.OCTAL, Literal: "&O"}
@@ -542,8 +588,7 @@ func (p *Parser) parseOctalConstant() ast.Expression {
 	}
 
 	if !p.curTokenIs(token.INT) {
-		msg := fmt.Sprintf("could not parse %q as octal value line %d", p.curToken.Literal, p.curLine)
-		p.errors = append(p.errors, msg)
+		p.reportError(berrors.TypeMismatch)
 		return nil
 	}
 
@@ -821,6 +866,37 @@ func (p *Parser) parseLocateStatement() *ast.LocateStatement {
 	return &stmt
 }
 
+func (p *Parser) parseLoadCommand() *ast.LoadCommand {
+	defer untrace(trace("parseLoadCommand"))
+	stmt := ast.LoadCommand{Token: p.curToken}
+
+	p.nextToken()
+	// parse the Expression to get the filename, hopefully
+	stmt.Path = p.parseExpression(LOWEST)
+
+	// if there isn't a comma, we are done
+	if p.peekToken.Literal != token.COMMA {
+		return &stmt
+	}
+
+	return p.parseLoadCommandRunOption(&stmt)
+}
+
+// parseLoadCommandRunOption, only called if param is present
+func (p *Parser) parseLoadCommandRunOption(cmd *ast.LoadCommand) *ast.LoadCommand {
+	p.nextToken()
+	p.nextToken()
+
+	if strings.ToUpper(p.curToken.Literal) == "R" {
+		cmd.KeppOpen = true
+		return cmd
+	}
+
+	// anything other than an 'R' or 'r' is a syntax error
+	p.reportError(berrors.Syntax)
+	return nil
+}
+
 // goto - uncondition transfer to line
 func (p *Parser) parseGotoStatement() *ast.GotoStatement {
 	defer untrace(trace("parseGotoStatement"))
@@ -955,7 +1031,7 @@ func (p *Parser) parseReturnStatement() *ast.ReturnStatement {
 // RUN [line number][,r]
 // RUN filename[,r]
 func (p *Parser) parseRunCommand() *ast.RunCommand {
-	cmd := &ast.RunCommand{Token: p.curToken}
+	cmd := ast.RunCommand{Token: p.curToken}
 
 	// check for line number to start at
 	if p.peekTokenIs(token.INT) {
@@ -963,17 +1039,39 @@ func (p *Parser) parseRunCommand() *ast.RunCommand {
 		cmd.StartLine, _ = strconv.Atoi(p.curToken.Literal)
 	} else if p.peekTokenIs(token.STRING) { // check for file to load
 		p.nextToken()
-		cmd.LoadFile = p.curToken.Literal
+		cmd.LoadFile = p.parseExpression(LOWEST)
 	}
 
-	if p.peekTokenIs(token.COMMA) {
-		p.nextToken()
-		if p.peekTokenIs(token.IDENT) {
-
-		}
+	if !p.peekTokenIs(token.COMMA) {
+		return &cmd
 	}
 
-	return cmd
+	return p.parseRunKeepOpen(cmd)
+}
+
+// does it look like files should stay open?
+func (p *Parser) parseRunKeepOpen(cmd ast.RunCommand) *ast.RunCommand {
+	p.nextToken()
+	if !p.peekTokenIs(token.IDENT) {
+		p.reportError(berrors.Syntax)
+		return &cmd
+	}
+
+	return p.parseRunValidFlag(cmd)
+}
+
+// the only valid flag is "R"
+func (p *Parser) parseRunValidFlag(cmd ast.RunCommand) *ast.RunCommand {
+	p.nextToken()
+
+	if strings.ToUpper(p.curToken.Literal) != "R" {
+		p.reportError(berrors.Syntax)
+		return &cmd
+	}
+
+	cmd.KeepOpen = true
+
+	return &cmd
 }
 
 func (p *Parser) parseEndStatement() *ast.EndStatement {
@@ -1032,10 +1130,12 @@ func (p *Parser) curTokenIs(t token.TokenType) bool {
 	return p.curToken.Type == t
 }
 
+// true if peekToken is param type
 func (p *Parser) peekTokenIs(t token.TokenType) bool {
 	return p.peekToken.Type == t
 }
 
+// true if peekToken matches and advances it to curtoken, error otherwise
 func (p *Parser) expectPeek(t token.TokenType) bool {
 	if p.peekTokenIs(t) {
 		p.nextToken()
@@ -1046,7 +1146,7 @@ func (p *Parser) expectPeek(t token.TokenType) bool {
 }
 
 func (p *Parser) peekError(t token.TokenType) {
-	msg := fmt.Sprintf("expected next token to be %s, got %s instead", t, p.peekToken.Type)
+	msg := fmt.Sprintf("expected next token to be '%s', got %s instead", t, p.peekToken.Type)
 	p.errors = append(p.errors, msg)
 }
 
@@ -1355,6 +1455,7 @@ func (p *Parser) parseTronCommand() *ast.TronCommand {
 	return stmt
 }
 
+// Precedence of the peekToken
 func (p *Parser) peekPrecedence() int {
 	if p, ok := precedences[p.peekToken.Type]; ok {
 		return p
@@ -1362,9 +1463,21 @@ func (p *Parser) peekPrecedence() int {
 	return LOWEST
 }
 
+// Precedence of current token
 func (p *Parser) curPrecedence() int {
 	if p, ok := precedences[p.curToken.Type]; ok {
 		return p
 	}
 	return LOWEST
+}
+
+// reportError builds an error message and adds to the array
+func (p *Parser) reportError(err int) {
+	msg := berrors.TextForError(err)
+
+	if !p.cmdInput && (p.curLine != 0) {
+		msg = fmt.Sprintf("%s in %d", msg, p.curLine)
+	}
+
+	p.errors = append(p.errors, msg)
 }

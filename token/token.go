@@ -60,6 +60,7 @@ const (
 	OCTAL = "&O"
 
 	// Keywords
+	ALL     = "ALL"
 	AUTO    = "AUTO"
 	BEEP    = "BEEP"
 	CHAIN   = "CHAIN"
@@ -80,7 +81,9 @@ const (
 	IF      = "IF"
 	LET     = "LET"
 	LIST    = "LIST"
+	LOAD    = "LOAD"
 	LOCATE  = "LOCATE"
+	MERGE   = "MERGE"
 	MOD     = "MOD"
 	NEW     = "NEW"
 	PRINT   = "PRINT"
@@ -102,6 +105,7 @@ type Token struct {
 }
 
 var keywords = map[string]TokenType{
+	"all":     ALL,
 	"auto":    AUTO,
 	"beep":    BEEP,
 	"chain":   CHAIN,
@@ -122,7 +126,9 @@ var keywords = map[string]TokenType{
 	"if":      IF,
 	"let":     LET,
 	"list":    LIST,
+	"load":    LOAD,
 	"locate":  LOCATE,
+	"merge":   MERGE,
 	"mod":     MOD,
 	"new":     NEW,
 	"print":   PRINT,
