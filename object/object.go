@@ -30,20 +30,20 @@ const (
 )
 
 const (
-	ERROR_OBJ        = "ERROR"
-	INTEGER_OBJ      = "INTEGER"
-	INTEGER_DBL      = "INTDBL"
-	FIXED_OBJ        = "FIXED"
-	FLOATSGL_OBJ     = "FLOATSGL"
-	FLOATDBL_OBJ     = "FLOATDBL"
-	STRING_OBJ       = "STRING"
-	BSTR_OBJ         = "BSTR"
-	NULL_OBJ         = "NULL"
-	BUILTIN_OBJ      = "BUILTIN"
-	FUNCTION_OBJ     = "FUNCTION"
-	RETURN_VALUE_OBJ = "RETURN_VALUE"
-	ARRAY_OBJ        = "ARRAY"
-	TYPED_OBJ        = "TYPED"
+	ARRAY_OBJ    = "ARRAY"
+	BSTR_OBJ     = "BSTR"
+	BUILTIN_OBJ  = "BUILTIN"
+	FIXED_OBJ    = "FIXED"
+	FLOATSGL_OBJ = "FLOATSGL"
+	FLOATDBL_OBJ = "FLOATDBL"
+	FUNCTION_OBJ = "FUNCTION"
+	ERROR_OBJ    = "ERROR"
+	HALT_SIGNAL  = "HALT"
+	INTEGER_OBJ  = "INTEGER"
+	INTEGER_DBL  = "INTDBL"
+	NULL_OBJ     = "NULL"
+	STRING_OBJ   = "STRING"
+	TYPED_OBJ    = "TYPED"
 )
 
 // Console defines how to collect input and display output
@@ -127,6 +127,21 @@ func (e *Environment) Get(name string) (Object, bool) {
 func (e *Environment) Set(name string, val Object) Object {
 	e.store[strings.ToUpper(name)] = val
 	return val
+}
+
+// ClearVars empties the map of environment objects
+func (e *Environment) ClearVars() {
+	e.store = make(map[string]Object)
+}
+
+// ClearFiles closes all open files
+func (e *Environment) ClearFiles() {
+	// ToDo: add support for files
+}
+
+// ClearCommon variables
+func (e *Environment) ClearCommon() {
+	// ToDo: implement run time support for Common variables
 }
 
 // Terminal allows access to the termianl console
@@ -348,9 +363,9 @@ func (f *Function) Inspect() string {
 	return out.String()
 }
 
-type ReturnValue struct {
-	Value Object
+// HaltSignal tells the eval loop to stop executing
+type HaltSignal struct {
 }
 
-func (rv *ReturnValue) Type() ObjectType { return RETURN_VALUE_OBJ }
-func (rv *ReturnValue) Inspect() string  { return rv.Value.Inspect() }
+func (hs *HaltSignal) Type() ObjectType { return HALT_SIGNAL }
+func (hs *HaltSignal) Inspect() string  { return "HALT" }

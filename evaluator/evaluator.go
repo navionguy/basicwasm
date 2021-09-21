@@ -106,6 +106,9 @@ func Eval(node ast.Node, code *ast.Code, env *object.Environment) object.Object 
 	case *ast.OctalConstant:
 		return evalOctalConstant(node, env)
 
+	case *ast.NewCommand:
+		return evalNewCommand(node, code, env)
+
 	case *ast.PrintStatement:
 		evalPrintStatement(node, code, env)
 
@@ -223,7 +226,7 @@ func evalBlockStatement(block *ast.BlockStatement, code *ast.Code, env *object.E
 
 		if result != nil {
 			rt := result.Type()
-			if rt == object.RETURN_VALUE_OBJ || rt == object.ERROR_OBJ {
+			if rt == object.ERROR_OBJ {
 				return result
 			}
 		}
@@ -290,11 +293,13 @@ func evalChainExecute(chain *ast.ChainStatement, env *object.Environment) object
 
 // clear all variables and close all files
 func evalClearCommand(clear *ast.ClearCommand, code *ast.Code, env *object.Environment) {
-
+	env.ClearVars() // environment handles all the details
+	env.ClearFiles()
+	env.ClearCommon()
 }
 
 func evalStatements(stmts *ast.Program, code *ast.Code, env *object.Environment) object.Object {
-	var result object.Object
+	var rc object.Object
 
 	// get an iterator across the program statements
 	//iter := stmts.StatementIter()
@@ -303,15 +308,35 @@ func evalStatements(stmts *ast.Program, code *ast.Code, env *object.Environment)
 	ok := t > 0
 	// loop until you run out of code
 	for ; ok; ok = code.Next() {
-		result = Eval(code.Value(), code, env)
+		rc = Eval(code.Value(), code, env)
 
-		err, ok := result.(*object.Error)
-
-		if ok {
-			env.Terminal().Println(err.Message)
-		}
+		ok = evalStatementsErrorChk(rc, env) && evalStatementsHaltChk(rc, env)
 	}
-	return result
+	return rc
+}
+
+// checks if an error occurs and prints it if it did
+// return code indicates if execution can proceed
+func evalStatementsErrorChk(rc object.Object, env *object.Environment) bool {
+	err, ok := rc.(*object.Error)
+
+	if !ok {
+		return true
+	}
+
+	env.Terminal().Println(err.Message)
+	return false
+}
+
+// check for a halt signal, which just stops execution
+// return code indicates if execution can proceed
+func evalStatementsHaltChk(rc object.Object, env *object.Environment) bool {
+	_, ok := rc.(*object.HaltSignal)
+
+	if !ok {
+		return true
+	}
+	return false
 }
 
 // read constant values out of data statements into variables
@@ -713,6 +738,17 @@ func evalOctalConstant(stmt *ast.OctalConstant, env *object.Environment) object.
 	}
 
 	return &object.Integer{Value: int16(dst)}
+}
+
+// evalNewCommand clears the code space and all the variables
+func evalNewCommand(cmd *ast.NewCommand, code *ast.Code, env *object.Environment) object.Object {
+	env.Program.New()
+	env.ClearVars()
+
+	// send a halt signal if we are executing a program
+	var htl object.HaltSignal
+
+	return &htl
 }
 
 func evalPrintStatement(node *ast.PrintStatement, code *ast.Code, env *object.Environment) {

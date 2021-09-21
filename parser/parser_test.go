@@ -805,7 +805,17 @@ func TestIdentifierExpression(t *testing.T) {
 	}
 }
 
-func TestReadStatement(t *testing.T) {
+func Test_NewCommand(t *testing.T) {
+	inp := "new"
+	l := lexer.New(inp)
+	p := New(l)
+	env := &object.Environment{}
+	p.ParseCmd(env)
+	checkParserErrors(t, p)
+	assert.Equal(t, 1, env.Program.CmdLineIter().Len(), "NewCommand didn't create one command")
+}
+
+func Test_ReadStatement(t *testing.T) {
 	tkAs := token.Token{Type: token.IDENT, Literal: "A$"}
 	tkBs := token.Token{Type: token.IDENT, Literal: "B$"}
 

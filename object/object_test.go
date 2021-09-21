@@ -1,57 +1,18 @@
 package object
 
 import (
-	"fmt"
 	"strings"
 	"testing"
 
 	"github.com/navionguy/basicwasm/ast"
 	"github.com/navionguy/basicwasm/decimal"
+	"github.com/navionguy/basicwasm/mocks"
 	"github.com/navionguy/basicwasm/token"
 	"github.com/stretchr/testify/assert"
 )
 
-type mockTerm struct {
-	row     int
-	col     int
-	strVal  string
-	sawBeep *bool
-}
-
-func (mt mockTerm) Cls() {
-
-}
-
-func (mt mockTerm) Print(msg string) {
-	fmt.Print(msg)
-}
-
-func (mt mockTerm) Println(msg string) {
-	fmt.Println(msg)
-}
-
-func (mt mockTerm) Locate(int, int) {
-
-}
-
-func (mt mockTerm) GetCursor() (int, int) {
-	return mt.row, mt.col
-}
-
-func (mt mockTerm) Read(col, row, len int) string {
-	return mt.strVal
-}
-
-func (mt mockTerm) ReadKeys(count int) []byte {
-	return nil
-}
-
-func (mt mockTerm) SoundBell() {
-	fmt.Print("\x07")
-	*mt.sawBeep = true
-}
-
-func TestBStr(t *testing.T) {
+// Test_BStr tests the BStr object
+func Test_BStr(t *testing.T) {
 	tests := []struct {
 		inp []byte
 		out string
@@ -72,6 +33,24 @@ func TestBStr(t *testing.T) {
 			t.Fatalf("BSTR type not correct %v", bs.Type())
 		}
 	}
+}
+
+func Test_ClearCommon(t *testing.T) {
+	env := newEnvironment()
+
+	env.ClearCommon()
+}
+
+func Test_ClearFiles(t *testing.T) {
+	env := newEnvironment()
+
+	env.ClearFiles()
+}
+
+func Test_ClearVars(t *testing.T) {
+	env := newEnvironment()
+
+	env.ClearVars()
 }
 
 func TestInteger(t *testing.T) {
@@ -130,7 +109,7 @@ func TestEnvironment(t *testing.T) {
 }
 
 func TestTermEnvironment(t *testing.T) {
-	var trm mockTerm
+	var trm mocks.MockTerm
 	env := NewTermEnvironment(trm)
 
 	if env.Terminal() == nil {
@@ -218,12 +197,10 @@ func TestFunction(t *testing.T) {
 	}
 }
 
-func TestReturnValue(t *testing.T) {
-	fn := &ReturnValue{Value: &Integer{Value: 404}}
+func Test_HaltSingal(t *testing.T) {
+	hs := HaltSignal{}
 
-	if fn.Type() != RETURN_VALUE_OBJ {
-		t.Fatalf("ReturnValue gave incorrect type %v", fn.Type())
-	}
+	assert.Equal(t, ObjectType("HALT"), hs.Type(), "HaltSignal, incorrect type")
 
-	assert.EqualValues(t, fn.Inspect(), "404", "Return value didn't set correctly.")
+	assert.Equal(t, "HALT", hs.Inspect(), "HaltSignal, Inspect incorrect value")
 }

@@ -301,10 +301,6 @@ func (cd *Code) Jump(target int) string {
 	return berrors.TextForError(berrors.UnDefinedLineNumber)
 }
 
-func (cd *Code) start() {
-
-}
-
 // Next returns the next constant data item
 func (data *ConstData) Next() *Expression {
 	if data.data == nil {
@@ -811,6 +807,15 @@ func (lct *LocateStatement) String() string {
 	}
 	return "LOCATE " + stmt
 }
+
+// NewCommand clears the program and variables
+type NewCommand struct {
+	Token token.Token // my Token
+}
+
+func (new *NewCommand) statementNode()       {}
+func (new *NewCommand) TokenLiteral() string { return strings.ToUpper(new.Token.Literal) }
+func (new *NewCommand) String() string       { return new.Token.Literal + " " }
 
 // ExpressionStatement holds an expression
 type ExpressionStatement struct {

@@ -646,6 +646,15 @@ func Test_LoadCommand(t *testing.T) {
 	}
 }
 
+func Test_NewCommand(t *testing.T) {
+	cmd := NewCommand{Token: token.Token{Type: token.NEW, Literal: "NEW"}}
+
+	cmd.statementNode()
+
+	assert.Equal(t, "NEW", cmd.TokenLiteral())
+	assert.Equal(t, "NEW ", cmd.String())
+}
+
 func Test_PrefixExpression(t *testing.T) {
 	tests := []struct {
 		exp string

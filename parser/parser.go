@@ -208,6 +208,12 @@ func (p *Parser) parseStatement() ast.Statement {
 		return nil
 	case token.FILES:
 		return p.parseFilesCommand()
+	case token.GOTO:
+		return p.parseGotoStatement()
+	case token.GOSUB:
+		return p.parseGosubStatement()
+	case token.IF:
+		return p.parseExpressionStatement()
 	case token.LET:
 		return p.parseLetStatement()
 	case token.LINENUM:
@@ -218,12 +224,8 @@ func (p *Parser) parseStatement() ast.Statement {
 		return p.parseLocateStatement()
 	case token.LOAD:
 		return p.parseLoadCommand()
-	case token.GOTO:
-		return p.parseGotoStatement()
-	case token.GOSUB:
-		return p.parseGosubStatement()
-	case token.IF:
-		return p.parseExpressionStatement()
+	case token.NEW:
+		return p.parseNewCommand()
 	case token.READ:
 		return p.parseReadStatement()
 	case token.REM:
@@ -895,6 +897,14 @@ func (p *Parser) parseLoadCommandRunOption(cmd *ast.LoadCommand) *ast.LoadComman
 	// anything other than an 'R' or 'r' is a syntax error
 	p.reportError(berrors.Syntax)
 	return nil
+}
+
+// parseNewCommand, a very simple thing to do
+func (p *Parser) parseNewCommand() *ast.NewCommand {
+	defer untrace(trace("parseNewCommand"))
+	cmd := ast.NewCommand{Token: p.curToken}
+
+	return &cmd
 }
 
 // goto - uncondition transfer to line

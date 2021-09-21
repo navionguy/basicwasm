@@ -250,6 +250,16 @@ func Test_ChainStatement(t *testing.T) {
 	}
 }
 
+//
+func Test_ClearCommand(t *testing.T) {
+	var mt mocks.MockTerm
+	initMockTerm(&mt)
+	env := object.NewTermEnvironment(mt)
+	cmd := ast.ClearCommand{}
+
+	Eval(&cmd, env.Program.CmdLineIter(), env)
+}
+
 func TestClsStatement(t *testing.T) {
 	tests := []struct {
 		input string
@@ -510,7 +520,7 @@ func TestEndStatement(t *testing.T) {
 	}
 }
 
-func TestLetStatements(t *testing.T) {
+func Test_LetStatements(t *testing.T) {
 	tests := []struct {
 		input    string
 		expected int16
@@ -556,7 +566,24 @@ func Test_LoadCommand(t *testing.T) {
 	}
 }
 
-func TestDimStatements(t *testing.T) {
+func Test_NewCommand(t *testing.T) {
+	l := lexer.New(`10 PRINT "Hello!"`)
+	p := parser.New(l)
+	var mt mocks.MockTerm
+	initMockTerm(&mt)
+	env := object.NewTermEnvironment(mt)
+	p.ParseProgram(env)
+	code := env.Program.StatementIter()
+	cmd := ast.NewCommand{}
+
+	rc := Eval(&cmd, code, env)
+
+	_, ok := rc.(*object.HaltSignal)
+
+	assert.True(t, ok, "New command failed to send halt!")
+}
+
+func TestDim_Statements(t *testing.T) {
 	tests := []struct {
 		input string
 	}{
@@ -726,7 +753,7 @@ func TestHexOctalConstants(t *testing.T) {
 	}
 }
 
-func TestReadStatement(t *testing.T) {
+func Test_ReadStatement(t *testing.T) {
 	fixedInt, _ := decimal.NewFromString("999.99")
 
 	tests := []struct {
@@ -750,7 +777,7 @@ func TestReadStatement(t *testing.T) {
 	}
 }
 
-func TestRestoreStatement(t *testing.T) {
+func Test_RestoreStatement(t *testing.T) {
 
 	tests := []struct {
 		inp string
@@ -770,7 +797,7 @@ func TestRestoreStatement(t *testing.T) {
 	}
 }
 
-func TestRunParameters(t *testing.T) {
+func Test_RunParameters(t *testing.T) {
 	tests := []struct {
 		src  string // source code of the file to run
 		strt int    // line # to start on
