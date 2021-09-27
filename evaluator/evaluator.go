@@ -31,7 +31,7 @@ func Eval(node ast.Node, code *ast.Code, env *object.Environment) object.Object 
 	switch node := node.(type) {
 	// Statements
 	case *ast.Program:
-		return evalStatements(node, code, env)
+		return evalStatements(code, env)
 
 	case *ast.AutoCommand:
 		evalAutoCommand(node, code, env)
@@ -48,6 +48,9 @@ func Eval(node ast.Node, code *ast.Code, env *object.Environment) object.Object 
 	case *ast.ClsStatement:
 		evalClsStatement(node, code, env)
 
+	case *ast.ContCommand:
+		return evalContCommand(node, code, env)
+
 	case *ast.DataStatement:
 		return nil
 
@@ -58,8 +61,7 @@ func Eval(node ast.Node, code *ast.Code, env *object.Environment) object.Object 
 		return evalBlockStatement(node, code, env)
 
 	case *ast.EndStatement:
-		code.Jump(code.Len())
-		return &object.Integer{Value: 0}
+		return evalEndStatement(node, code, env)
 
 	case *ast.FilesCommand:
 		evalFilesCommand(node, code, env)
@@ -170,6 +172,9 @@ func Eval(node ast.Node, code *ast.Code, env *object.Environment) object.Object 
 	case *ast.RunCommand:
 		return evalRunCommand(node, code, env)
 
+	case *ast.StopStatement:
+		return evalStopStatement(node, code, env)
+
 	case *ast.CallExpression:
 		function := Eval(node.Function, code, env)
 		if isError(function) {
@@ -263,7 +268,7 @@ func evalChainLoad(file string, code *ast.Code, chain *ast.ChainStatement, env *
 // parse the file into an executable AST
 func evalChainParse(rdr *bufio.Reader, code *ast.Code, chain *ast.ChainStatement, env *object.Environment) object.Object {
 	fileserv.ParseFile(rdr, env)
-	env.Program.ConstData().Restore() // start at the first DATA statement
+	env.ConstData().Restore() // start at the first DATA statement
 
 	// go figure out how to start execution
 	return evalChainStart(chain, code, env)
@@ -283,8 +288,8 @@ func evalChainStart(chain *ast.ChainStatement, code *ast.Code, env *object.Envir
 
 // executing a command entry, start program execution
 func evalChainExecute(chain *ast.ChainStatement, env *object.Environment) object.Object {
-	pcode := env.Program.StatementIter()
-	env.Program.ConstData().Restore()
+	pcode := env.StatementIter()
+	env.ConstData().Restore()
 
 	rc := evalRunStart(pcode, env)
 
@@ -298,25 +303,58 @@ func evalClearCommand(clear *ast.ClearCommand, code *ast.Code, env *object.Envir
 	env.ClearCommon()
 }
 
-func evalStatements(stmts *ast.Program, code *ast.Code, env *object.Environment) object.Object {
+// user wants to continue execution, if we can
+func evalContCommand(cont *ast.ContCommand, code *ast.Code, env *object.Environment) object.Object {
+	// if a program is currently running, you can't use this command
+	if env.ProgramRunning() {
+		return stdError(env, berrors.CantContinue)
+	}
+
+	// see if there is a saved continuation point
+	cp := env.GetRestart()
+
+	if cp == nil {
+		return stdError(env, berrors.CantContinue)
+	}
+
+	// move the code iterator to the continuation point
+
+	return evalContStart(cp, env)
+}
+
+func evalContStart(code *ast.Code, env *object.Environment) object.Object {
+	// see if I should move to the next statement
+	evalContChkInput(code)
+
+	return evalStatements(code, env)
+}
+
+// skips moving to the next statement if current statement is an Input statement or function
+// Input functions will re-prompt and then accept input
+func evalContChkInput(code *ast.Code) {
+	switch code.Value() {
+	default:
+		code.Next()
+	}
+}
+
+func evalStatements(code *ast.Code, env *object.Environment) object.Object {
 	var rc object.Object
 
-	// get an iterator across the program statements
-	//iter := stmts.StatementIter()
-	// make sure there are some
+	// make sure there are statements to evaluate
 	t := code.Len()
 	ok := t > 0
 	// loop until you run out of code
-	for ; ok; ok = code.Next() {
+	for halt := false; ok && !halt; {
 		rc = Eval(code.Value(), code, env)
 
-		ok = evalStatementsErrorChk(rc, env) && evalStatementsHaltChk(rc, env)
+		ok = evalStatementsErrorChk(rc, env)
+		halt = evalStatementsHaltChk(rc, code, env)
 	}
 	return rc
 }
 
 // checks if an error occurs and prints it if it did
-// return code indicates if execution can proceed
 func evalStatementsErrorChk(rc object.Object, env *object.Environment) bool {
 	err, ok := rc.(*object.Error)
 
@@ -330,13 +368,20 @@ func evalStatementsErrorChk(rc object.Object, env *object.Environment) bool {
 
 // check for a halt signal, which just stops execution
 // return code indicates if execution can proceed
-func evalStatementsHaltChk(rc object.Object, env *object.Environment) bool {
-	_, ok := rc.(*object.HaltSignal)
+func evalStatementsHaltChk(rc object.Object, code *ast.Code, env *object.Environment) bool {
+	halt, ok := rc.(*object.HaltSignal)
 
 	if !ok {
-		return true
+		// only move to the next statement if I'm not halting
+		return !code.Next()
 	}
-	return false
+
+	if len(halt.Msg) != 0 {
+		env.Terminal().Println(halt.Msg)
+	}
+
+	env.SaveRestart(code)
+	return true
 }
 
 // read constant values out of data statements into variables
@@ -350,7 +395,7 @@ func evalReadStatement(rd *ast.ReadStatement, code *ast.Code, env *object.Enviro
 			return newError(env, syntaxErr)
 		}
 
-		cst := env.Program.ConstData().Next()
+		cst := env.ConstData().Next()
 
 		if cst == nil {
 			return newError(env, outOfDataErr)
@@ -385,7 +430,7 @@ func evalReadStatement(rd *ast.ReadStatement, code *ast.Code, env *object.Enviro
 func evalRestoreStatement(rst *ast.RestoreStatement, code *ast.Code, env *object.Environment) object.Object {
 	if rst.Line >= 0 {
 		// he wants to restore to a certain line
-		if env.Program.ConstData().RestoreTo(rst.Line) {
+		if env.ConstData().RestoreTo(rst.Line) {
 			return nil
 		}
 
@@ -393,7 +438,7 @@ func evalRestoreStatement(rst *ast.RestoreStatement, code *ast.Code, env *object
 	}
 
 	// restore to the beginning
-	env.Program.ConstData().Restore()
+	env.ConstData().Restore()
 
 	return nil
 }
@@ -435,7 +480,7 @@ func evalRunFetch(file string, run *ast.RunCommand, env *object.Environment) obj
 // Parse the code in the reader try to run it.
 func evalRunParse(rdr *bufio.Reader, run *ast.RunCommand, env *object.Environment) object.Object {
 	// create a new program code space
-	env.Program.New()
+	env.NewProgram()
 	if !run.KeepOpen {
 		// ToDo: once I implement files, I'll need a way to close them all at once
 	}
@@ -448,8 +493,8 @@ func evalRunParse(rdr *bufio.Reader, run *ast.RunCommand, env *object.Environmen
 
 func evalRunCheckStartLineNum(run *ast.RunCommand, env *object.Environment) object.Object {
 	//	env.Terminal().Println("evalRunCheckStartLineNum")
-	pcode := env.Program.StatementIter()
-	env.Program.ConstData().Restore()
+	pcode := env.StatementIter()
+	env.ConstData().Restore()
 
 	if run.StartLine > 0 {
 		err := pcode.Jump(run.StartLine)
@@ -465,10 +510,22 @@ func evalRunCheckStartLineNum(run *ast.RunCommand, env *object.Environment) obje
 // actually go execute the code
 func evalRunStart(code *ast.Code, env *object.Environment) object.Object {
 	env.SetRun(true)
-	rc := Eval(env.Program, code, env)
+	rc := Eval(&ast.Program{}, code, env)
 	env.SetRun(false)
 
 	return rc
+}
+
+// halt execution, if running, leave file opens, tell user where we are
+func evalStopStatement(stop *ast.StopStatement, code *ast.Code, env *object.Environment) object.Object {
+	msg := "Break"
+
+	if env.ProgramRunning() {
+		msg = fmt.Sprintf("%s in line %d", msg, code.CurLine())
+	}
+
+	halt := object.HaltSignal{Msg: msg}
+	return &halt
 }
 
 // turn off tracing
@@ -554,6 +611,11 @@ func allocArrayValue(typeid string) object.Object {
 	return obj
 }
 
+func evalEndStatement(end *ast.EndStatement, code *ast.Code, env *object.Environment) object.Object {
+	env.ClearFiles()
+	return &object.HaltSignal{}
+}
+
 // FILES instruct the system to list filenames for current directory
 // FILES "path" lists all files in the specified directory
 func evalFilesCommand(files *ast.FilesCommand, code *ast.Code, env *object.Environment) {
@@ -634,7 +696,7 @@ func evalHexConstant(stmt *ast.HexConstant, code *ast.Code, env *object.Environm
 
 func evalListStatement(stmt *ast.ListStatement, code *ast.Code, env *object.Environment) {
 	var out bytes.Buffer
-	cd := env.Program.StatementIter()
+	cd := env.StatementIter()
 	start := 0
 	stop := cd.MaxLineNum()
 
@@ -712,7 +774,7 @@ func evalLoadGetFile(file string, stmt *ast.LoadCommand, code *ast.Code, env *ob
 // parse in the loaded file
 func evalLoadParse(rdr *bufio.Reader, stmt *ast.LoadCommand, code *ast.Code, env *object.Environment) object.Object {
 	// flush the old program
-	env.Program = nil
+	env.NewProgram()
 	fileserv.ParseFile(rdr, env)
 
 	if !stmt.KeppOpen {
@@ -720,7 +782,7 @@ func evalLoadParse(rdr *bufio.Reader, stmt *ast.LoadCommand, code *ast.Code, env
 		return nil
 	}
 
-	newCode := env.Program.StatementIter()
+	newCode := env.StatementIter()
 	return evalRunStart(newCode, env)
 }
 
@@ -742,7 +804,7 @@ func evalOctalConstant(stmt *ast.OctalConstant, env *object.Environment) object.
 
 // evalNewCommand clears the code space and all the variables
 func evalNewCommand(cmd *ast.NewCommand, code *ast.Code, env *object.Environment) object.Object {
-	env.Program.New()
+	env.NewProgram()
 	env.ClearVars()
 
 	// send a halt signal if we are executing a program

@@ -59,6 +59,8 @@ const (
 // TextForError returns the error text based on error number
 func TextForError(err int) string {
 	switch err {
+	case CantContinue:
+		return "Can't continue"
 	case FileNotFound:
 		return "File not found"
 	case IllegalDirect:

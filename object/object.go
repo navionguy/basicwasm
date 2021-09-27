@@ -77,10 +77,10 @@ func NewEnclosedEnvironment(outer *Environment) *Environment {
 func newEnvironment() *Environment {
 	s := make(map[string]Object)
 	e := &Environment{store: s}
-	if e.Program == nil {
-		e.Program = &ast.Program{}
+	if e.program == nil {
+		e.program = &ast.Program{}
 	}
-	e.Program.New()
+	e.program.New()
 
 	// initialize my random number generator
 	e.rnd = rand.New(rand.NewSource(37))
@@ -101,7 +101,7 @@ func NewTermEnvironment(term Console) *Environment {
 type Environment struct {
 	store   map[string]Object // variables and other program data
 	outer   *Environment      // possibly a tempory containing environment
-	Program *ast.Program      // current Abstract Syntax Tree
+	program *ast.Program      // current Abstract Syntax Tree
 	term    Console           // the terminal console object
 
 	// The following hold "state" information controlled by commands/statements
@@ -112,6 +112,7 @@ type Environment struct {
 	traceOn bool             // is tracing turned on
 	client  HttpClient       // for making server requests
 	run     bool             // program is currently execute, if false, a command is executing
+	cont    *ast.Code        // save program iterator due to STOP, END or ctrl-C to allow continue command CONT
 }
 
 // Get attempts to retrieve an object from the environment
@@ -127,6 +128,18 @@ func (e *Environment) Get(name string) (Object, bool) {
 func (e *Environment) Set(name string, val Object) Object {
 	e.store[strings.ToUpper(name)] = val
 	return val
+}
+
+// save a restart point
+func (e *Environment) SaveRestart(cd *ast.Code) {
+	e.cont = cd
+}
+
+// get a restart point, nil if there is none
+func (e *Environment) GetRestart() *ast.Code {
+	cd := e.cont
+	e.cont = nil
+	return cd
 }
 
 // ClearVars empties the map of environment objects
@@ -204,6 +217,54 @@ func (e *Environment) Random(x int) *FloatSgl {
 func (e *Environment) Randomize(seed int64) {
 	e.rnd = rand.New(rand.NewSource(seed))
 	e.rndVal = e.rnd.Float32()
+}
+
+// Functions below talk to my program object
+
+// Add a statement to the ast
+func (e *Environment) AddStatement(stmt ast.Statement) {
+	if e.cont != nil {
+		e.cont = nil
+	}
+
+	e.program.AddStatement(stmt)
+}
+
+func (e *Environment) StatementIter() *ast.Code {
+	return e.program.StatementIter()
+}
+
+// Signals that the program has been parsed
+func (e *Environment) Parsed() {
+	e.program.Parsed()
+}
+
+func (e *Environment) AddCmdStmt(stmt ast.Statement) {
+	e.program.AddCmdStmt(stmt)
+}
+
+func (e *Environment) CmdLineIter() *ast.Code {
+	return e.program.CmdLineIter()
+}
+
+func (e *Environment) CmdComplete() {
+	e.program.CmdComplete()
+}
+
+// Command line has been parsed
+func (e *Environment) CmdParsed() {
+	e.program.CmdParsed()
+}
+
+// return the programs constant data
+func (e *Environment) ConstData() *ast.ConstData {
+	return e.program.ConstData()
+}
+
+// NewProgram makes sure the program has been initialized
+func (e *Environment) NewProgram() {
+	e.program = &ast.Program{}
+	e.program.New() // make sure to initialize the new program
 }
 
 type Array struct {
@@ -365,6 +426,7 @@ func (f *Function) Inspect() string {
 
 // HaltSignal tells the eval loop to stop executing
 type HaltSignal struct {
+	Msg string
 }
 
 func (hs *HaltSignal) Type() ObjectType { return HALT_SIGNAL }

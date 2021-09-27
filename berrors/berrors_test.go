@@ -11,15 +11,16 @@ func TestTextForError(t *testing.T) {
 		inp int
 		exp string
 	}{
-		{inp: NextWithoutFor, exp: "NEXT without FOR"},
-		{inp: Syntax, exp: "Syntax error"},
-		{inp: ReturnWoGosub, exp: "RETURN without GOSUB"},
-		{inp: OutOfData, exp: "Out of DATA"},
-		{inp: IllegalDirect, exp: "Illegal direct"},
-		{inp: TypeMismatch, exp: "Type mismatch"},
+		{inp: CantContinue, exp: "Can't continue"},
 		{inp: FileNotFound, exp: "File not found"},
-		{inp: 100, exp: "Unprintable error"},
+		{inp: IllegalDirect, exp: "Illegal direct"},
+		{inp: NextWithoutFor, exp: "NEXT without FOR"},
+		{inp: OutOfData, exp: "Out of DATA"},
+		{inp: ReturnWoGosub, exp: "RETURN without GOSUB"},
+		{inp: Syntax, exp: "Syntax error"},
+		{inp: TypeMismatch, exp: "Type mismatch"},
 		{inp: UnDefinedLineNumber, exp: "Undefined line number"},
+		{inp: 100, exp: "Unprintable error"},
 	}
 
 	for _, tt := range tests {

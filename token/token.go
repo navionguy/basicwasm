@@ -68,6 +68,7 @@ const (
 	CLS     = "CLS"
 	COLOR   = "COLOR"
 	COMMON  = "COMMON"
+	CONT    = "CONT"
 	CSRLIN  = "CSRLIN"
 	DATA    = "DATA"
 	DEF     = "DEF"
@@ -92,6 +93,7 @@ const (
 	RESTORE = "RESTORE"
 	RETURN  = "RETURN"
 	RUN     = "RUN"
+	STOP    = "STOP"
 	THEN    = "THEN"
 	TRON    = "TRON"
 	TROFF   = "TROFF"
@@ -113,6 +115,7 @@ var keywords = map[string]TokenType{
 	"cls":     CLS,
 	"color":   COLOR,
 	"common":  COMMON,
+	"cont":    CONT,
 	"csrlin":  CSRLIN,
 	"data":    DATA,
 	"def":     DEF,
@@ -137,6 +140,7 @@ var keywords = map[string]TokenType{
 	"restore": RESTORE,
 	"return":  RETURN,
 	"run":     RUN,
+	"stop":    STOP,
 	"then":    THEN,
 	"tron":    TRON,
 	"troff":   TROFF,

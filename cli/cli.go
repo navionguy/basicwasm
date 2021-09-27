@@ -70,7 +70,7 @@ func execCommand(input string, env *object.Environment) {
 		return
 	}
 
-	iter := env.Program.CmdLineIter()
+	iter := env.CmdLineIter()
 
 	// if command line is empty, nothing to execute
 	if iter.Len() == 0 {
@@ -82,18 +82,14 @@ func execCommand(input string, env *object.Environment) {
 
 	for iter.Value() != nil {
 		cmd := iter.Value()
-		srcIter := env.Program.StatementIter()
+		srcIter := env.StatementIter()
 		obj := evaluator.Eval(cmd, srcIter, env)
 
-		err, ok := obj.(*object.Error)
-
-		if ok {
-			env.Terminal().Println(err.Message)
-			env.Program.CmdComplete()
-			prompt(env)
+		if handleExitMsgs(obj, env) {
 			return
 		}
 
+		// TODO: move this into eval code
 		// see if cmd is trying to start execution
 		switch cmd.(type) {
 		case *ast.GotoStatement:
@@ -115,9 +111,25 @@ func execCommand(input string, env *object.Environment) {
 		}
 		iter.Next()
 	}
-	env.Program.CmdComplete()
+	env.CmdComplete()
 	prompt(env)
 
+}
+
+// some special objects that can come back from command execution
+func handleExitMsgs(rc object.Object, env *object.Environment) bool {
+	switch rc.(type) {
+	case *object.Error:
+		env.Terminal().Println(rc.(*object.Error).Message)
+	case *object.HaltSignal:
+		env.Terminal().Println(rc.(*object.HaltSignal).Msg)
+	default:
+		return false
+	}
+
+	env.CmdComplete()
+	prompt(env)
+	return true
 }
 
 func prompt(env *object.Environment) {
@@ -129,7 +141,7 @@ func prompt(env *object.Environment) {
 	}
 
 	fill := " "
-	if env.Program.StatementIter().Exists(auto.Start) {
+	if env.StatementIter().Exists(auto.Start) {
 		fill = "*"
 	}
 
@@ -142,6 +154,6 @@ func prompt(env *object.Environment) {
 func giveError(err string, env *object.Environment) {
 	env.Terminal().Println(err)
 	env.Terminal().Println("OK")
-	env.Program.CmdComplete()
+	env.CmdComplete()
 	return
 }

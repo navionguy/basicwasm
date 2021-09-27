@@ -73,6 +73,7 @@ func TestExecCommand(t *testing.T) {
 		inp string
 		exp []string
 	}{
+		{inp: "STOP", exp: []string{"Break", "OK"}},
 		{inp: "10 CLS", exp: []string{"OK"}},
 		{inp: "20 PRINT X * Y", exp: []string{"OK"}},
 		{"LIST", []string{"10 CLS", "20 PRINT X * Y ", "OK"}},

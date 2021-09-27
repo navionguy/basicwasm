@@ -11,7 +11,18 @@ import (
 	"github.com/stretchr/testify/assert"
 )
 
-// Test_BStr tests the BStr object
+func Test_Array(t *testing.T) {
+	arr := Array{}
+
+	tp := arr.Type()
+	assert.Equal(t, ObjectType("ARRAY"), tp)
+
+	arr.Elements = append(arr.Elements, &String{Value: "First"})
+	arr.Elements = append(arr.Elements, &String{Value: "Last"})
+	tst := arr.Inspect()
+	assert.Equal(t, "First, Last", tst)
+}
+
 func Test_BStr(t *testing.T) {
 	tests := []struct {
 		inp []byte
@@ -53,7 +64,43 @@ func Test_ClearVars(t *testing.T) {
 	env.ClearVars()
 }
 
-func TestInteger(t *testing.T) {
+// test interface into the Code object
+func Test_CodeInterface(t *testing.T) {
+	env := newEnvironment()
+	env.NewProgram()
+
+	assert.NotNil(t, env.program, "Program failed to create")
+
+	// first test statements
+
+	env.AddStatement(&ast.LineNumStmt{Token: token.Token{Type: token.LINENUM, Literal: "10"}, Value: 10})
+	env.cont = &ast.Code{}
+	env.AddStatement(&ast.StopStatement{})
+	assert.Nil(t, env.cont, "continuation data failed to clear")
+
+	itr := env.StatementIter()
+	assert.NotNil(t, itr, "no statement iterator")
+	l := itr.Len()
+	assert.Equal(t, 2, l, "didn't find two statements")
+	env.Parsed()
+
+	// now test commands
+
+	env.AddCmdStmt(&ast.RunCommand{})
+
+	itr = env.CmdLineIter()
+	assert.NotNil(t, itr, "no command line iterator")
+	l = itr.Len()
+	assert.Equal(t, 1, l, "didn't find my command")
+	env.CmdParsed()
+	env.CmdComplete()
+
+	// check for constant data
+	cd := env.ConstData()
+	assert.NotNil(t, cd)
+}
+
+func Test_Integer(t *testing.T) {
 	fv, _ := decimal.NewFromString("14.25")
 
 	tests := []struct {
@@ -83,7 +130,7 @@ func TestInteger(t *testing.T) {
 	}
 }
 
-func TestEnvironment(t *testing.T) {
+func Test_Environment(t *testing.T) {
 	env := newEnvironment()
 	encenv := NewEnclosedEnvironment(env)
 
@@ -108,7 +155,7 @@ func TestEnvironment(t *testing.T) {
 	}
 }
 
-func TestTermEnvironment(t *testing.T) {
+func Test_TermEnvironment(t *testing.T) {
 	var trm mocks.MockTerm
 	env := NewTermEnvironment(trm)
 
@@ -186,7 +233,7 @@ func TestRandom(t *testing.T) {
 	}
 }
 
-func TestFunction(t *testing.T) {
+func Test_Function(t *testing.T) {
 	tkBlk := token.Token{Literal: "{"}
 	tkBep := token.Token{Literal: "BEEP"}
 	stmt := ast.BeepStatement{Token: tkBep}
@@ -203,4 +250,36 @@ func Test_HaltSingal(t *testing.T) {
 	assert.Equal(t, ObjectType("HALT"), hs.Type(), "HaltSignal, incorrect type")
 
 	assert.Equal(t, "HALT", hs.Inspect(), "HaltSignal, Inspect incorrect value")
+}
+
+func Test_Restart(t *testing.T) {
+	tests := []struct {
+		title string
+		stmt  ast.Statement
+		noval bool
+	}{
+		{title: "STOP", stmt: &ast.StopStatement{}},
+		{title: "END", stmt: &ast.EndStatement{}},
+	}
+
+	for _, tt := range tests {
+		mt := mocks.MockTerm{}
+		env := NewTermEnvironment(mt)
+		env.program.AddStatement(&ast.LineNumStmt{Token: token.Token{Type: token.LINENUM, Literal: "10"}, Value: 10})
+		env.program.AddStatement(tt.stmt)
+		itr := env.program.StatementIter()
+		itr.Next()
+
+		env.SaveRestart(itr)
+
+		if tt.noval {
+			itr = nil
+			env.program.StatementIter()
+		}
+
+		itr2 := env.GetRestart()
+
+		assert.Equal(t, itr, itr2, "%s got %T, wanted %T", tt.title, itr2, itr)
+	}
+
 }

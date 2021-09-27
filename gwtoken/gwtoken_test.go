@@ -197,7 +197,7 @@ func Test_ReadProg(t *testing.T) {
 		env := object.NewTermEnvironment(mt)
 
 		rdr.readProg(env)
-		itr := env.Program.StatementIter()
+		itr := env.StatementIter()
 
 		assert.Equal(t, tt.stmts, itr.Len(), "Test_readProg expected %d statements, got %d", tt.stmts, itr.Len())
 	}
@@ -222,7 +222,7 @@ func Test_ReadProtProg(t *testing.T) {
 		env := object.NewTermEnvironment(mt)
 
 		rdr.readProg(env)
-		itr := env.Program.StatementIter()
+		itr := env.StatementIter()
 
 		assert.Equal(t, tt.stmts, itr.Len(), "Test_readProgProtected expected %d statements, got %d", tt.stmts, itr.Len())
 	}
@@ -274,7 +274,7 @@ func Test_ParseProtProg(t *testing.T) {
 
 		ParseProtectedFile(src, env)
 
-		itr := env.Program.StatementIter()
+		itr := env.StatementIter()
 
 		assert.Equal(t, tt.stmts, itr.Len(), "Test_ParseProtectedFile")
 	}

@@ -321,7 +321,15 @@ func Test_CommonStatement(t *testing.T) {
 	}
 }
 
-func TestNoLineNum(t *testing.T) {
+func Test_ContCommand(t *testing.T) {
+	cmd := ContCommand{Token: token.Token{Type: token.CONT, Literal: "CONT"}}
+
+	cmd.statementNode()
+	assert.Equal(t, "CONT", cmd.TokenLiteral())
+	assert.Equal(t, "CONT", cmd.String())
+}
+
+func Test_NoLineNum(t *testing.T) {
 	var program Program
 
 	program.New()
@@ -568,6 +576,26 @@ func Test_FilesCommand(t *testing.T) {
 	}
 }
 
+func Test_Identifier(t *testing.T) {
+	tests := []struct {
+		id  Identifier
+		lit string
+		exp string
+	}{
+		{id: Identifier{Token: token.Token{Type: token.IDENT, Literal: "[]"}, Array: true,
+			Index: []*IndexExpression{&IndexExpression{Left: &IntegerLiteral{Value: 5}, Index: &IntegerLiteral{Value: 0}},
+				&IndexExpression{Left: &IntegerLiteral{Value: 6}, Index: &IntegerLiteral{Value: 1}},
+			}}, lit: "[]", exp: "[0,1]"},
+		{id: Identifier{Token: token.Token{Type: token.IDENT, Literal: "X"}, Value: "5"}, lit: "X", exp: "5"},
+	}
+
+	for _, tt := range tests {
+		tt.id.expressionNode()
+		assert.Equal(t, tt.lit, tt.id.TokenLiteral())
+		assert.Equal(t, tt.exp, tt.id.String())
+	}
+}
+
 // exercise the InfixExpression structure
 func Test_InfixExpression(t *testing.T) {
 	tests := []struct {
@@ -714,6 +742,15 @@ func Test_RunCommand(t *testing.T) {
 		assert.Equal(t, "RUN", cmd.TokenLiteral(), "Run command has incorrect TokenLiteral")
 		assert.Equal(t, tt.exp, cmd.String(), "Run command didn't build string correctly")
 	}
+}
+
+func Test_StopStatement(t *testing.T) {
+	stop := StopStatement{Token: token.Token{Type: token.STOP, Literal: "STOP"}}
+
+	stop.statementNode()
+
+	assert.Equal(t, token.STOP, stop.TokenLiteral())
+	assert.Equal(t, "STOP ", stop.String())
 }
 
 func Test_TronTroffCommands(t *testing.T) {

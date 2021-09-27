@@ -540,7 +540,7 @@ func Test_ParseFile(t *testing.T) {
 		ParseFile(buf, env)
 
 		if tt.stmts > 0 {
-			itr := env.Program.StatementIter()
+			itr := env.StatementIter()
 			assert.Equal(t, tt.stmts, itr.Len(), "Test_ParseFile() expected %d statements but got %d", tt.stmts, itr.Len())
 		}
 	}

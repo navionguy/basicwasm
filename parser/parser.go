@@ -132,20 +132,15 @@ func (p *Parser) ParseProgram(env *object.Environment) {
 	defer untrace(trace("ParseProgram"))
 	p.env = env
 
-	if env.Program == nil {
-		env.Program = &ast.Program{}
-		env.Program.New() // make sure to initialize the new program
-	}
-
 	for !p.curTokenIs(token.EOF) {
 		stmt := p.parseStatement()
 		if stmt != nil {
-			env.Program.AddStatement(stmt)
+			env.AddStatement(stmt)
 		}
 		p.nextToken()
 	}
 
-	env.Program.Parsed()
+	env.Parsed()
 }
 
 // ParseCmd is used to parse out a command entered directly
@@ -160,21 +155,16 @@ func (p *Parser) ParseCmd(env *object.Environment) {
 
 	p.env = env
 
-	if env.Program == nil {
-		env.Program = &ast.Program{}
-		env.Program.New() // make sure to initialize the new program
-	}
-
 	p.cmdInput = true
 	for (!p.curTokenIs(token.EOF)) && (len(p.errors) == 0) {
 		stmt := p.parseStatement()
 		if stmt != nil {
-			env.Program.AddCmdStmt(stmt)
+			env.AddCmdStmt(stmt)
 		}
 		p.nextToken()
 	}
 
-	env.Program.CmdParsed()
+	env.CmdParsed()
 	return
 }
 
@@ -195,6 +185,8 @@ func (p *Parser) parseStatement() ast.Statement {
 		return p.parseColorStatement()
 	case token.COMMON:
 		return p.parseCommonStatement()
+	case token.CONT:
+		return p.parseContCommand()
 	case token.DATA:
 		return p.parseDataStatement()
 	case token.END:
@@ -236,6 +228,8 @@ func (p *Parser) parseStatement() ast.Statement {
 		return p.parseReturnStatement()
 	case token.RUN:
 		return p.parseRunCommand()
+	case token.STOP:
+		return p.parseStopStatement()
 	case token.TROFF:
 		return p.parseTroffCommand()
 	case token.TRON:
@@ -351,9 +345,6 @@ func (p *Parser) parseChainParams(chain *ast.ChainStatement) *ast.ChainStatement
 
 // parse the next chain statement parameter
 func (p *Parser) parseChainParameter(param int, chain *ast.ChainStatement) {
-	if p.peekTokenIs(token.COMMA) {
-		return
-	}
 	p.nextToken()
 
 	switch param {
@@ -445,6 +436,12 @@ func (p *Parser) parseCommonStatement() *ast.CommonStatement {
 	return &stmt
 }
 
+func (p *Parser) parseContCommand() *ast.ContCommand {
+	cmd := ast.ContCommand{Token: token.Token{Type: token.CONT, Literal: "CONT"}}
+
+	return &cmd
+}
+
 func (p *Parser) parseDataStatement() *ast.DataStatement {
 	defer untrace(trace("parseDataStatement"))
 	stmt := &ast.DataStatement{Token: p.curToken}
@@ -530,6 +527,13 @@ func (p *Parser) parseDimStatement() *ast.DimStatement {
 	}
 
 	return exp
+}
+
+func (p *Parser) parseEndStatement() *ast.EndStatement {
+	defer untrace(trace("parseEndStatement"))
+	stmt := &ast.EndStatement{Token: p.curToken}
+
+	return stmt
 }
 
 func (p *Parser) parseFilesCommand() *ast.FilesCommand {
@@ -1084,9 +1088,9 @@ func (p *Parser) parseRunValidFlag(cmd ast.RunCommand) *ast.RunCommand {
 	return &cmd
 }
 
-func (p *Parser) parseEndStatement() *ast.EndStatement {
-	defer untrace(trace("parseEndStatement"))
-	stmt := &ast.EndStatement{Token: p.curToken}
+func (p *Parser) parseStopStatement() *ast.StopStatement {
+	defer untrace(trace("parseStopStatement"))
+	stmt := &ast.StopStatement{Token: p.curToken}
 
 	return stmt
 }

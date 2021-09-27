@@ -618,6 +618,15 @@ func (cmn *CommonStatement) String() string {
 	return tmp
 }
 
+type ContCommand struct {
+	Token token.Token
+}
+
+func (cnt *ContCommand) statementNode()       {}
+func (cnt *ContCommand) TokenLiteral() string { return strings.ToUpper(cnt.Token.Literal) }
+
+func (cnt *ContCommand) String() string { return "CONT" }
+
 // FilesCommand gets list of files from basic server
 type FilesCommand struct {
 	Token token.Token
@@ -649,6 +658,11 @@ type Identifier struct {
 }
 
 func (i *Identifier) expressionNode() {}
+
+// TokenLiteral returns literal value of the identifier
+func (i *Identifier) TokenLiteral() string {
+	return strings.ToUpper(i.Token.Literal)
+}
 func (i *Identifier) String() string {
 	var out bytes.Buffer
 
@@ -667,11 +681,6 @@ func (i *Identifier) String() string {
 	}
 
 	return out.String()
-}
-
-// TokenLiteral returns literal value of the identifier
-func (i *Identifier) TokenLiteral() string {
-	return strings.ToUpper(i.Token.Literal)
 }
 
 // FunctionLiteral starts the definition of a user function
@@ -1384,6 +1393,15 @@ func (run *RunCommand) String() string {
 
 	return rc
 }
+
+// Stop statement stops execution
+type StopStatement struct {
+	Token token.Token
+}
+
+func (stop *StopStatement) statementNode()       {}
+func (stop *StopStatement) TokenLiteral() string { return strings.ToUpper(stop.Token.Literal) }
+func (stop *StopStatement) String() string       { return strings.ToUpper(stop.Token.Literal) + " " }
 
 // TroffCommand turns off tracing
 type TroffCommand struct {
