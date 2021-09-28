@@ -304,6 +304,16 @@ func Test_ContCommand(t *testing.T) {
 	assert.Equal(t, 1, itr.Len())
 }
 
+func Test_Csrlin(t *testing.T) {
+	l := lexer.New("PRINT CSRLIN")
+	p := New(l)
+	env := object.NewTermEnvironment(mocks.MockTerm{})
+	p.ParseCmd(env)
+	checkParserErrors(t, p)
+	itr := env.CmdLineIter()
+	assert.Equal(t, 1, itr.Len())
+}
+
 func Test_DataStatement(t *testing.T) {
 	tkInt := token.Token{Type: token.INT, Literal: "INT"}
 	tkFixed := token.Token{Type: token.FIXED, Literal: "123.45"}

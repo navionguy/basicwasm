@@ -75,6 +75,7 @@ func New(l *lexer.Lexer) *Parser {
 
 	// create map parsers for prefix elements
 	p.prefixParseFns = make(map[token.TokenType]prefixParseFn)
+	p.registerPrefix(token.CSRLIN, p.parseCsrLinVar)
 	p.registerPrefix(token.IDENT, p.parseIdentifier)
 	p.registerPrefix(token.INT, p.parseIntegerLiteral)
 	p.registerPrefix(token.INTD, p.parseIntDoubleLiteral)
@@ -437,9 +438,17 @@ func (p *Parser) parseCommonStatement() *ast.CommonStatement {
 }
 
 func (p *Parser) parseContCommand() *ast.ContCommand {
+	defer untrace(trace("parseContCommand"))
 	cmd := ast.ContCommand{Token: token.Token{Type: token.CONT, Literal: "CONT"}}
 
 	return &cmd
+}
+
+func (p *Parser) parseCsrLinVar() ast.Expression {
+	defer untrace(trace("parseCsrLinVar()"))
+	csr := ast.Csrlin{Token: p.curToken}
+
+	return &csr
 }
 
 func (p *Parser) parseDataStatement() *ast.DataStatement {

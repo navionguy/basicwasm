@@ -176,6 +176,7 @@ func TestCodeMultiLines(t *testing.T) {
 
 	for _, tt := range tests {
 		stmt.statementNode()
+		stmt.TokenLiteral()
 		sz = strings.Compare(stmt.String(), tt.exp)
 		if sz != 0 {
 			t.Fatalf("expected %s, got %s", tt.exp, stmt.String())
@@ -555,6 +556,14 @@ func Test_ClearCommand(t *testing.T) {
 
 	assert.Equal(t, "CLEAR", cmd.TokenLiteral(), "Clear command has incorrect TokenLiteral")
 	assert.Equal(t, cmd.String(), "CLEAR 1,2,3", "Clear command didn't build string correctly")
+}
+
+func Test_Csrlin(t *testing.T) {
+	csr := Csrlin{Token: token.Token{Literal: "csrlin", Type: token.CSRLIN}}
+
+	csr.expressionNode()
+	assert.Equal(t, "CSRLIN", csr.TokenLiteral())
+	assert.Equal(t, "csrlin ", csr.String())
 }
 
 func Test_FilesCommand(t *testing.T) {

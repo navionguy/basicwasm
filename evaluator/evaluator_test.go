@@ -350,6 +350,27 @@ func ExampleContCommand() {
 	// Goodbye!
 }
 
+func Test_CsrLinExpression(t *testing.T) {
+	// create my test program
+	inp := `10 X = CSRLIN`
+
+	l := lexer.New(inp)
+	p := parser.New(l)
+	var mt mocks.MockTerm
+	initMockTerm(&mt)
+	row := 5
+	mt.Row = &row
+	env := object.NewTermEnvironment(mt)
+	p.ParseProgram(env)
+
+	rc := Eval(&ast.Program{}, env.StatementIter(), env)
+
+	res, ok := rc.(*object.Integer)
+
+	assert.True(t, ok, "CSRLIN did not return an integer")
+	assert.Equal(t, int16(row), res.Value)
+}
+
 func Test_FilesCommand(t *testing.T) {
 	tests := []struct {
 		param string

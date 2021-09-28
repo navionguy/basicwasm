@@ -2,9 +2,7 @@ package cli
 
 import (
 	"fmt"
-	"strconv"
 
-	"github.com/navionguy/basicwasm/ast"
 	"github.com/navionguy/basicwasm/evaluator"
 	"github.com/navionguy/basicwasm/lexer"
 	"github.com/navionguy/basicwasm/object"
@@ -88,27 +86,6 @@ func execCommand(input string, env *object.Environment) {
 		if handleExitMsgs(obj, env) {
 			return
 		}
-
-		// TODO: move this into eval code
-		// see if cmd is trying to start execution
-		switch cmd.(type) {
-		case *ast.GotoStatement:
-			stmt := &ast.Program{}
-			strt, err := strconv.Atoi(cmd.(*ast.GotoStatement).Goto)
-
-			if err != nil {
-				giveError(err.Error(), env)
-				return
-			}
-			errmsg := srcIter.Jump(strt)
-
-			if err != nil {
-				giveError(errmsg, env)
-				return
-			}
-			evaluator.Eval(stmt, srcIter, env)
-			break
-		}
 		iter.Next()
 	}
 	env.CmdComplete()
@@ -122,7 +99,9 @@ func handleExitMsgs(rc object.Object, env *object.Environment) bool {
 	case *object.Error:
 		env.Terminal().Println(rc.(*object.Error).Message)
 	case *object.HaltSignal:
-		env.Terminal().Println(rc.(*object.HaltSignal).Msg)
+		if len(rc.(*object.HaltSignal).Msg) > 0 {
+			env.Terminal().Println(rc.(*object.HaltSignal).Msg)
+		}
 	default:
 		return false
 	}

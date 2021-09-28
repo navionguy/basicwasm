@@ -618,6 +618,7 @@ func (cmn *CommonStatement) String() string {
 	return tmp
 }
 
+// Cont command means restarting a stopped program
 type ContCommand struct {
 	Token token.Token
 }
@@ -626,6 +627,15 @@ func (cnt *ContCommand) statementNode()       {}
 func (cnt *ContCommand) TokenLiteral() string { return strings.ToUpper(cnt.Token.Literal) }
 
 func (cnt *ContCommand) String() string { return "CONT" }
+
+// CSRLIN variable serves up the curre
+type Csrlin struct {
+	Token token.Token
+}
+
+func (csr *Csrlin) expressionNode()      {}
+func (csr *Csrlin) TokenLiteral() string { return strings.ToUpper(csr.Token.Literal) }
+func (csr *Csrlin) String() string       { return csr.Token.Literal + " " }
 
 // FilesCommand gets list of files from basic server
 type FilesCommand struct {

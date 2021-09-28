@@ -51,6 +51,9 @@ func Eval(node ast.Node, code *ast.Code, env *object.Environment) object.Object 
 	case *ast.ContCommand:
 		return evalContCommand(node, code, env)
 
+	case *ast.Csrlin:
+		return evalCsrLinExpression(code, env)
+
 	case *ast.DataStatement:
 		return nil
 
@@ -338,6 +341,16 @@ func evalContChkInput(code *ast.Code) {
 	}
 }
 
+// return an integer that tells the current line # for the cursor
+func evalCsrLinExpression(code *ast.Code, env *object.Environment) object.Object {
+	res := object.Integer{}
+
+	row, _ := env.Terminal().GetCursor()
+	res.Value = int16(row)
+
+	return &res
+}
+
 func evalStatements(code *ast.Code, env *object.Environment) object.Object {
 	var rc object.Object
 
@@ -611,6 +624,7 @@ func allocArrayValue(typeid string) object.Object {
 	return obj
 }
 
+// stop execution and close any open files
 func evalEndStatement(end *ast.EndStatement, code *ast.Code, env *object.Environment) object.Object {
 	env.ClearFiles()
 	return &object.HaltSignal{}
@@ -663,21 +677,46 @@ func displayFiles(files *filelist.FileList, env *object.Environment) {
 	env.Terminal().Println("")
 }
 
+// Transfer control to the indicated line number
+// If we aren't currently running, get started!
 func evalGotoStatement(jmp string, code *ast.Code, env *object.Environment) object.Object {
-	v, err := strconv.Atoi(strings.Trim(jmp, " "))
+	line, err := strconv.Atoi(strings.Trim(jmp, " "))
 
 	if err != nil {
 		return stdError(env, berrors.Syntax)
 	}
-	v2 := v
 
-	msg := code.Jump(v2)
+	if env.ProgramRunning() {
+		return evalGotoJump(line, code, env)
+	}
+
+	return evalGotoStart(line, env)
+}
+
+// we are running, jump to new line
+func evalGotoJump(line int, code *ast.Code, env *object.Environment) object.Object {
+
+	msg := code.Jump(line)
 
 	if len(msg) > 0 {
 		return stdError(env, berrors.UnDefinedLineNumber)
 	}
 
-	return &object.Integer{Value: int16(v)}
+	return &object.Integer{Value: int16(line)}
+}
+
+// 'GOTO' entered from command line, start running at target line
+func evalGotoStart(line int, env *object.Environment) object.Object {
+	code := env.StatementIter()
+	msg := code.Jump(line)
+
+	// if I get a msg, line wasn't found
+	if len(msg) > 0 {
+		return stdError(env, berrors.UnDefinedLineNumber)
+	}
+
+	// go run the program
+	return Eval(&ast.Program{}, code, env)
 }
 
 func evalHexConstant(stmt *ast.HexConstant, code *ast.Code, env *object.Environment) object.Object {
