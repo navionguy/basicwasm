@@ -346,7 +346,7 @@ func evalCsrLinExpression(code *ast.Code, env *object.Environment) object.Object
 	res := object.Integer{}
 
 	row, _ := env.Terminal().GetCursor()
-	res.Value = int16(row)
+	res.Value = int16(row) + 1
 
 	return &res
 }

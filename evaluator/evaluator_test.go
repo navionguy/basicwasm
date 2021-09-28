@@ -368,7 +368,7 @@ func Test_CsrLinExpression(t *testing.T) {
 	res, ok := rc.(*object.Integer)
 
 	assert.True(t, ok, "CSRLIN did not return an integer")
-	assert.Equal(t, int16(row), res.Value)
+	assert.Equal(t, int16(row+1), res.Value)
 }
 
 func Test_FilesCommand(t *testing.T) {
