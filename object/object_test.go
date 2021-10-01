@@ -283,3 +283,10 @@ func Test_Restart(t *testing.T) {
 	}
 
 }
+
+func Test_TypedValue(t *testing.T) {
+	tv := TypedVar{TypeID: TYPED_OBJ, Value: &Integer{Value: 5}}
+
+	assert.Equal(t, ObjectType(TYPED_OBJ), tv.Type())
+	assert.Equal(t, "5", tv.Inspect())
+}

@@ -1,17 +1,38 @@
 package mocks
 
-import "fmt"
+import (
+	"fmt"
+	"strings"
+)
 
-type MockTerm struct {
-	Row     *int
-	Col     *int
-	StrVal  *string
-	SawStr  *string
-	SawCls  *bool
-	SawBeep *bool
+type Expector struct {
+	Failed bool
+	Exp    []string
 }
 
-func initMockTerm(mt *MockTerm) {
+func (ep *Expector) chkExpectations(msg string) {
+	if len(ep.Exp) == 0 {
+		return // no Expectations
+	}
+	if strings.Compare(msg, ep.Exp[0]) != 0 {
+		fmt.Print(("unexpected this is ->"))
+		ep.Failed = true
+	}
+	ep.Exp = ep.Exp[1:]
+}
+
+type MockTerm struct {
+	Row      *int
+	Col      *int
+	StrVal   *string
+	SawStr   *string
+	SawCls   *bool
+	SawBeep  *bool
+	SawBreak *bool
+	ExpMsg   Expector
+}
+
+func InitMockTerm(mt *MockTerm) {
 	mt.Row = new(int)
 	*mt.Row = 0
 
@@ -31,6 +52,7 @@ func (mt MockTerm) Cls() {
 
 func (mt MockTerm) Print(msg string) {
 	fmt.Print(msg)
+	mt.ExpMsg.chkExpectations(msg)
 }
 
 func (mt MockTerm) Println(msg string) {
@@ -38,6 +60,7 @@ func (mt MockTerm) Println(msg string) {
 	if mt.SawStr != nil {
 		*mt.SawStr = *mt.SawStr + msg
 	}
+	mt.ExpMsg.chkExpectations(msg)
 }
 
 func (mt MockTerm) SoundBell() {
@@ -79,4 +102,12 @@ func (mt MockTerm) ReadKeys(count int) []byte {
 	mt.StrVal = &v
 
 	return bt[:count]
+}
+
+func (mt MockTerm) BreakCheck() bool {
+	if mt.SawBreak == nil {
+		return false
+	}
+
+	return *mt.SawBreak
 }

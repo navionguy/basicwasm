@@ -3,91 +3,12 @@ package gwtoken
 import (
 	"bufio"
 	"bytes"
-	"fmt"
 	"testing"
 
+	"github.com/navionguy/basicwasm/mocks"
 	"github.com/navionguy/basicwasm/object"
 	"github.com/stretchr/testify/assert"
 )
-
-type mockTerm struct {
-	row     *int
-	col     *int
-	strVal  *string
-	sawStr  *string
-	sawCls  *bool
-	sawBeep *bool
-}
-
-func initMockTerm(mt *mockTerm) {
-	mt.row = new(int)
-	*mt.row = 0
-
-	mt.col = new(int)
-	*mt.col = 0
-
-	mt.strVal = new(string)
-	*mt.strVal = ""
-
-	mt.sawCls = new(bool)
-	*mt.sawCls = false
-}
-
-func (mt mockTerm) Cls() {
-	*mt.sawCls = true
-}
-
-func (mt mockTerm) Print(msg string) {
-	fmt.Print(msg)
-}
-
-func (mt mockTerm) Println(msg string) {
-	fmt.Println(msg)
-	if mt.sawStr != nil {
-		*mt.sawStr = *mt.sawStr + msg
-	}
-}
-
-func (mt mockTerm) SoundBell() {
-	fmt.Print("\x07")
-	*mt.sawBeep = true
-}
-
-func (mt mockTerm) Locate(int, int) {
-}
-
-func (mt mockTerm) GetCursor() (int, int) {
-	return *mt.row, *mt.col
-}
-
-func (mt mockTerm) Read(col, row, len int) string {
-	// make sure your test is correct
-	trim := (row-1)*80 + (col - 1)
-
-	tstr := *mt.strVal
-
-	newstr := tstr[trim : trim+len]
-
-	return newstr
-}
-
-func (mt mockTerm) ReadKeys(count int) []byte {
-	if mt.strVal == nil {
-		return nil
-	}
-
-	bt := []byte(*mt.strVal)
-
-	if count >= len(bt) {
-		mt.strVal = nil
-		return bt
-	}
-
-	v := (*mt.strVal)[:count]
-	mt.strVal = &v
-
-	return bt[:count]
-}
 
 func Test_ParseFile(t *testing.T) {
 	tests := []struct {
@@ -106,8 +27,8 @@ func Test_ParseFile(t *testing.T) {
 	}
 
 	for _, tt := range tests {
-		var mt mockTerm
-		initMockTerm(&mt)
+		var mt mocks.MockTerm
+		mocks.InitMockTerm(&mt)
 		env := object.NewTermEnvironment(mt)
 		rdr := bufio.NewReader(bytes.NewReader(tt.prg))
 		ParseFile(rdr, env)
@@ -192,8 +113,8 @@ func Test_ReadProg(t *testing.T) {
 		src := bufio.NewReader(bytes.NewReader(tt.inp))
 		rdr := progRdr{src: src}
 
-		var mt mockTerm
-		initMockTerm(&mt)
+		var mt mocks.MockTerm
+		mocks.InitMockTerm(&mt)
 		env := object.NewTermEnvironment(mt)
 
 		rdr.readProg(env)
@@ -217,8 +138,8 @@ func Test_ReadProtProg(t *testing.T) {
 		pr := protReader{src: src}
 		rdr := progRdr{src: &pr}
 
-		var mt mockTerm
-		initMockTerm(&mt)
+		var mt mocks.MockTerm
+		mocks.InitMockTerm(&mt)
 		env := object.NewTermEnvironment(mt)
 
 		rdr.readProg(env)
@@ -268,8 +189,8 @@ func Test_ParseProtProg(t *testing.T) {
 	for _, tt := range tests {
 		src := bufio.NewReader(bytes.NewReader(tt.inp))
 
-		var mt mockTerm
-		initMockTerm(&mt)
+		var mt mocks.MockTerm
+		mocks.InitMockTerm(&mt)
 		env := object.NewTermEnvironment(mt)
 
 		ParseProtectedFile(src, env)

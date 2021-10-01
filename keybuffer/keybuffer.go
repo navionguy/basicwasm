@@ -1,9 +1,12 @@
 package keybuffer
 
+import "time"
+
 var buffer []byte
 var read int
 var write int
 var ringsize int
+var sig_break bool
 
 func init() {
 	read = 0
@@ -16,6 +19,9 @@ func init() {
 func SaveKeyStroke(key []byte) {
 	tw := write
 	for _, bt := range key {
+		// ctrl-c means user wants to stop execution
+		checkForCtrlC(bt)
+
 		buffer[tw] = bt
 		tw++
 		if tw == ringsize {
@@ -28,6 +34,24 @@ func SaveKeyStroke(key []byte) {
 		}
 	}
 	write = tw
+}
+
+// checkForCtrlC - looks to flag the user entered a ctrl-c
+func checkForCtrlC(c byte) {
+	if c == 0x03 {
+		sig_break = true
+	}
+}
+
+// has a Ctrl-C been entered
+func BreakSeen() bool {
+	time.Sleep(15 * time.Millisecond)
+	return sig_break
+}
+
+// reset the break flag
+func ClearBreak() {
+	sig_break = false
 }
 
 // ReadByte returns the next byte, caller has to decide if he needs more

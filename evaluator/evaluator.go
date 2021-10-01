@@ -329,7 +329,10 @@ func evalContStart(code *ast.Code, env *object.Environment) object.Object {
 	// see if I should move to the next statement
 	evalContChkInput(code)
 
-	return evalStatements(code, env)
+	env.SetRun(true)
+	rc := evalStatements(code, env)
+	env.SetRun(false)
+	return rc
 }
 
 // skips moving to the next statement if current statement is an Input statement or function
@@ -361,40 +364,59 @@ func evalStatements(code *ast.Code, env *object.Environment) object.Object {
 	for halt := false; ok && !halt; {
 		rc = Eval(code.Value(), code, env)
 
-		ok = evalStatementsErrorChk(rc, env)
-		halt = evalStatementsHaltChk(rc, code, env)
+		halt = evalStatementsErrorChk(rc, env) || evalStatementsHaltChk(rc, code, env)
+
+		hlt := evalStatementsBreakChk(code, env)
+
+		if hlt != nil {
+			rc = hlt
+			halt = true
+		}
 	}
 	return rc
 }
 
-// checks if an error occurs and prints it if it did
+// returns TRUE if it is an error
 func evalStatementsErrorChk(rc object.Object, env *object.Environment) bool {
-	err, ok := rc.(*object.Error)
+	_, ok := rc.(*object.Error)
 
 	if !ok {
-		return true
+		return false
 	}
 
-	env.Terminal().Println(err.Message)
-	return false
+	return true
 }
 
 // check for a halt signal, which just stops execution
-// return code indicates if execution can proceed
+// true indicates execution can proceed
 func evalStatementsHaltChk(rc object.Object, code *ast.Code, env *object.Environment) bool {
-	halt, ok := rc.(*object.HaltSignal)
+	_, ok := rc.(*object.HaltSignal)
 
 	if !ok {
 		// only move to the next statement if I'm not halting
+		// but signal halt if I'm out of code
 		return !code.Next()
-	}
-
-	if len(halt.Msg) != 0 {
-		env.Terminal().Println(halt.Msg)
 	}
 
 	env.SaveRestart(code)
 	return true
+}
+
+// check for a user break - Ctrl-C, returns a halt if it was seen
+func evalStatementsBreakChk(code *ast.Code, env *object.Environment) object.Object {
+	if !env.Terminal().BreakCheck() {
+		return nil
+	}
+	msg := "Break"
+
+	if env.ProgramRunning() {
+		msg = fmt.Sprintf("%s in line %d", msg, code.CurLine())
+	}
+
+	hlt := object.HaltSignal{Msg: msg}
+	env.SaveRestart(code)
+
+	return &hlt
 }
 
 // read constant values out of data statements into variables

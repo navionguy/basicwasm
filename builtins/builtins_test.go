@@ -1,94 +1,15 @@
 package builtins
 
 import (
-	"fmt"
 	"strings"
 	"testing"
 
 	"github.com/navionguy/basicwasm/decimal"
+	"github.com/navionguy/basicwasm/mocks"
 	"github.com/navionguy/basicwasm/object"
 	"github.com/navionguy/basicwasm/token"
 	"github.com/stretchr/testify/assert"
 )
-
-type mockTerm struct {
-	row     *int
-	col     *int
-	strVal  *string
-	sawStr  *string
-	sawCls  *bool
-	sawBeep *bool
-}
-
-func initMockTerm(mt *mockTerm) {
-	mt.row = new(int)
-	*mt.row = 0
-
-	mt.col = new(int)
-	*mt.col = 0
-
-	mt.strVal = new(string)
-	*mt.strVal = ""
-
-	mt.sawCls = new(bool)
-	*mt.sawCls = false
-}
-
-func (mt mockTerm) Cls() {
-	*mt.sawCls = true
-}
-
-func (mt mockTerm) Print(msg string) {
-	fmt.Print(msg)
-}
-
-func (mt mockTerm) Println(msg string) {
-	fmt.Println(msg)
-	if mt.sawStr != nil {
-		*mt.sawStr = *mt.sawStr + msg
-	}
-}
-
-func (mt mockTerm) SoundBell() {
-	fmt.Print("\x07")
-	*mt.sawBeep = true
-}
-
-func (mt mockTerm) Locate(int, int) {
-}
-
-func (mt mockTerm) GetCursor() (int, int) {
-	return *mt.row, *mt.col
-}
-
-func (mt mockTerm) Read(col, row, len int) string {
-	// make sure your test is correct
-	trim := (row-1)*80 + (col - 1)
-
-	tstr := *mt.strVal
-
-	newstr := tstr[trim : trim+len]
-
-	return newstr
-}
-
-func (mt mockTerm) ReadKeys(count int) []byte {
-	if mt.strVal == nil {
-		return nil
-	}
-
-	bt := []byte(*mt.strVal)
-
-	if count >= len(bt) {
-		mt.strVal = nil
-		return bt
-	}
-
-	v := (*mt.strVal)[:count]
-	mt.strVal = &v
-
-	return bt[:count]
-}
 
 func compareObjects(inp string, evald object.Object, want interface{}, t *testing.T) {
 	if evald == nil {
@@ -217,10 +138,10 @@ func runTests(t *testing.T, bltin string, tests []test) {
 
 		assert.True(t, ok, "Failed to find %s() function", bltin)
 
-		var mt mockTerm
-		initMockTerm(&mt)
+		var mt mocks.MockTerm
+		mocks.InitMockTerm(&mt)
 		if len(tt.scrn) > 0 {
-			mt.strVal = &tt.scrn
+			mt.StrVal = &tt.scrn
 		}
 		env := object.NewTermEnvironment(mt)
 
@@ -253,8 +174,8 @@ func TestAbs(t *testing.T) {
 }
 
 func TestAsc(t *testing.T) {
-	var mt mockTerm
-	initMockTerm(&mt)
+	var mt mocks.MockTerm
+	mocks.InitMockTerm(&mt)
 	env := object.NewTermEnvironment(mt)
 	bval := bstrEncode(2, env, &object.Integer{Value: 2251})
 	tests := []test{
@@ -370,9 +291,9 @@ func TestCsng(t *testing.T) {
 func TestCvd(t *testing.T) {
 	// a simple way to get my parameter
 
-	var mt mockTerm
+	var mt mocks.MockTerm
 	fn, _ := Builtins["MKD$"]
-	initMockTerm(&mt)
+	mocks.InitMockTerm(&mt)
 	env := object.NewTermEnvironment(mt)
 	res := fn.Fn(env, fn, &object.Integer{Value: -12})
 
@@ -462,9 +383,9 @@ func TestInputStr(t *testing.T) {
 
 		assert.True(t, ok, "Failed to find %s() function", "INPUT$")
 
-		var mt mockTerm
-		initMockTerm(&mt)
-		mt.strVal = &tt.keys
+		var mt mocks.MockTerm
+		mocks.InitMockTerm(&mt)
+		mt.StrVal = &tt.keys
 		env := object.NewTermEnvironment(mt)
 		if tt.tt.lnum != 0 {
 			env.Set(token.LINENUM, &object.IntDbl{Value: int32(tt.tt.lnum)})
@@ -519,9 +440,9 @@ func TestInt(t *testing.T) {
 func TestLeft(t *testing.T) {
 	// a simple way to get my parameter
 
-	var mt mockTerm
+	var mt mocks.MockTerm
 	fn, _ := Builtins["MKS$"]
-	initMockTerm(&mt)
+	mocks.InitMockTerm(&mt)
 	env := object.NewTermEnvironment(mt)
 	res := fn.Fn(env, fn, &object.IntDbl{Value: 65999})
 
@@ -569,9 +490,9 @@ func TestLPOS(t *testing.T) {
 func TestMID(t *testing.T) {
 	// a simple way to get my parameter
 
-	var mt mockTerm
+	var mt mocks.MockTerm
 	fn, _ := Builtins["MKD$"]
-	initMockTerm(&mt)
+	mocks.InitMockTerm(&mt)
 	env := object.NewTermEnvironment(mt)
 	res := fn.Fn(env, fn, &object.IntDbl{Value: 35456778})
 
@@ -787,8 +708,8 @@ func Test_BstrEncode(t *testing.T) {
 
 	for _, tt := range tests {
 
-		var mt mockTerm
-		initMockTerm(&mt)
+		var mt mocks.MockTerm
+		mocks.InitMockTerm(&mt)
 		env := object.NewTermEnvironment(mt)
 		if tt.lnum != 0 {
 			env.Set(token.LINENUM, &object.IntDbl{Value: int32(tt.lnum)})
@@ -817,8 +738,8 @@ func Test_FixType(t *testing.T) {
 
 	for _, tt := range tests {
 
-		var mt mockTerm
-		initMockTerm(&mt)
+		var mt mocks.MockTerm
+		mocks.InitMockTerm(&mt)
 		env := object.NewTermEnvironment(mt)
 		if tt.lnum != 0 {
 			env.Set(token.LINENUM, &object.IntDbl{Value: int32(tt.lnum)})

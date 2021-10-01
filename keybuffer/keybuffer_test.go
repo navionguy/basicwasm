@@ -1,6 +1,10 @@
 package keybuffer
 
-import "testing"
+import (
+	"testing"
+
+	"github.com/stretchr/testify/assert"
+)
 
 func Test_SaveKeyStroke(t *testing.T) {
 	tests := []struct {
@@ -23,6 +27,17 @@ func Test_SaveKeyStroke(t *testing.T) {
 			t.Errorf("test %s failed, got %d wanted %d", tt.inp, write-read, tt.size)
 		}
 	}
+}
+
+func Test_SawBreak(t *testing.T) {
+	var tt []byte
+	tt = append(tt, 0x03)
+	SaveKeyStroke(tt)
+
+	assert.True(t, sig_break, "Ctrl-C missed!")
+	assert.True(t, BreakSeen(), "Break not seen")
+	ClearBreak()
+	assert.False(t, BreakSeen(), "Flag not reset")
 }
 
 func Test_ReadByte(t *testing.T) {

@@ -327,7 +327,7 @@ func Test_ContCommand_Errors(t *testing.T) {
 //func Test_ContCommand_Start(t *testing.T) {
 func ExampleContCommand() {
 	// create my test program
-	inp := `10 PRINT "Hello!" : END : PRINT "Goodbye!"`
+	inp := `10 PRINT "Hello!" : X = 5: STOP : PRINT "Goodbye!"`
 
 	l := lexer.New(inp)
 	p := parser.New(l)
@@ -336,7 +336,9 @@ func ExampleContCommand() {
 	env := object.NewTermEnvironment(mt)
 	p.ParseProgram(env)
 
+	env.SetRun(true)
 	Eval(&ast.Program{}, env.StatementIter(), env)
+	env.SetRun(false)
 
 	// now try to continue
 	l = lexer.New("CONT")
@@ -953,9 +955,7 @@ func ExampleStopStatement() {
 
 	// Output:
 	// Hello!
-	// Break in line 10
 	// Goodbye!
-	// Break
 }
 
 func TestTronTroffCommands(t *testing.T) {
@@ -1311,6 +1311,7 @@ func ExampleT_strings() {
 	// Hello Goodbye
 }
 
+/*
 func ExampleT_errors() {
 	tests := []struct {
 		input string
@@ -1339,7 +1340,7 @@ func ExampleT_errors() {
 	// type mis-match in 60
 	// unsupport negative on STRING in 70
 	// type mis-match in 80
-}
+}*/
 
 func ExampleT_list() {
 	src := `

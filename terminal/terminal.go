@@ -46,6 +46,10 @@ func (t *Terminal) SoundBell() {
 	js.Global().Get("document").Call("getElementById", "chatAudio").Call("play")
 }
 
+// TODO Log basicwasm information via call to javascript function
+func (t *Terminal) Log(msg string) {
+}
+
 // Cls clears the terminal of all text
 func (t *Terminal) Cls() {
 	t.term.Call("clear")
@@ -87,4 +91,11 @@ func (t *Terminal) ReadKeys(count int) []byte {
 	}
 
 	return keys
+}
+
+func (t *Terminal) BreakCheck() bool {
+	bc := keybuffer.BreakSeen()
+	keybuffer.ClearBreak()
+
+	return bc
 }
