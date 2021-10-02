@@ -64,7 +64,8 @@ func (e *Environment) Set(name string, val Object) Object {
 
 // save a restart point
 func (e *Environment) SaveRestart(cd *ast.Code) {
-	e.cont = cd
+	rcd := *cd    // make a copy of code struct
+	e.cont = &rcd // save it for later
 }
 
 // get a restart point, nil if there is none

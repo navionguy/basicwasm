@@ -174,7 +174,7 @@ func (cd *Code) addLine(lineNum int) {
 
 // CurLine returns the current executing line number or zero if there isn't one
 func (cd *Code) CurLine() int {
-	return cd.currLine
+	return cd.lines[cd.currIndex].lineNum
 }
 
 // tries to find the requested line number in the array of lines

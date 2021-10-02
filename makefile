@@ -12,6 +12,7 @@
 
 ./webmodules/gwbasic.wasm : ./webmodules/src/gwbasic/gwbasic.go \
 			./ast/ast.go \
+			./ast/program.go \
 			./berrors/berrors.go \
 			./builtins/builtins.go \
 			./cli/cli.go \
@@ -25,6 +26,7 @@
 			./lexer/lexer.go \
 			./makefile \
 			./object/object.go \
+			./object/environ.go \
  			./parser/parser.go \
 			./parser/parser_trace.go \
 			./token/token.go \
