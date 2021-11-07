@@ -48,6 +48,7 @@ func (t *Terminal) SoundBell() {
 
 // TODO Log basicwasm information via call to javascript function
 func (t *Terminal) Log(msg string) {
+	js.Global().Call("consoleMsg", msg)
 }
 
 // Cls clears the terminal of all text
@@ -61,8 +62,8 @@ func (t *Terminal) Cls() {
 // NOTE: Cursor position is based on the upper left
 // position being 0,0
 func (t *Terminal) GetCursor() (int, int) { // row,col
-	col := t.term.Get("buffer").Get("_buffers").Get("_activeBuffer").Get("x").Int()
-	row := t.term.Get("buffer").Get("_buffers").Get("_activeBuffer").Get("y").Int()
+	col := t.term.Get("buffer").Get("active").Get("cursorX").Int()
+	row := t.term.Get("buffer").Get("active").Get("cursorY").Int()
 
 	return row, col
 }

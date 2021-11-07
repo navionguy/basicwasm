@@ -68,6 +68,10 @@ func (mt MockTerm) SoundBell() {
 	*mt.SawBeep = true
 }
 
+func (mt MockTerm) Log(msg string) {
+	fmt.Println(msg)
+}
+
 func (mt MockTerm) Locate(int, int) {
 }
 

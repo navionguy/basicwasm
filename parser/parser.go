@@ -201,10 +201,10 @@ func (p *Parser) parseStatement() ast.Statement {
 		return nil
 	case token.FILES:
 		return p.parseFilesCommand()
-	case token.GOTO:
-		return p.parseGotoStatement()
 	case token.GOSUB:
 		return p.parseGosubStatement()
+	case token.GOTO:
+		return p.parseGotoStatement()
 	case token.IF:
 		return p.parseExpressionStatement()
 	case token.LET:
@@ -920,6 +920,24 @@ func (p *Parser) parseNewCommand() *ast.NewCommand {
 	return &cmd
 }
 
+// gosub - uncondition transfer to subroutine
+func (p *Parser) parseGosubStatement() *ast.GosubStatement {
+	defer untrace(trace("parseGosubStatement"))
+	stmt := ast.GosubStatement{Token: p.curToken, Gosub: 0}
+
+	if !p.expectPeek(token.INT) {
+		return &stmt
+	}
+
+	stmt.Gosub, _ = strconv.Atoi(p.curToken.Literal)
+
+	if p.peekTokenIs(token.COLON) { // if a colon follows consume it
+		p.nextToken()
+	}
+
+	return &stmt
+}
+
 // goto - uncondition transfer to line
 func (p *Parser) parseGotoStatement() *ast.GotoStatement {
 	defer untrace(trace("parseGotoStatement"))
@@ -930,24 +948,6 @@ func (p *Parser) parseGotoStatement() *ast.GotoStatement {
 	}
 
 	stmt.Goto = p.curToken.Literal
-
-	if p.peekTokenIs(token.COLON) { // if a colon follows consume it
-		p.nextToken()
-	}
-
-	return &stmt
-}
-
-// gosub - uncondition transfer to subroutine
-func (p *Parser) parseGosubStatement() *ast.GosubStatement {
-	defer untrace(trace("parseGosubStatement"))
-	stmt := ast.GosubStatement{Token: p.curToken, Gosub: ""}
-
-	if !p.expectPeek(token.INT) {
-		return nil
-	}
-
-	stmt.Gosub = p.curToken.Literal
 
 	if p.peekTokenIs(token.COLON) { // if a colon follows consume it
 		p.nextToken()

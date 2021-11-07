@@ -72,6 +72,9 @@ func Eval(node ast.Node, code *ast.Code, env *object.Environment) object.Object 
 	case *ast.ExpressionStatement:
 		return Eval(node.Expression, code, env)
 
+	case *ast.GosubStatement:
+		return evalGosubStatement(node, code, env)
+
 	case *ast.GotoStatement:
 		return evalGotoStatement(strings.Trim(node.Goto, " "), code, env)
 
@@ -171,6 +174,9 @@ func Eval(node ast.Node, code *ast.Code, env *object.Environment) object.Object 
 
 	case *ast.RemStatement:
 		return nil // nothing to be done
+
+	case *ast.ReturnStatement:
+		return evalReturnStatement(node, code, env)
 
 	case *ast.RunCommand:
 		return evalRunCommand(node, code, env)
@@ -478,6 +484,21 @@ func evalRestoreStatement(rst *ast.RestoreStatement, code *ast.Code, env *object
 	return nil
 }
 
+// evalReturnStatement gets you back to where the sub-routine was called
+// alternatively, allows you to recover from an event trap <- ToDo
+func evalReturnStatement(ret *ast.ReturnStatement, code *ast.Code, env *object.Environment) object.Object {
+	// get code iterator pointing to where I need to be
+	cd := env.Pop()
+
+	// check for stack underflow
+	if cd == nil {
+		return stdError(env, berrors.ReturnWoGosub)
+	}
+
+	*code = *cd
+	return nil
+}
+
 // actually run the program
 // ToDo: close open data files (as soon as I support data files)
 func evalRunCommand(run *ast.RunCommand, code *ast.Code, env *object.Environment) object.Object {
@@ -697,6 +718,23 @@ func displayFiles(files *filelist.FileList, env *object.Environment) {
 		}
 	}
 	env.Terminal().Println("")
+}
+
+// push current code position then jump to new position
+func evalGosubStatement(gosub *ast.GosubStatement, code *ast.Code, env *object.Environment) object.Object {
+	// if 0, means no line number specified
+	if gosub.Gosub == 0 {
+		return stdError(env, berrors.Syntax)
+	}
+	// check that the line exists
+	if !code.Exists(gosub.Gosub) {
+		return stdError(env, berrors.UnDefinedLineNumber)
+	}
+
+	// save the return address and jump to the sub-routine
+	env.Push(*code)
+	code.Jump(gosub.Gosub)
+	return nil
 }
 
 // Transfer control to the indicated line number

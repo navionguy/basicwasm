@@ -426,6 +426,19 @@ func TestCodeIterValue(t *testing.T) {
 	}
 }
 
+func Test_DataStatement(t *testing.T) {
+	dt := DataStatement{Token: token.Token{Type: token.DATA, Literal: "DATA"},
+		Consts: []Expression{
+			&IntegerLiteral{Value: 12},
+			&StringLiteral{Value: "Fred"},
+		}}
+
+	dt.statementNode()
+
+	assert.Equal(t, "DATA", dt.TokenLiteral())
+	assert.Equal(t, `DATA 12, "Fred"`, dt.String())
+}
+
 func TestData(t *testing.T) {
 	tests := []struct {
 		inp []codeLine
@@ -493,6 +506,28 @@ func TestData(t *testing.T) {
 			}
 		}
 	}
+}
+
+func Test_DimStatement(t *testing.T) {
+	id1 := Identifier{Token: token.Token{Type: token.IDENT, Literal: "T[]"}, Value: "[]", Type: "", Index: []*IndexExpression{
+		{Left: &IntegerLiteral{Token: token.Token{Type: token.INT, Literal: "10"}, Value: 5},
+			Index: &Identifier{Value: "10"},
+		},
+	}, Array: true}
+	id2 := Identifier{Token: token.Token{Type: token.IDENT, Literal: "X[]"}, Value: "[]", Type: "", Index: []*IndexExpression{
+		{Left: &IntegerLiteral{Token: token.Token{Type: token.INT, Literal: "10"}, Value: 5},
+			Index: &Identifier{Value: "10"},
+		},
+		{Left: &IntegerLiteral{Token: token.Token{Type: token.INT, Literal: "20"}, Value: 5},
+			Index: &Identifier{Value: "20"},
+		},
+	}, Array: true}
+	dim := DimStatement{Token: token.Token{Type: token.DIM, Literal: "DIM"}, Vars: []*Identifier{&id1, &id2}}
+
+	dim.statementNode()
+
+	assert.Equal(t, "DIM", dim.TokenLiteral())
+	assert.Equal(t, "DIM T[10], X[10,20]", dim.String())
 }
 
 // a long, dump test case
@@ -733,6 +768,14 @@ func Test_RemStatement(t *testing.T) {
 	assert.Equal(t, stmt.String(), "REM A Comment", "Rem statement didn't build string correctly")
 }
 
+func Test_ReturnStatement(t *testing.T) {
+	stmt := &ReturnStatement{Token: token.Token{Type: token.RETURN, Literal: "RETURN"}, ReturnTo: "1000"}
+
+	stmt.statementNode()
+	assert.Equal(t, "RETURN", stmt.TokenLiteral())
+	assert.Equal(t, "RETURN 1000", stmt.String())
+}
+
 func Test_RunCommand(t *testing.T) {
 	tests := []struct {
 		cmd RunCommand
@@ -760,6 +803,15 @@ func Test_StopStatement(t *testing.T) {
 
 	assert.Equal(t, token.STOP, stop.TokenLiteral())
 	assert.Equal(t, "STOP ", stop.String())
+}
+
+func Test_StringLiteral(t *testing.T) {
+	str := &StringLiteral{Token: token.Token{Type: token.STRING, Literal: "STRING"}, Value: `Test String`}
+
+	str.expressionNode()
+
+	assert.Equal(t, "STRING", str.TokenLiteral())
+	assert.Equal(t, "\"Test String\"", str.String())
 }
 
 func Test_TronTroffCommands(t *testing.T) {

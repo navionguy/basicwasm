@@ -284,6 +284,41 @@ func Test_Restart(t *testing.T) {
 
 }
 
+func Test_Stack(t *testing.T) {
+	tests := []struct {
+		pushCount int
+		popCount  int
+		expNil    bool
+	}{
+		{pushCount: 3, popCount: 4, expNil: true},
+		{pushCount: 3, popCount: 3, expNil: false},
+	}
+
+	for _, tt := range tests {
+		env := newEnvironment()
+		for i := 0; i < tt.pushCount; i++ {
+			cd := ast.Code{}
+			env.Push(cd)
+		}
+
+		nilSeen := false
+		for i := 0; i < tt.popCount; i++ {
+			rc := env.Pop()
+
+			if rc == nil {
+				nilSeen = true
+				if !tt.expNil {
+					t.Fatalf("push(%d), pop(%d) resulted in nil result", tt.pushCount, tt.popCount)
+				}
+			}
+		}
+
+		if nilSeen != tt.expNil {
+			assert.Equal(t, tt.expNil, nilSeen)
+		}
+	}
+}
+
 func Test_TypedValue(t *testing.T) {
 	tv := TypedVar{TypeID: TYPED_OBJ, Value: &Integer{Value: 5}}
 

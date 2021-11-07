@@ -299,6 +299,7 @@ func (i *Identifier) expressionNode() {}
 func (i *Identifier) TokenLiteral() string {
 	return strings.ToUpper(i.Token.Literal)
 }
+
 func (i *Identifier) String() string {
 	var out bytes.Buffer
 
@@ -489,7 +490,8 @@ type DataStatement struct {
 	Consts []Expression
 }
 
-func (ds *DataStatement) statementNode() {}
+func (ds *DataStatement) statementNode()       {}
+func (ds *DataStatement) TokenLiteral() string { return ds.Token.Literal }
 
 // String sends my contents
 func (ds *DataStatement) String() string {
@@ -497,18 +499,14 @@ func (ds *DataStatement) String() string {
 
 	out.WriteString(ds.Token.Literal)
 	out.WriteString(" ")
-	for _, c := range ds.Consts {
+	for i, c := range ds.Consts {
+		if i != 0 {
+			out.WriteString(", ")
+		}
 		out.WriteString(c.String())
-		out.WriteString(", ")
 	}
 
 	return out.String()
-}
-
-// TokenLiteral returns my token
-func (ds *DataStatement) TokenLiteral() string {
-
-	return ds.Token.Literal
 }
 
 // DimStatement holds the dimension data for an Identifier
@@ -517,36 +515,20 @@ type DimStatement struct {
 	Vars  []*Identifier
 }
 
-func (ds *DimStatement) statementNode() {}
+func (ds *DimStatement) statementNode()       {}
+func (ds *DimStatement) TokenLiteral() string { return ds.Token.Literal }
 
 // String displays the statment
 func (ds *DimStatement) String() string {
 	var out bytes.Buffer
 
-	params := []string{}
-	for _, v := range ds.Vars {
-		params = append(params, v.String())
-	}
-
 	out.WriteString("DIM ")
-	out.WriteString(strings.Join(params, ", "))
-
-	tmp := out.String()
-	return tmp
-}
-
-// TokenLiteral displays the full Dim statement
-func (ds *DimStatement) TokenLiteral() string {
-	var out bytes.Buffer
-
-	params := []string{}
-	for _, v := range ds.Vars {
-		params = append(params, v.String())
+	for i, v := range ds.Vars {
+		if i != 0 {
+			out.WriteString(", ")
+		}
+		out.WriteString(v.String())
 	}
-
-	out.WriteString(ds.TokenLiteral())
-	out.WriteString(" ")
-	out.WriteString(strings.Join(params, ", "))
 
 	return out.String()
 }
@@ -713,6 +695,26 @@ func (rs *RestoreStatement) String() string {
 	return out.String()
 }
 
+// ReturnStatement holds a return
+type ReturnStatement struct {
+	Token    token.Token // the 'return' token
+	ReturnTo string      // in gwbasic, you can return to a line # rather thant the point of the GOSUB
+}
+
+func (rs *ReturnStatement) statementNode()       {}
+func (rs *ReturnStatement) TokenLiteral() string { return strings.ToUpper(rs.Token.Literal) }
+func (rs *ReturnStatement) String() string {
+	var out bytes.Buffer
+
+	out.WriteString(rs.TokenLiteral() + " ")
+
+	if rs.ReturnTo != "" {
+		out.WriteString(rs.ReturnTo)
+	}
+
+	return out.String()
+}
+
 // StringLiteral holds an StringLiteral eg. "Hello World"
 type StringLiteral struct {
 	Token token.Token
@@ -865,28 +867,6 @@ func (bs *BlockStatement) String() string {
 	return out.String()
 }
 
-// ReturnStatement holds a return
-type ReturnStatement struct {
-	Token    token.Token // the 'return' token
-	ReturnTo string      // in gwbasic, you can return to a line # rather thant the point of the GOSUB
-}
-
-func (rs *ReturnStatement) statementNode() {}
-
-// TokenLiteral should be RETURN
-func (rs *ReturnStatement) TokenLiteral() string { return strings.ToUpper(rs.Token.Literal) }
-func (rs *ReturnStatement) String() string {
-	var out bytes.Buffer
-
-	out.WriteString(rs.TokenLiteral() + " ")
-
-	if rs.ReturnTo != "" {
-		out.WriteString(rs.ReturnTo)
-	}
-
-	return out.String()
-}
-
 // GotoStatement triggers a jump
 type GotoStatement struct {
 	Token token.Token
@@ -908,7 +888,7 @@ func (gt *GotoStatement) String() string {
 // GosubStatement call subroutine
 type GosubStatement struct {
 	Token token.Token
-	Gosub string
+	Gosub int
 }
 
 func (gsb *GosubStatement) statementNode() {}
@@ -918,7 +898,7 @@ func (gsb *GosubStatement) TokenLiteral() string { return strings.ToUpper(gsb.To
 func (gsb *GosubStatement) String() string {
 	var out bytes.Buffer
 
-	out.WriteString(gsb.TokenLiteral() + " " + gsb.Gosub)
+	out.WriteString("GOSUB " + fmt.Sprintf("%d", gsb.Gosub))
 
 	return out.String()
 }

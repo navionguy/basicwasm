@@ -15,6 +15,7 @@ type Console interface {
 	Println(string)
 
 	Locate(int, int)
+	Log(string)
 	GetCursor() (int, int)
 	Read(col, row, len int) string
 	ReadKeys(count int) []byte
@@ -45,6 +46,7 @@ type Environment struct {
 	client  HttpClient       // for making server requests
 	run     bool             // program is currently execute, if false, a command is executing
 	cont    *ast.Code        // save program iterator due to STOP, END or ctrl-C to allow continue command CONT
+	stack   []ast.Code       // return addresses for GOSUB/RETURN
 }
 
 // Get attempts to retrieve an object from the environment
@@ -73,6 +75,25 @@ func (e *Environment) GetRestart() *ast.Code {
 	cd := e.cont
 	e.cont = nil
 	return cd
+}
+
+// Push an address, returns stack size
+func (e *Environment) Push(cd ast.Code) int {
+	e.stack = append(e.stack, cd)
+	return len(e.stack)
+}
+
+// Pop a return address, nil means stack is empty
+func (e *Environment) Pop() *ast.Code {
+	l := len(e.stack)
+	if l == 0 {
+		return nil
+	}
+
+	cd := e.stack[l-1]
+	e.stack = e.stack[:l-1]
+
+	return &cd
 }
 
 // ClearVars empties the map of environment objects

@@ -8,6 +8,7 @@ import (
 	"strings"
 
 	"github.com/navionguy/basicwasm/ast"
+	"github.com/navionguy/basicwasm/berrors"
 	"github.com/navionguy/basicwasm/decimal"
 	"github.com/navionguy/basicwasm/lexer"
 	"github.com/navionguy/basicwasm/mocks"
@@ -451,6 +452,29 @@ func Test_CatchNotDir(t *testing.T) {
 	}
 }
 
+func Test_GosubStatement(t *testing.T) {
+	tests := []struct {
+		inp string
+	}{
+		{inp: "10 GOSUB"},
+		{inp: "10 GOSUB 30"},
+		{inp: "10 GOSUB 30\n20 END\n30 STOP"},
+	}
+
+	for _, tt := range tests {
+
+		l := lexer.New(tt.inp)
+		p := parser.New(l)
+		var mt mocks.MockTerm
+		initMockTerm(&mt)
+		env := object.NewTermEnvironment(mt)
+
+		p.ParseProgram(env)
+		itr := env.StatementIter()
+		Eval(&ast.Program{}, itr, env)
+	}
+}
+
 func TestEvalIntegerExpression(t *testing.T) {
 	tests := []struct {
 		input    string
@@ -875,6 +899,51 @@ func Test_RestoreStatement(t *testing.T) {
 			compareObjects(tt.inp, res, tt.exp, t)
 		}
 	}
+}
+
+func Test_ReturnStatement(t *testing.T) {
+	tests := []struct {
+		src string
+		err int
+	}{
+		{src: `10 RETURN`, err: berrors.ReturnWoGosub},
+	}
+
+	for _, tt := range tests {
+		res := testEval(tt.src)
+
+		if tt.err != 0 {
+			var mt mocks.MockTerm
+			initMockTerm(&mt)
+			env := object.NewTermEnvironment(mt)
+
+			assert.Equal(t, stdError(env, tt.err), res)
+		}
+	}
+}
+
+func ExampleReturnStatement() {
+	prg := `10 GOSUB 100
+	20 PRINT "I'm back!"
+	30 END
+	100 PRINT "Subroutine"
+	110 RETURN`
+
+	l := lexer.New(prg)
+	p := parser.New(l)
+	var mt mocks.MockTerm
+	initMockTerm(&mt)
+	env := object.NewTermEnvironment(mt)
+
+	p.ParseProgram(env)
+
+	env.SetRun(true)
+	Eval(&ast.Program{}, env.StatementIter(), env)
+	env.SetRun(false)
+
+	// Output:
+	// Subroutine
+	// I'm back!
 }
 
 func Test_RunParameters(t *testing.T) {

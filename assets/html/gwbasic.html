@@ -66,6 +66,10 @@
 </audio>
 </body>
      <script> 
+     function consoleMsg(msg) {
+        console.log(msg)
+     }
+
        var loc = location.href;
        document.getElementById('momma').innerHTML = loc;
         var printMessage
@@ -74,7 +78,7 @@
         term.loadAddon( fitAddon );
 
         term.onKey(key => {
-          buff = term.buffer._buffers._activeBuffer
+          buff = term.buffer.active
           keyPress(key.key)
         });
 

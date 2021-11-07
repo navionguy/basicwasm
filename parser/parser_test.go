@@ -1467,10 +1467,10 @@ func TestGosubStatements(t *testing.T) {
 	tests := []struct {
 		input         string
 		expStmts      int
-		expectedValue string
+		expectedValue int
 	}{
-		{"10 GOSUB 100", 2, "100"},
-		{"20 GOSUB 100 : GOSUB 200", 3, "100"},
+		{"10 GOSUB 100", 2, 100},
+		{"20 GOSUB 100 : GOSUB 200", 3, 100},
 	}
 
 	for _, tt := range tests {
@@ -1496,7 +1496,7 @@ func TestGosubStatements(t *testing.T) {
 			t.Fatalf("returnStmt.TokenLiteral not 'GOSUB', got %q", gosubStmt.TokenLiteral())
 		}
 		if gosubStmt.Gosub != tt.expectedValue {
-			t.Fatalf("expected linenum %s, got %s", tt.expectedValue, gosubStmt.Gosub)
+			t.Fatalf("expected linenum %d, got %d", tt.expectedValue, gosubStmt.Gosub)
 		}
 	}
 }
