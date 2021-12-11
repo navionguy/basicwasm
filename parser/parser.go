@@ -219,6 +219,8 @@ func (p *Parser) parseStatement() ast.Statement {
 		return p.parseLoadCommand()
 	case token.NEW:
 		return p.parseNewCommand()
+	case token.PALETTE:
+		return p.parsePaletteStatement()
 	case token.READ:
 		return p.parseReadStatement()
 	case token.REM:
@@ -229,6 +231,8 @@ func (p *Parser) parseStatement() ast.Statement {
 		return p.parseReturnStatement()
 	case token.RUN:
 		return p.parseRunCommand()
+	case token.SCREEN:
+		return p.parseScreenCommand()
 	case token.STOP:
 		return p.parseStopStatement()
 	case token.TROFF:
@@ -816,8 +820,45 @@ func (p *Parser) parsePrintStatement() *ast.PrintStatement {
 	return stmt
 }
 
+// returns true if the next token would put us at the end of a statement
 func (p *Parser) chkEndOfStatement() bool {
 	return p.peekTokenIs(token.COLON) || p.peekTokenIs(token.LINENUM) || p.peekTokenIs(token.EOF) || p.peekTokenIs(token.EOL)
+}
+
+// gosub - uncondition transfer to subroutine
+func (p *Parser) parseGosubStatement() *ast.GosubStatement {
+	defer untrace(trace("parseGosubStatement"))
+	stmt := ast.GosubStatement{Token: p.curToken, Gosub: 0}
+
+	if !p.expectPeek(token.INT) {
+		return &stmt
+	}
+
+	stmt.Gosub, _ = strconv.Atoi(p.curToken.Literal)
+
+	if p.peekTokenIs(token.COLON) { // if a colon follows consume it
+		p.nextToken()
+	}
+
+	return &stmt
+}
+
+// goto - uncondition transfer to line
+func (p *Parser) parseGotoStatement() *ast.GotoStatement {
+	defer untrace(trace("parseGotoStatement"))
+	stmt := ast.GotoStatement{Token: p.curToken, Goto: ""}
+
+	if !p.expectPeek(token.INT) {
+		return nil
+	}
+
+	stmt.Goto = p.curToken.Literal
+
+	if p.peekTokenIs(token.COLON) { // if a colon follows consume it
+		p.nextToken()
+	}
+
+	return &stmt
 }
 
 func (p *Parser) parseLetStatement() *ast.LetStatement {
@@ -920,40 +961,42 @@ func (p *Parser) parseNewCommand() *ast.NewCommand {
 	return &cmd
 }
 
-// gosub - uncondition transfer to subroutine
-func (p *Parser) parseGosubStatement() *ast.GosubStatement {
-	defer untrace(trace("parseGosubStatement"))
-	stmt := ast.GosubStatement{Token: p.curToken, Gosub: 0}
+// adjust the screen color palette as directed
+func (p *Parser) parsePaletteStatement() *ast.PaletteStatement {
+	defer untrace(trace("parsePaletteStatement"))
+	stmt := &ast.PaletteStatement{Token: p.curToken}
+	p.nextToken()
 
-	if !p.expectPeek(token.INT) {
-		return &stmt
+	// check to see if this is a USING version
+	if p.curTokenIs(token.USING) {
+		return p.parsePaletteUsingStatement(stmt)
 	}
 
-	stmt.Gosub, _ = strconv.Atoi(p.curToken.Literal)
-
-	if p.peekTokenIs(token.COLON) { // if a colon follows consume it
-		p.nextToken()
-	}
-
-	return &stmt
+	// go handle a single attribute
+	return p.parsePaletteSingleStatement(stmt)
 }
 
-// goto - uncondition transfer to line
-func (p *Parser) parseGotoStatement() *ast.GotoStatement {
-	defer untrace(trace("parseGotoStatement"))
-	stmt := ast.GotoStatement{Token: p.curToken, Goto: ""}
+// parse PALETTE single attribute
+func (p *Parser) parsePaletteSingleStatement(stmt *ast.PaletteStatement) *ast.PaletteStatement {
+	stmt.Attrib = p.parseIdentifier()
+	p.nextToken()
 
-	if !p.expectPeek(token.INT) {
+	if !p.curTokenIs(token.COMMA) {
+		p.reportError(berrors.Syntax)
 		return nil
 	}
+	p.nextToken()
+	stmt.Color = p.parseIdentifier()
+	return stmt
+}
 
-	stmt.Goto = p.curToken.Literal
+// parse a PALETTE USING statement
+func (p *Parser) parsePaletteUsingStatement(stmt *ast.PaletteStatement) *ast.PaletteStatement {
+	// move to the variable to use
+	p.nextToken()
 
-	if p.peekTokenIs(token.COLON) { // if a colon follows consume it
-		p.nextToken()
-	}
-
-	return &stmt
+	stmt.Color = p.parseIdentifier()
+	return stmt
 }
 
 // read constant data from DATA statements
@@ -1097,13 +1140,68 @@ func (p *Parser) parseRunValidFlag(cmd ast.RunCommand) *ast.RunCommand {
 	return &cmd
 }
 
-func (p *Parser) parseStopStatement() *ast.StopStatement {
-	defer untrace(trace("parseStopStatement"))
-	stmt := &ast.StopStatement{Token: p.curToken}
+// ScreenStatement allows user to configure screen mode for
+// different display adapters.  MDA,CGA,EGA and such
+func (p *Parser) parseScreenCommand() *ast.ScreenStatement {
+	// create my object
+	stmt := ast.ScreenStatement{Token: p.curToken}
 
-	return stmt
+	// need to move past the SCREEN token, unless their are no params
+	if p.chkEndOfStatement() {
+		p.reportError(berrors.MissingOp)
+		return &stmt
+	}
+	p.nextToken()
+
+	return p.parseScreenCommandParameters(stmt)
 }
 
+// parse the parameters for the SCREEN statement
+func (p *Parser) parseScreenCommandParameters(stmt ast.ScreenStatement) *ast.ScreenStatement {
+	// load up all the parameters, max 4
+
+	done := false
+	for ; !done; p.nextToken() {
+		p.parseScreenCommandParam(&stmt)
+
+		// if there is a trailing comma, there is likely more params
+		if p.peekTokenIs(token.COMMA) {
+			p.nextToken()
+		}
+
+		done = p.chkEndOfStatement()
+	}
+
+	// check for too many params
+	if len(stmt.Params) > 4 {
+		p.reportError(berrors.Syntax)
+	}
+
+	return &stmt
+}
+
+// consume the next SCREEN parameter
+func (p *Parser) parseScreenCommandParam(stmt *ast.ScreenStatement) {
+	// if it is a comma, user is skipping a parameter
+	if p.curTokenIs(token.COMMA) {
+		stmt.Params = append(stmt.Params, nil)
+		return
+	}
+
+	// parse the expression to calculate the parameter
+	exp := p.parseExpression(LOWEST)
+	stmt.Params = append(stmt.Params, exp)
+}
+
+// not much to do, just return a StopStatement object
+func (p *Parser) parseStopStatement() *ast.StopStatement {
+	defer untrace(trace("parseStopStatement"))
+	stmt := ast.StopStatement{Token: p.curToken}
+
+	return &stmt
+}
+
+// start parsing an Identifier
 func (p *Parser) parseIdentifier() ast.Expression {
 	defer untrace(trace("parseIdentifier"))
 	exp := p.innerParseIdentifier()
@@ -1111,6 +1209,7 @@ func (p *Parser) parseIdentifier() ast.Expression {
 	return exp
 }
 
+// innerParseIdentifier is called from many other statements consume identifiers
 func (p *Parser) innerParseIdentifier() *ast.Identifier {
 	defer untrace(trace("innerParseIdentifier"))
 	exp := &ast.Identifier{Token: p.curToken, Value: strings.ToUpper(p.curToken.Literal)}
@@ -1149,6 +1248,7 @@ func (p *Parser) innerParseIdentifier() *ast.Identifier {
 	return exp
 }
 
+// true if curToken has same type as t
 func (p *Parser) curTokenIs(t token.TokenType) bool {
 	return p.curToken.Type == t
 }

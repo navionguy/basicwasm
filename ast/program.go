@@ -118,6 +118,9 @@ func (p *Program) AddCmdStmt(stmt Statement) {
 // StatementIter lets them iterate over lines
 func (p *Program) StatementIter() *Code {
 	p.code.currIndex = 0
+	if p.code.Len() > 0 {
+		p.code.lines[0].curStmt = 0
+	}
 
 	return p.code
 }
@@ -141,6 +144,10 @@ func (p *Program) ConstData() *ConstData {
 
 	return p.data
 }
+
+// Stuff for my Code object
+func (cd *Code) TokenLiteral() string { return "" }
+func (cd *Code) String() string       { return "The Code" }
 
 // going to add, or possibly replace, a line of code
 func (cd *Code) addLine(lineNum int) {

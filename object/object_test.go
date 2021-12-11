@@ -7,6 +7,7 @@ import (
 	"github.com/navionguy/basicwasm/ast"
 	"github.com/navionguy/basicwasm/decimal"
 	"github.com/navionguy/basicwasm/mocks"
+	"github.com/navionguy/basicwasm/settings"
 	"github.com/navionguy/basicwasm/token"
 	"github.com/stretchr/testify/assert"
 )
@@ -74,9 +75,9 @@ func Test_CodeInterface(t *testing.T) {
 	// first test statements
 
 	env.AddStatement(&ast.LineNumStmt{Token: token.Token{Type: token.LINENUM, Literal: "10"}, Value: 10})
-	env.cont = &ast.Code{}
+	env.SaveSetting(settings.Restart, &ast.LineNumStmt{})
 	env.AddStatement(&ast.StopStatement{})
-	assert.Nil(t, env.cont, "continuation data failed to clear")
+	//assert.Nil(t, env.cont, "continuation data failed to clear")
 
 	itr := env.StatementIter()
 	assert.NotNil(t, itr, "no statement iterator")
@@ -270,14 +271,14 @@ func Test_Restart(t *testing.T) {
 		itr := env.program.StatementIter()
 		itr.Next()
 
-		env.SaveRestart(itr)
+		env.SaveSetting(settings.Restart, itr)
 
 		if tt.noval {
 			itr = nil
 			env.program.StatementIter()
 		}
 
-		itr2 := env.GetRestart()
+		itr2 := env.GetSetting(settings.Restart)
 
 		assert.Equal(t, itr, itr2, "%s got %T, wanted %T", tt.title, itr2, itr)
 	}

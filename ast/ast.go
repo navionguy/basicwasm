@@ -284,42 +284,6 @@ func (fls *FilesCommand) String() string {
 	return strings.Trim(fc, " ")
 }
 
-// Identifier holds the token for the identifier in the statement
-type Identifier struct {
-	Token token.Token // the token.IDENT token Value string, arrays can be [] or ()
-	Value string      // for an array, will always have []
-	Type  string
-	Index []*IndexExpression
-	Array bool
-}
-
-func (i *Identifier) expressionNode() {}
-
-// TokenLiteral returns literal value of the identifier
-func (i *Identifier) TokenLiteral() string {
-	return strings.ToUpper(i.Token.Literal)
-}
-
-func (i *Identifier) String() string {
-	var out bytes.Buffer
-
-	if i.Array {
-		out.WriteString(i.Token.Literal[:len(i.Token.Literal)-1])
-		for x, ind := range i.Index {
-			out.WriteString(ind.String())
-
-			if x+1 < len(i.Index) {
-				out.WriteString(",")
-			}
-		}
-		out.WriteString(i.Token.Literal[len(i.Token.Literal)-1:])
-	} else {
-		out.WriteString(i.Value)
-	}
-
-	return out.String()
-}
-
 // FunctionLiteral starts the definition of a user function
 type FunctionLiteral struct {
 	Token      token.Token // The 'DEF' token
@@ -454,6 +418,17 @@ func (lct *LocateStatement) String() string {
 	return "LOCATE " + stmt
 }
 
+// user wants to change the color palette
+type PaletteStatement struct {
+	Token  token.Token // token.PALETTE
+	Attrib Expression  // index of attribute to change
+	Color  Expression  // color value to use, array of values for PALETTE USING
+}
+
+func (plt *PaletteStatement) statementNode()       {}
+func (plt *PaletteStatement) TokenLiteral() string { return strings.ToUpper(plt.Token.Literal) }
+func (plt *PaletteStatement) String() string       { return "PALETTE " }
+
 // NewCommand clears the program and variables
 type NewCommand struct {
 	Token token.Token // my Token
@@ -528,6 +503,37 @@ func (ds *DimStatement) String() string {
 			out.WriteString(", ")
 		}
 		out.WriteString(v.String())
+	}
+
+	return out.String()
+}
+
+// Identifier holds the token for the identifier in the statement
+type Identifier struct {
+	Token token.Token // the token.IDENT token Value string, arrays can be [] or ()
+	Value string      // for an array, will always have []
+	Type  string
+	Index []*IndexExpression
+	Array bool
+}
+
+func (i *Identifier) expressionNode()      {}
+func (i *Identifier) TokenLiteral() string { return strings.ToUpper(i.Token.Literal) }
+func (i *Identifier) String() string {
+	var out bytes.Buffer
+
+	if i.Array {
+		out.WriteString(i.Token.Literal[:len(i.Token.Literal)-1])
+		for x, ind := range i.Index {
+			out.WriteString(ind.String())
+
+			if x+1 < len(i.Index) {
+				out.WriteString(",")
+			}
+		}
+		out.WriteString(i.Token.Literal[len(i.Token.Literal)-1:])
+	} else {
+		out.WriteString(i.Value)
 	}
 
 	return out.String()
@@ -853,9 +859,7 @@ type BlockStatement struct {
 	Statements []Statement
 }
 
-func (bs *BlockStatement) statementNode() {}
-
-// TokenLiteral returns my literal
+func (bs *BlockStatement) statementNode()       {}
 func (bs *BlockStatement) TokenLiteral() string { return strings.ToUpper(bs.Token.Literal) }
 func (bs *BlockStatement) String() string {
 	var out bytes.Buffer
@@ -863,24 +867,6 @@ func (bs *BlockStatement) String() string {
 	for _, s := range bs.Statements {
 		out.WriteString(s.String())
 	}
-
-	return out.String()
-}
-
-// GotoStatement triggers a jump
-type GotoStatement struct {
-	Token token.Token
-	Goto  string
-}
-
-func (gt *GotoStatement) statementNode() {}
-
-// TokenLiteral should return GOTO
-func (gt *GotoStatement) TokenLiteral() string { return gt.Token.Literal }
-func (gt *GotoStatement) String() string {
-	var out bytes.Buffer
-
-	out.WriteString(gt.TokenLiteral() + " " + gt.Goto)
 
 	return out.String()
 }
@@ -899,6 +885,22 @@ func (gsb *GosubStatement) String() string {
 	var out bytes.Buffer
 
 	out.WriteString("GOSUB " + fmt.Sprintf("%d", gsb.Gosub))
+
+	return out.String()
+}
+
+// GotoStatement triggers a jump
+type GotoStatement struct {
+	Token token.Token
+	Goto  string
+}
+
+func (gt *GotoStatement) statementNode()       {}
+func (gt *GotoStatement) TokenLiteral() string { return gt.Token.Literal }
+func (gt *GotoStatement) String() string {
+	var out bytes.Buffer
+
+	out.WriteString(gt.TokenLiteral() + " " + gt.Goto)
 
 	return out.String()
 }
@@ -1008,6 +1010,35 @@ func (run *RunCommand) String() string {
 	}
 
 	return rc
+}
+
+// ScreenStatement parameters
+const ScrMode = 0   // desired screen mode
+const ScrColor = 1  // enable color 0 = no
+const ScrActive = 2 // active display page
+const ScrView = 3   // viewed display page
+
+type ScreenStatement struct {
+	Token    token.Token  // stmt token
+	Params   []Expression // Parser creates these
+	Settings [4]int       // When executed, eval of expressions go here
+}
+
+func (scrn *ScreenStatement) statementNode()       {}
+func (scrn *ScreenStatement) TokenLiteral() string { return strings.ToUpper(scrn.Token.Literal) }
+func (scrn *ScreenStatement) String() string {
+	var out bytes.Buffer
+
+	out.WriteString("SCREEN ")
+	for i, p := range scrn.Params {
+		out.WriteString(p.String())
+
+		if i+1 < len(scrn.Params) {
+			out.WriteString(",")
+		}
+	}
+
+	return out.String()
 }
 
 // Stop statement stops execution

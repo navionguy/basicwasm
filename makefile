@@ -29,6 +29,7 @@
 			./object/environ.go \
  			./parser/parser.go \
 			./parser/parser_trace.go \
+			./settings/settings.go \
 			./token/token.go \
 			./terminal/terminal.go \
 #	tinygo build -no-debug -o ./webmodules/gwbasic.wasm -target=wasm ./webmodules/src/gwbasic/gwbasic.go

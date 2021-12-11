@@ -46,7 +46,7 @@ func (t *Terminal) SoundBell() {
 	js.Global().Get("document").Call("getElementById", "chatAudio").Call("play")
 }
 
-// TODO Log basicwasm information via call to javascript function
+// Log basicwasm information via call to javascript function
 func (t *Terminal) Log(msg string) {
 	js.Global().Call("consoleMsg", msg)
 }
@@ -88,6 +88,14 @@ func (t *Terminal) ReadKeys(count int) []byte {
 		} else {
 			keys = append(keys, bt)
 			i++
+		}
+	}
+
+	if len(keys) > 0 {
+		t.Log("Keypress")
+		for _, bt := range keys {
+			msg := fmt.Sprintf("%x", bt)
+			t.Log(msg)
 		}
 	}
 

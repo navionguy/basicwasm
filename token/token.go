@@ -87,12 +87,14 @@ const (
 	MERGE   = "MERGE"
 	MOD     = "MOD"
 	NEW     = "NEW"
+	PALETTE = "PALETTE"
 	PRINT   = "PRINT"
 	READ    = "READ"
 	REM     = "REM"
 	RESTORE = "RESTORE"
 	RETURN  = "RETURN"
 	RUN     = "RUN"
+	SCREEN  = "SCREEN"
 	STOP    = "STOP"
 	THEN    = "THEN"
 	TRON    = "TRON"
@@ -134,12 +136,14 @@ var keywords = map[string]TokenType{
 	"merge":   MERGE,
 	"mod":     MOD,
 	"new":     NEW,
+	"palette": PALETTE,
 	"print":   PRINT,
 	"read":    READ,
 	"rem":     REM,
 	"restore": RESTORE,
 	"return":  RETURN,
 	"run":     RUN,
+	"screen":  SCREEN,
 	"stop":    STOP,
 	"then":    THEN,
 	"tron":    TRON,
@@ -155,15 +159,4 @@ func LookupIdent(ident string) TokenType {
 		return tok
 	}
 	return IDENT
-}
-
-var builtins = map[string]bool{
-	"ABS":  true,
-	"ASC":  true,
-	"ATN":  true,
-	"CDBL": true,
-	"CHR$": true,
-	"CINT": true,
-	"COS":  true,
-	"CSNG": true,
 }

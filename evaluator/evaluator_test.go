@@ -14,6 +14,7 @@ import (
 	"github.com/navionguy/basicwasm/mocks"
 	"github.com/navionguy/basicwasm/object"
 	"github.com/navionguy/basicwasm/parser"
+	"github.com/navionguy/basicwasm/settings"
 	"github.com/stretchr/testify/assert"
 
 	"testing"
@@ -979,6 +980,51 @@ func Test_RunParameters(t *testing.T) {
 			if rct != expt {
 				t.Fatalf("(%s) expected object of type %T, got result type %T", tt.src, tt.exp, rc)
 			}
+		}
+	}
+}
+
+func Test_ScreenStatement(t *testing.T) {
+	tests := []struct {
+		inp string
+		exp [4]int
+		err bool
+	}{
+		{inp: "SCREEN 0,1", exp: [4]int{0, 1, -1, -1}},
+		{inp: "SCREEN X,Y", err: true},
+		{inp: "SCREEN 0,1 : SCREEN ,2", exp: [4]int{0, 2, -1, -1}},
+	}
+
+	for _, tt := range tests {
+		var mt mocks.MockTerm
+		initMockTerm(&mt)
+		env := object.NewTermEnvironment(mt)
+		l := lexer.New(tt.inp)
+		p := parser.New(l)
+		p.ParseCmd(env)
+
+		rc := Eval(&ast.Program{}, env.CmdLineIter(), env)
+
+		if !tt.err {
+			set := env.GetSetting(settings.Screen)
+			scrn := set.(*ast.ScreenStatement)
+
+			assert.NotNil(t, scrn, "Screen settings failed to save!")
+
+			for i := range tt.exp {
+				// -1 means it should be nil
+				if tt.exp[i] != -1 {
+					assert.Equal(t, scrn.Settings[i], tt.exp[i], "Line %s expected %d but got %d", tt.inp, tt.exp[i], scrn.Settings[i])
+				} else {
+					assert.Zero(t, scrn.Settings[i], "Line %s, setting %d unexpected was %d", tt.inp, i, scrn.Settings[i])
+				}
+			}
+		} else {
+			err := rc.(*object.Error)
+
+			assert.NotNil(t, err, "%s failed to return an error", tt.inp)
+
+			assert.Equal(t, err.Code, berrors.Syntax, "%s didn't return syntax error, gave %s instead", tt.inp, err.Message)
 		}
 	}
 }

@@ -54,10 +54,11 @@ func NewEnclosedEnvironment(outer *Environment) *Environment {
 	return env
 }
 
-// NewEnvironment creates a place to store variables
+// NewEnvironment creates a place to store variables and settings
 func newEnvironment() *Environment {
-	s := make(map[string]Object)
-	e := &Environment{store: s}
+	stor := make(map[string]Object)
+	sett := make(map[string]ast.Node)
+	e := &Environment{store: stor, settings: sett}
 	if e.program == nil {
 		e.program = &ast.Program{}
 	}

@@ -15,6 +15,7 @@ import (
 	"github.com/navionguy/basicwasm/filelist"
 	"github.com/navionguy/basicwasm/fileserv"
 	"github.com/navionguy/basicwasm/object"
+	"github.com/navionguy/basicwasm/settings"
 	"github.com/navionguy/basicwasm/token"
 )
 
@@ -47,6 +48,9 @@ func Eval(node ast.Node, code *ast.Code, env *object.Environment) object.Object 
 
 	case *ast.ClsStatement:
 		evalClsStatement(node, code, env)
+
+	case *ast.ColorStatement:
+		evalColorStatement(node, code, env)
 
 	case *ast.ContCommand:
 		return evalContCommand(node, code, env)
@@ -181,6 +185,9 @@ func Eval(node ast.Node, code *ast.Code, env *object.Environment) object.Object 
 	case *ast.RunCommand:
 		return evalRunCommand(node, code, env)
 
+	case *ast.ScreenStatement:
+		return evalScreenStatement(node, code, env)
+
 	case *ast.StopStatement:
 		return evalStopStatement(node, code, env)
 
@@ -312,6 +319,26 @@ func evalClearCommand(clear *ast.ClearCommand, code *ast.Code, env *object.Envir
 	env.ClearCommon()
 }
 
+// change screen foreground/background color
+func evalColorStatement(color *ast.ColorStatement, code *ast.Code, env *object.Environment) object.Object {
+	// what is the current screen mode?
+	ss := env.GetSetting(settings.Screen)
+
+	mode := 0 // default is screen 0
+	scr := ss.(*ast.ScreenStatement)
+
+	if scr != nil {
+		mode = scr.Settings[0]
+	}
+	switch mode {
+	case 0: // Text mode only
+	default:
+		return stdError(env, berrors.IllegalFuncCallErr)
+	}
+
+	return nil
+}
+
 // user wants to continue execution, if we can
 func evalContCommand(cont *ast.ContCommand, code *ast.Code, env *object.Environment) object.Object {
 	// if a program is currently running, you can't use this command
@@ -320,15 +347,22 @@ func evalContCommand(cont *ast.ContCommand, code *ast.Code, env *object.Environm
 	}
 
 	// see if there is a saved continuation point
-	cp := env.GetRestart()
+	np := env.GetSetting(settings.Restart)
 
-	if cp == nil {
+	if np == nil {
+		return stdError(env, berrors.CantContinue)
+	}
+
+	// recover the ast.Code object
+	cd := np.(*ast.Code)
+
+	if cd == nil {
 		return stdError(env, berrors.CantContinue)
 	}
 
 	// move the code iterator to the continuation point
 
-	return evalContStart(cp, env)
+	return evalContStart(cd, env)
 }
 
 func evalContStart(code *ast.Code, env *object.Environment) object.Object {
@@ -404,7 +438,7 @@ func evalStatementsHaltChk(rc object.Object, code *ast.Code, env *object.Environ
 		return !code.Next()
 	}
 
-	env.SaveRestart(code)
+	env.SaveSetting(settings.Restart, code)
 	return true
 }
 
@@ -420,7 +454,7 @@ func evalStatementsBreakChk(code *ast.Code, env *object.Environment) object.Obje
 	}
 
 	hlt := object.HaltSignal{Msg: msg}
-	env.SaveRestart(code)
+	env.SaveSetting(settings.Restart, code)
 
 	return &hlt
 }
@@ -572,6 +606,42 @@ func evalRunStart(code *ast.Code, env *object.Environment) object.Object {
 	return rc
 }
 
+// set the screen mode
+func evalScreenStatement(scrn *ast.ScreenStatement, code *ast.Code, env *object.Environment) object.Object {
+	// get the current settings object
+	cur := evalScreenGetCurrent(env)
+
+	// apply any settings in the statement to the current settings
+	for i := range scrn.Params {
+		if scrn.Params[i] == nil {
+			continue
+		}
+		id, err := coerceIndex(Eval(scrn.Params[i], code, env), env)
+
+		if err != nil {
+			return err
+		}
+
+		cur.Settings[i] = int(id)
+	}
+
+	// save the new SCREEN settings
+	env.SaveSetting(settings.Screen, cur)
+	return nil
+}
+
+// get the current setting, if it exists
+func evalScreenGetCurrent(env *object.Environment) *ast.ScreenStatement {
+	cur := env.GetSetting(settings.Screen)
+
+	// if no current setting, return default
+	if cur == nil {
+		return &ast.ScreenStatement{Settings: [4]int{0, 1, 0, 0}}
+	}
+
+	return cur.(*ast.ScreenStatement)
+}
+
 // halt execution, if running, leave file opens, tell user where we are
 func evalStopStatement(stop *ast.StopStatement, code *ast.Code, env *object.Environment) object.Object {
 	msg := "Break"
@@ -617,7 +687,13 @@ func allocArray(typeid string, dims []*ast.IndexExpression, code *ast.Code, env 
 	i, ok := d.(*object.Integer)
 
 	if !ok {
-		i = &object.Integer{Value: coerceIndex(d)}
+		id, err := coerceIndex(d, env)
+
+		if err != nil {
+			return nil
+		}
+
+		i = &object.Integer{Value: id}
 	}
 
 	elms := make([]object.Object, i.Value)
@@ -734,6 +810,9 @@ func evalGosubStatement(gosub *ast.GosubStatement, code *ast.Code, env *object.E
 	// save the return address and jump to the sub-routine
 	env.Push(*code)
 	code.Jump(gosub.Gosub)
+	if env.GetTrace() {
+		env.Terminal().Print(fmt.Sprintf("[%d]", gosub.Gosub))
+	}
 	return nil
 }
 
@@ -760,6 +839,9 @@ func evalGotoJump(line int, code *ast.Code, env *object.Environment) object.Obje
 
 	if len(msg) > 0 {
 		return stdError(env, berrors.UnDefinedLineNumber)
+	}
+	if env.GetTrace() {
+		env.Terminal().Print(fmt.Sprintf("[%d]", line))
 	}
 
 	return &object.Integer{Value: int16(line)}
@@ -1208,7 +1290,12 @@ func evalIndexExpression(array, index, newVal object.Object, env *object.Environ
 	case array.Type() == object.ARRAY_OBJ && index.Type() == object.INTEGER_OBJ:
 		return evalArrayIndexExpression(array, index, newVal, env)
 	case array.Type() == object.ARRAY_OBJ && index.Type() != object.INTEGER_OBJ:
-		return evalArrayIndexExpression(array, &object.Integer{Value: coerceIndex(index)}, newVal, env)
+		id, err := coerceIndex(index, env)
+
+		if err != nil {
+			return err
+		}
+		return evalArrayIndexExpression(array, &object.Integer{Value: id}, newVal, env)
 	default:
 		er := newError(env, "index operator not supported: %s", array.Type())
 		return er
@@ -1282,7 +1369,12 @@ func saveNewVariable(code *ast.Code, env *object.Environment, name *ast.Identifi
 		indValue, isInt := index.(*object.Integer)
 
 		if !isInt {
-			indValue = &object.Integer{Value: coerceIndex(index)}
+			id, err := coerceIndex(index, env)
+
+			if err != nil {
+				return err
+			}
+			indValue = &object.Integer{Value: id}
 		}
 
 		if 10 > indValue.Value {
@@ -1300,19 +1392,24 @@ func saveNewVariable(code *ast.Code, env *object.Environment, name *ast.Identifi
 	return tv
 }
 
-func coerceIndex(idx object.Object) int16 {
+// coerce a idx value into an int16 array index if you can
+// since originally writing this I have co-opted it for use in other
+// situations, ie: parameters to basic statements
+func coerceIndex(idx object.Object, env *object.Environment) (int16, object.Object) {
 	switch fx := idx.(type) {
+	case *object.Integer:
+		return fx.Value, nil
 	case *object.Fixed:
 		fx2 := fx.Value.Round(0)
 		ti := fx2.IntPart()
-		return int16(ti)
+		return int16(ti), nil
 	case *object.FloatSgl:
-		return int16(math.Round(float64(fx.Value)))
+		return int16(math.Round(float64(fx.Value))), nil
 	case *object.FloatDbl:
-		return int16(math.Round(fx.Value))
+		return int16(math.Round(fx.Value)), nil
 	}
 
-	return 0
+	return 0, stdError(env, berrors.Syntax)
 }
 
 func checkTypes(typeid string, val object.Object) bool {

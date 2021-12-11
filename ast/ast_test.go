@@ -10,6 +10,14 @@ import (
 	"github.com/stretchr/testify/assert"
 )
 
+func Test_BlockStatement(t *testing.T) {
+	blk := BlockStatement{Token: token.Token{Type: token.LBRACE, Literal: "{"}}
+
+	blk.statementNode()
+
+	assert.Equal(t, "{", blk.TokenLiteral())
+}
+
 func TestStringAndToken(t *testing.T) {
 	var program Program
 
@@ -366,6 +374,9 @@ func TestCodeAdd(t *testing.T) {
 		p.New()
 
 		cd := p.code
+		assert.Equal(t, "", cd.TokenLiteral())
+		assert.Equal(t, "The Code", cd.String())
+
 		for _, ln := range tt.lines {
 			cd.addLine(ln)
 
@@ -601,6 +612,14 @@ func Test_Csrlin(t *testing.T) {
 	assert.Equal(t, "csrlin ", csr.String())
 }
 
+func Test_EndStatement(t *testing.T) {
+	end := EndStatement{Token: token.Token{Type: token.END, Literal: "END"}}
+
+	end.statementNode()
+	assert.Equal(t, "END", end.TokenLiteral())
+	assert.Equal(t, "END ", end.String())
+}
+
 func Test_FilesCommand(t *testing.T) {
 
 	tests := []struct {
@@ -618,6 +637,24 @@ func Test_FilesCommand(t *testing.T) {
 		assert.Equal(t, tt.exp, tt.cmd.String(), "Files command didn't build string correctly")
 
 	}
+}
+
+func Test_GosubStatement(t *testing.T) {
+	gsb := GosubStatement{Token: token.Token{Type: token.GOSUB, Literal: "GOSUB"}, Gosub: 1000}
+
+	gsb.statementNode()
+
+	assert.Equal(t, "GOSUB", gsb.TokenLiteral())
+	assert.Equal(t, "GOSUB 1000", gsb.String())
+}
+
+func Test_GotoStatement(t *testing.T) {
+	gto := GotoStatement{Token: token.Token{Type: token.GOTO, Literal: "GOTO"}, Goto: "1000"}
+
+	gto.statementNode()
+
+	assert.Equal(t, "GOTO", gto.TokenLiteral())
+	assert.Equal(t, "GOTO 1000", gto.String())
 }
 
 func Test_Identifier(t *testing.T) {
@@ -661,6 +698,15 @@ func Test_InfixExpression(t *testing.T) {
 
 		assert.Equalf(t, tt.exp, exp.String(), "exp %s got %s instead", tt.exp, exp.String())
 	}
+}
+
+func Test_ListStatement(t *testing.T) {
+	list := ListStatement{Token: token.Token{Type: token.LIST, Literal: "LIST"}, Start: "10", Lrange: "-", Stop: "100"}
+
+	list.statementNode()
+
+	assert.Equal(t, "LIST", list.TokenLiteral())
+	assert.Equal(t, "LIST 10-100", list.String())
 }
 
 func Test_LocateStatement(t *testing.T) {
@@ -725,6 +771,14 @@ func Test_NewCommand(t *testing.T) {
 
 	assert.Equal(t, "NEW", cmd.TokenLiteral())
 	assert.Equal(t, "NEW ", cmd.String())
+}
+
+func Test_PaletteStatement(t *testing.T) {
+	stmt := PaletteStatement{Token: token.Token{Type: token.PALETTE, Literal: "PALETTE"}}
+
+	stmt.statementNode()
+
+	assert.Equal(t, token.PALETTE, stmt.TokenLiteral())
 }
 
 func Test_PrefixExpression(t *testing.T) {
@@ -793,6 +847,31 @@ func Test_RunCommand(t *testing.T) {
 
 		assert.Equal(t, "RUN", cmd.TokenLiteral(), "Run command has incorrect TokenLiteral")
 		assert.Equal(t, tt.exp, cmd.String(), "Run command didn't build string correctly")
+	}
+}
+
+func Test_ScreenStatement(t *testing.T) {
+	tests := []struct {
+		prms []Expression // array of parameter expressions
+		exp  string       // what the string output should look like
+	}{
+		{prms: []Expression{&IntegerLiteral{
+			Token: token.Token{Type: token.INT, Literal: "INT"},
+			Value: 1}}, exp: "SCREEN 1"},
+		{prms: []Expression{&IntegerLiteral{
+			Token: token.Token{Type: token.INT, Literal: "INT"},
+			Value: 1}, &IntegerLiteral{
+			Token: token.Token{Type: token.INT, Literal: "INT"},
+			Value: 2}}, exp: "SCREEN 1,2"},
+	}
+
+	for _, tt := range tests {
+		scrn := ScreenStatement{Token: token.Token{Type: token.SCREEN, Literal: "SCREEN"}, Params: tt.prms}
+
+		scrn.statementNode()
+
+		assert.Equal(t, token.SCREEN, scrn.TokenLiteral())
+		assert.Equal(t, tt.exp, scrn.String())
 	}
 }
 

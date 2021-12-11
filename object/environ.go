@@ -6,6 +6,7 @@ import (
 	"strings"
 
 	"github.com/navionguy/basicwasm/ast"
+	"github.com/navionguy/basicwasm/settings"
 )
 
 // Console defines how to collect input and display output
@@ -32,10 +33,11 @@ type HttpClient interface {
 
 // Environment holds my variables and possibly an outer environment
 type Environment struct {
-	store   map[string]Object // variables and other program data
-	outer   *Environment      // possibly a tempory containing environment
-	program *ast.Program      // current Abstract Syntax Tree
-	term    Console           // the terminal console object
+	store    map[string]Object   // variables and other program data
+	settings map[string]ast.Node // environment settings
+	outer    *Environment        // possibly a tempory containing environment
+	program  *ast.Program        // current Abstract Syntax Tree
+	term     Console             // the terminal console object
 
 	// The following hold "state" information controlled by commands/statements
 	autoOn  *ast.AutoCommand // is auto line numbering turned on
@@ -45,7 +47,6 @@ type Environment struct {
 	traceOn bool             // is tracing turned on
 	client  HttpClient       // for making server requests
 	run     bool             // program is currently execute, if false, a command is executing
-	cont    *ast.Code        // save program iterator due to STOP, END or ctrl-C to allow continue command CONT
 	stack   []ast.Code       // return addresses for GOSUB/RETURN
 }
 
@@ -64,17 +65,14 @@ func (e *Environment) Set(name string, val Object) Object {
 	return val
 }
 
-// save a restart point
-func (e *Environment) SaveRestart(cd *ast.Code) {
-	rcd := *cd    // make a copy of code struct
-	e.cont = &rcd // save it for later
+// Fetch a runtime setting
+func (e *Environment) GetSetting(name string) ast.Node {
+	return e.settings[name]
 }
 
-// get a restart point, nil if there is none
-func (e *Environment) GetRestart() *ast.Code {
-	cd := e.cont
-	e.cont = nil
-	return cd
+// Save a runtime settting
+func (e *Environment) SaveSetting(name string, obj ast.Node) {
+	e.settings[name] = obj
 }
 
 // Push an address, returns stack size
@@ -177,9 +175,7 @@ func (e *Environment) Randomize(seed int64) {
 
 // Add a statement to the ast
 func (e *Environment) AddStatement(stmt ast.Statement) {
-	if e.cont != nil {
-		e.cont = nil
-	}
+	delete(e.settings, settings.Restart) // clear any restart point since the ast is changing
 
 	e.program.AddStatement(stmt)
 }

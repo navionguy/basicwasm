@@ -805,6 +805,33 @@ func Test_NewCommand(t *testing.T) {
 	assert.Equal(t, 1, env.CmdLineIter().Len(), "NewCommand didn't create one command")
 }
 
+func Test_PaletteStatement(t *testing.T) {
+	tests := []struct {
+		inp string
+		err bool
+	}{
+		{inp: `10 PALETTE 3,2`},
+		{inp: `20 PALETTE USING PAL(3)`},
+		{inp: `30 PALETTE t,x`},
+		{inp: `40 PALETTE t x`, err: true},
+	}
+
+	for _, tt := range tests {
+		l := lexer.New(tt.inp)
+		p := New(l)
+		env := object.NewTermEnvironment(mocks.MockTerm{})
+		p.ParseProgram(env)
+
+		if !tt.err {
+			checkParserErrors(t, p)
+		}
+
+		if tt.err {
+			assert.NotEqual(t, 0, len(p.errors), "line %d succeeded and should have failed")
+		}
+	}
+}
+
 func Test_ReadStatement(t *testing.T) {
 	tkAs := token.Token{Type: token.IDENT, Literal: "A$"}
 	tkBs := token.Token{Type: token.IDENT, Literal: "B$"}
@@ -932,6 +959,54 @@ func TestRestore(t *testing.T) {
 
 		if tt.exp != nil {
 			compareStatements(tt.inp, stmt, tt.exp, t)
+		}
+	}
+}
+
+func Test_ScreenStatement(t *testing.T) {
+	tests := []struct {
+		inp string
+		exp []ast.Expression
+		err bool
+	}{
+		{inp: "10 SCREEN 0,1", exp: []ast.Expression{&ast.IntegerLiteral{Token: token.Token{Type: token.INT, Literal: "0"}, Value: 0},
+			&ast.IntegerLiteral{Token: token.Token{Type: token.INT, Literal: "1"}, Value: 1}}},
+		{inp: "20 SCREEN 2,,3", exp: []ast.Expression{&ast.IntegerLiteral{Token: token.Token{Type: token.INT, Literal: "2"}, Value: 2},
+			nil,
+			&ast.IntegerLiteral{Token: token.Token{Type: token.INT, Literal: "3"}, Value: 3}}},
+		{inp: "30 SCREEN", err: true},
+		{inp: "30 SCREEN 1,2,3,4,5", err: true},
+	}
+
+	for _, tt := range tests {
+		l := lexer.New(tt.inp)
+		p := New(l)
+		env := object.NewTermEnvironment(mocks.MockTerm{})
+		p.ParseProgram(env)
+
+		if !tt.err {
+			checkParserErrors(t, p)
+
+			cd := env.StatementIter()
+
+			if cd.Len() != 2 {
+				t.Fatalf("Input %s, expected 2 statements, got %d", tt.inp, cd.Len())
+			}
+
+			if !cd.Next() {
+				t.Fatalf("Input %s, failed to advance to second statement", tt.inp)
+			}
+
+			stmt := cd.Value()
+			scrn := stmt.(*ast.ScreenStatement)
+
+			assert.NotNil(t, scrn, "%s didn't return a SCREEN statement", tt.inp)
+
+			for i, exp := range tt.exp {
+				assert.Equal(t, tt.exp[i], exp, "For input %s, expression %d was unexpected", tt.inp, i)
+			}
+		} else {
+			assert.Equal(t, 1, len(p.errors), "Expected 1 error but got %d", len(p.errors))
 		}
 	}
 }
