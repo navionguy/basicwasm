@@ -29,6 +29,7 @@
 			./object/environ.go \
  			./parser/parser.go \
 			./parser/parser_trace.go \
+			./parser/parser_utils.go \
 			./settings/settings.go \
 			./token/token.go \
 			./terminal/terminal.go \

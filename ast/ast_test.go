@@ -270,26 +270,26 @@ func TestCodeMultiStmts(t *testing.T) {
 
 func Test_ColorStatement(t *testing.T) {
 	tests := []struct {
-		prms [3]Expression
+		prms []Expression
 		exp  string
 	}{
-		{exp: "COLOR"},
-		{prms: [3]Expression{&IntegerLiteral{
+		{exp: "COLOR "},
+		{prms: []Expression{&IntegerLiteral{
 			Token: token.Token{Type: token.INT, Literal: "INT"},
 			Value: 1}}, exp: "COLOR 1"},
-		{prms: [3]Expression{&IntegerLiteral{
+		{prms: []Expression{&IntegerLiteral{
 			Token: token.Token{Type: token.INT, Literal: "INT"},
 			Value: 1}, &IntegerLiteral{
 			Token: token.Token{Type: token.INT, Literal: "INT"},
 			Value: 2}}, exp: "COLOR 1,2"},
-		{prms: [3]Expression{&IntegerLiteral{
+		{prms: []Expression{&IntegerLiteral{
 			Token: token.Token{Type: token.INT, Literal: "INT"},
 			Value: 1}, &IntegerLiteral{
 			Token: token.Token{Type: token.INT, Literal: "INT"},
 			Value: 2}, &IntegerLiteral{
 			Token: token.Token{Type: token.INT, Literal: "INT"},
 			Value: 3}}, exp: "COLOR 1,2,3"},
-		{prms: [3]Expression{nil, &IntegerLiteral{
+		{prms: []Expression{nil, &IntegerLiteral{
 			Token: token.Token{Type: token.INT, Literal: "INT"},
 			Value: 2}, &IntegerLiteral{
 			Token: token.Token{Type: token.INT, Literal: "INT"},
@@ -620,6 +620,14 @@ func Test_EndStatement(t *testing.T) {
 	assert.Equal(t, "END ", end.String())
 }
 
+func Test_EOFExpression(t *testing.T) {
+	eof := &EOFExpression{Token: token.Token{Type: token.EOF, Literal: ""}}
+
+	eof.expressionNode()
+	assert.Equal(t, "", eof.TokenLiteral())
+	assert.Equal(t, "", eof.String())
+}
+
 func Test_FilesCommand(t *testing.T) {
 
 	tests := []struct {
@@ -774,11 +782,24 @@ func Test_NewCommand(t *testing.T) {
 }
 
 func Test_PaletteStatement(t *testing.T) {
-	stmt := PaletteStatement{Token: token.Token{Type: token.PALETTE, Literal: "PALETTE"}}
+	tests := []struct {
+		stmt PaletteStatement
+		exp  string
+	}{
+		{stmt: PaletteStatement{Token: token.Token{Type: token.PALETTE, Literal: "PALETTE"}}, exp: "PALETTE"},
+		{stmt: PaletteStatement{Token: token.Token{Type: token.PALETTE, Literal: "PALETTE"},
+			Attrib: &IntegerLiteral{Token: token.Token{Type: token.INT, Literal: "INT"},
+				Value: 1}, Color: &IntegerLiteral{Token: token.Token{Type: token.INT, Literal: "INT"}, Value: 2}}, exp: "PALETTE 1,2"},
+	}
 
-	stmt.statementNode()
+	for _, tt := range tests {
+		tt.stmt.statementNode()
 
-	assert.Equal(t, token.PALETTE, stmt.TokenLiteral())
+		assert.Equal(t, token.PALETTE, tt.stmt.TokenLiteral())
+		if len(tt.exp) != 0 {
+			assert.Equal(t, tt.exp, tt.stmt.String())
+		}
+	}
 }
 
 func Test_PrefixExpression(t *testing.T) {
@@ -873,6 +894,13 @@ func Test_ScreenStatement(t *testing.T) {
 		assert.Equal(t, token.SCREEN, scrn.TokenLiteral())
 		assert.Equal(t, tt.exp, scrn.String())
 	}
+
+	scrn := ScreenStatement{}
+	scrn.InitValue()
+	assert.Equal(t, 0, scrn.Settings[0])
+	assert.Equal(t, 1, scrn.Settings[1])
+	assert.Equal(t, 0, scrn.Settings[2])
+	assert.Equal(t, 0, scrn.Settings[3])
 }
 
 func Test_StopStatement(t *testing.T) {

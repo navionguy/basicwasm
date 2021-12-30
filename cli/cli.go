@@ -3,6 +3,7 @@ package cli
 import (
 	"fmt"
 
+	"github.com/navionguy/basicwasm/ast"
 	"github.com/navionguy/basicwasm/evaluator"
 	"github.com/navionguy/basicwasm/lexer"
 	"github.com/navionguy/basicwasm/object"
@@ -56,15 +57,12 @@ func runLoop(env *object.Environment) {
 }
 
 func execCommand(input string, env *object.Environment) {
-	l := lexer.New(input)
-	p := parser.New(l)
 
-	p.ParseCmd(env)
+	// go parse the input
+	p := parseCmdLine(input, env)
 
-	if len(p.Errors()) > 0 {
-		for _, m := range p.Errors() {
-			env.Terminal().Println(m)
-		}
+	// check for error during parse
+	if p == nil {
 		return
 	}
 
@@ -72,11 +70,39 @@ func execCommand(input string, env *object.Environment) {
 
 	// if command line is empty, nothing to execute
 	if iter.Len() == 0 {
+		// if auto is turned on, prompt next line number
 		if env.GetAuto() != nil {
 			prompt(env)
 		}
 		return
 	}
+
+	parseCmdExecute(iter, env)
+}
+
+// see if I can successfully parse the command line entered
+func parseCmdLine(input string, env *object.Environment) *parser.Parser {
+	l := lexer.New(input)
+	p := parser.New(l)
+
+	p.ParseCmd(env)
+
+	// if all went well return the parser
+	if len(p.Errors()) == 0 {
+		return p
+	}
+
+	// display error messages
+	for _, m := range p.Errors() {
+		env.Terminal().Println(m)
+	}
+
+	// nothing to evaluate
+	return nil
+}
+
+// once you have a parsed command line, go execute it
+func parseCmdExecute(iter *ast.Code, env *object.Environment) {
 
 	for iter.Value() != nil {
 		cmd := iter.Value()
@@ -90,7 +116,6 @@ func execCommand(input string, env *object.Environment) {
 	}
 	env.CmdComplete()
 	prompt(env)
-
 }
 
 // some special objects that can come back from command execution

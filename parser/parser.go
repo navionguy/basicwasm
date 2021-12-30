@@ -84,6 +84,7 @@ func New(l *lexer.Lexer) *Parser {
 	p.registerPrefix(token.IF, p.parseIfExpression)
 	p.registerPrefix(token.STRING, p.parseStringLiteral)
 	p.registerPrefix(token.DEF, p.parseFunctionLiteral)
+	p.registerPrefix(token.EOF, p.parseEOFExpression)
 	p.registerPrefix(token.FLOAT, p.parseFloatingPointLiteral)
 	p.registerPrefix(token.FIXED, p.parseFixedPointLiteral)
 	p.registerPrefix(token.AMPERSAND, p.parseHexOctalConstant)
@@ -401,26 +402,28 @@ func (p *Parser) parseClsStatement() *ast.ClsStatement {
 	return &stmt
 }
 
+// parse th color statement
 func (p *Parser) parseColorStatement() *ast.ColorStatement {
 	defer untrace(trace("parseColorStatement"))
 	stmt := ast.ColorStatement{Token: p.curToken}
 
 	if p.chkEndOfStatement() {
+		return &stmt
+	}
+	p.nextToken()
+
+	exp := p.parseCommaSperatedExpressions()
+
+	if len(exp) > 3 {
 		p.reportError(berrors.Syntax)
 		return &stmt
 	}
 
-	for i := 0; (i < 3) && !p.chkEndOfStatement(); i++ {
-		p.nextToken()
-		if !p.curTokenIs(token.COMMA) {
-			stmt.Parms[i] = p.parseExpression(LOWEST)
-			p.nextToken()
-		}
-	}
-
+	stmt.Parms = exp
 	return &stmt
 }
 
+// pars
 func (p *Parser) parseCommonStatement() *ast.CommonStatement {
 	defer untrace(trace("parseCommonStatement"))
 	stmt := ast.CommonStatement{Token: p.curToken}
@@ -1160,17 +1163,7 @@ func (p *Parser) parseScreenCommand() *ast.ScreenStatement {
 func (p *Parser) parseScreenCommandParameters(stmt ast.ScreenStatement) *ast.ScreenStatement {
 	// load up all the parameters, max 4
 
-	done := false
-	for ; !done; p.nextToken() {
-		p.parseScreenCommandParam(&stmt)
-
-		// if there is a trailing comma, there is likely more params
-		if p.peekTokenIs(token.COMMA) {
-			p.nextToken()
-		}
-
-		done = p.chkEndOfStatement()
-	}
+	stmt.Params = p.parseCommaSperatedExpressions()
 
 	// check for too many params
 	if len(stmt.Params) > 4 {
@@ -1178,19 +1171,6 @@ func (p *Parser) parseScreenCommandParameters(stmt ast.ScreenStatement) *ast.Scr
 	}
 
 	return &stmt
-}
-
-// consume the next SCREEN parameter
-func (p *Parser) parseScreenCommandParam(stmt *ast.ScreenStatement) {
-	// if it is a comma, user is skipping a parameter
-	if p.curTokenIs(token.COMMA) {
-		stmt.Params = append(stmt.Params, nil)
-		return
-	}
-
-	// parse the expression to calculate the parameter
-	exp := p.parseExpression(LOWEST)
-	stmt.Params = append(stmt.Params, exp)
 }
 
 // not much to do, just return a StopStatement object
@@ -1412,6 +1392,14 @@ func (p *Parser) parseFunctionParameters() []*ast.Identifier {
 	}
 
 	return identifiers
+}
+
+// parse an unexpected EOF (or really, end of input)
+// the error message should come from the eval layer
+func (p *Parser) parseEOFExpression() ast.Expression {
+	stmt := &ast.EOFExpression{}
+
+	return stmt
 }
 
 func (p *Parser) checkForFuncCall() bool {

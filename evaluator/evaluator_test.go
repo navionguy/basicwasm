@@ -32,6 +32,8 @@ func initMockTerm(mt *mocks.MockTerm) {
 
 	mt.SawCls = new(bool)
 	*mt.SawCls = false
+
+	mt.ExpMsg = &mocks.Expector{}
 }
 
 func compareObjects(inp string, evald object.Object, want interface{}, t *testing.T) {
@@ -229,6 +231,7 @@ func Test_ChainStatement(t *testing.T) {
 		l := lexer.New(tt.stmt)
 		p := parser.New(l)
 		var mt mocks.MockTerm
+		mt.ExpMsg = &mocks.Expector{}
 		initMockTerm(&mt)
 		env := object.NewTermEnvironment(mt)
 		ts := httptest.NewServer(http.HandlerFunc(func(res http.ResponseWriter, req *http.Request) {
@@ -249,6 +252,81 @@ func Test_ChainStatement(t *testing.T) {
 		}
 
 		Eval(&ast.Program{}, env.CmdLineIter(), env)
+	}
+}
+
+func Test_ColorMode(t *testing.T) {
+	var mt mocks.MockTerm
+	initMockTerm(&mt)
+	env := object.NewTermEnvironment(mt)
+	scr := evalColorMode(env)
+
+	assert.Equal(t, ast.ScrnModeMDA, scr.Settings[ast.ScrnMode])
+
+	scr.Settings[ast.ScrnMode] = ast.ScrnModeCGA
+	env.SaveSetting(settings.Screen, scr)
+	scr = evalColorMode(env)
+
+	assert.Equal(t, ast.ScrnModeCGA, scr.Settings[ast.ScrnMode])
+}
+
+func Test_ColorPalette(t *testing.T) {
+	var mt mocks.MockTerm
+	initMockTerm(&mt)
+	env := object.NewTermEnvironment(mt)
+	scr := &ast.ScreenStatement{}
+	scr.InitValue()
+	plt := evalColorPalette(scr, env)
+
+	assert.Equal(t, object.XCyan, plt.BasePalette[object.GWCyan], "BasePalette[GWCyan] came back as %d", plt.BasePalette[object.GWCyan])
+	plt.BasePalette[object.GWCyan] = object.XBlack
+	env.SaveSetting(settings.Palette, plt)
+	plt = evalColorPalette(scr, env)
+
+	assert.Equal(t, object.XBlack, plt.BasePalette[object.GWCyan])
+}
+
+func TestColorStatement(t *testing.T) {
+	tests := []struct {
+		inp  string
+		mode int
+		exp  string
+	}{
+		{inp: "COLOR 15", mode: 0, exp: "\x1b[97m"},
+		{inp: "COLOR 7", mode: 0, exp: "\x1b[37m"},
+		{inp: "COLOR 1", mode: 0, exp: "\x1b[1m"},
+		{inp: "COLOR 1", mode: 3},
+	}
+
+	for _, tt := range tests {
+		l := lexer.New(tt.inp)
+		p := parser.New(l)
+		var mt mocks.MockTerm
+		mt.ExpMsg = &mocks.Expector{}
+
+		if len(tt.exp) > 0 {
+			mt.ExpMsg.Exp = append(mt.ExpMsg.Exp, tt.exp)
+		}
+		initMockTerm(&mt)
+		env := object.NewTermEnvironment(mt)
+		// set the screen to desired mode
+		scrn := ast.ScreenStatement{}
+		scrn.Settings[ast.ScrnMode] = tt.mode
+		env.SaveSetting(settings.Screen, &scrn)
+		p.ParseCmd(env)
+
+		if len(p.Errors()) > 0 {
+			for _, er := range p.Errors() {
+				fmt.Println(er)
+			}
+			return
+		}
+
+		Eval(&ast.Program{}, env.CmdLineIter(), env)
+
+		if len(tt.exp) > 0 {
+			assert.False(t, mt.ExpMsg.Failed, "COLOR got unexpected output")
+		}
 	}
 }
 
@@ -986,13 +1064,15 @@ func Test_RunParameters(t *testing.T) {
 
 func Test_ScreenStatement(t *testing.T) {
 	tests := []struct {
-		inp string
-		exp [4]int
-		err bool
+		inp   string
+		exp   [4]int
+		err   bool
+		ecode int
 	}{
 		{inp: "SCREEN 0,1", exp: [4]int{0, 1, -1, -1}},
-		{inp: "SCREEN X,Y", err: true},
+		{inp: "SCREEN X,Y", err: true, ecode: berrors.Syntax},
 		{inp: "SCREEN 0,1 : SCREEN ,2", exp: [4]int{0, 2, -1, -1}},
+		{inp: "SCREEN 3", err: true, ecode: berrors.IllegalFuncCallErr},
 	}
 
 	for _, tt := range tests {
@@ -1024,7 +1104,7 @@ func Test_ScreenStatement(t *testing.T) {
 
 			assert.NotNil(t, err, "%s failed to return an error", tt.inp)
 
-			assert.Equal(t, err.Code, berrors.Syntax, "%s didn't return syntax error, gave %s instead", tt.inp, err.Message)
+			assert.Equal(t, err.Code, tt.ecode, "%s didn't return syntax error, gave %s instead", tt.inp, err.Message)
 		}
 	}
 }

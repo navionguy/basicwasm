@@ -11,7 +11,7 @@ type Expector struct {
 }
 
 func (ep *Expector) chkExpectations(msg string) {
-	if len(ep.Exp) == 0 {
+	if ep.Exp == nil {
 		return // no Expectations
 	}
 	if strings.Compare(msg, ep.Exp[0]) != 0 {
@@ -29,7 +29,7 @@ type MockTerm struct {
 	SawCls   *bool
 	SawBeep  *bool
 	SawBreak *bool
-	ExpMsg   Expector
+	ExpMsg   *Expector
 }
 
 func InitMockTerm(mt *MockTerm) {

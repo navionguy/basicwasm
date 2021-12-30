@@ -9,6 +9,38 @@ import (
 	"github.com/navionguy/basicwasm/settings"
 )
 
+// GWBasic color values for screen work,https://hwiegman.home.xs4all.nl/gw-man/SCREENS.html
+const (
+	GWBlack     = iota // 0
+	GWBlue             // 1
+	GWGreen            // 2
+	GWCyan             // 3
+	GWRed              // 4
+	GWMagenta          // 5
+	GWBrown            // 6
+	GWWhite            // 7
+	GWGray             // 8
+	GWLtBlue           // 9
+	GWLtGreen          // 10
+	GWLtCyan           // 11
+	GWLtRed            // 12
+	GWLtMagenta        // 13
+	GWYellow           // 14
+	GWBrtWhite         // 15
+)
+
+// XTermjs color directives,https://xtermjs.org/docs/api/vtfeatures/
+const (
+	XBlack   = iota + 90 //90
+	XRed                 // 91
+	XGreen               // 92
+	XYellow              // 93
+	XBlue                // 94
+	XMagenta             // 95
+	XCyan                // 96
+	XWhite               // 97
+)
+
 // Console defines how to collect input and display output
 type Console interface {
 	Cls()

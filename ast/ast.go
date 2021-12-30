@@ -191,33 +191,28 @@ func (cls *ClsStatement) String() string {
 // ColorStatement changes foreground/background colors
 type ColorStatement struct {
 	Token token.Token
-	Parms [3]Expression
+	Parms []Expression // 1-3 parameter expressions
 }
 
-func (color *ColorStatement) statementNode() {}
-
+func (color *ColorStatement) statementNode()       {}
 func (color *ColorStatement) TokenLiteral() string { return strings.ToUpper(color.Token.Literal) }
-
 func (color *ColorStatement) String() string {
-	stmt := ""
+	var out bytes.Buffer
 
-	for i := 2; i >= 0; i-- {
-		if stmt != "" {
-			stmt = "," + stmt
+	out.WriteString("COLOR ")
+
+	for i, e := range color.Parms {
+		if i > 0 {
+			out.WriteString(",")
 		}
 
-		if color.Parms[i] != nil {
-			stmt = color.Parms[i].String() + stmt
+		if e != nil {
+			out.WriteString(e.String())
 		}
 	}
 
-	if stmt != "" {
-		stmt = "COLOR " + stmt
-	} else {
-		stmt = "COLOR"
-	}
-
-	return stmt
+	tmp := out.String()
+	return tmp
 }
 
 type CommonStatement struct {
@@ -262,6 +257,14 @@ type Csrlin struct {
 func (csr *Csrlin) expressionNode()      {}
 func (csr *Csrlin) TokenLiteral() string { return strings.ToUpper(csr.Token.Literal) }
 func (csr *Csrlin) String() string       { return csr.Token.Literal + " " }
+
+type EOFExpression struct {
+	Token token.Token
+}
+
+func (eof *EOFExpression) expressionNode()      {}
+func (eof *EOFExpression) TokenLiteral() string { return strings.ToUpper(eof.Token.Literal) }
+func (eof *EOFExpression) String() string       { return "" }
 
 // FilesCommand gets list of files from basic server
 type FilesCommand struct {
@@ -418,16 +421,36 @@ func (lct *LocateStatement) String() string {
 	return "LOCATE " + stmt
 }
 
+// ColorPalette maps[GWBasicColor]XTermColor
+type ColorPalette map[int16]int
+
 // user wants to change the color palette
 type PaletteStatement struct {
 	Token  token.Token // token.PALETTE
 	Attrib Expression  // index of attribute to change
 	Color  Expression  // color value to use, array of values for PALETTE USING
+	// values below will hold the active palette settings
+	CurPalette  ColorPalette // current color mappings for screen
+	BasePalette ColorPalette // base mapping of basic colors to xterm colors
 }
 
 func (plt *PaletteStatement) statementNode()       {}
 func (plt *PaletteStatement) TokenLiteral() string { return strings.ToUpper(plt.Token.Literal) }
-func (plt *PaletteStatement) String() string       { return "PALETTE " }
+func (plt *PaletteStatement) String() string {
+	var buf bytes.Buffer
+
+	buf.WriteString("PALETTE")
+
+	// attribute if I have one
+	if plt.Attrib != nil {
+		buf.WriteString(" " + plt.Attrib.String())
+	}
+
+	if plt.Color != nil {
+		buf.WriteString("," + plt.Color.String())
+	}
+	return buf.String()
+}
 
 // NewCommand clears the program and variables
 type NewCommand struct {
@@ -1012,11 +1035,19 @@ func (run *RunCommand) String() string {
 	return rc
 }
 
-// ScreenStatement parameters
-const ScrMode = 0   // desired screen mode
-const ScrColor = 1  // enable color 0 = no
-const ScrActive = 2 // active display page
-const ScrView = 3   // viewed display page
+// parameter indexs for ScreenStatement
+const (
+	ScrnMode        = iota // 0
+	ScrnColorSwitch        // 1
+	ScrnActivePage         // 2
+	ScrnViewedPage         // 3
+)
+
+// Mode names for ScrnMode (at least the ones I support)
+const (
+	ScrnModeMDA = iota // 0
+	ScrnModeCGA        // 1
+)
 
 type ScreenStatement struct {
 	Token    token.Token  // stmt token
@@ -1026,6 +1057,8 @@ type ScreenStatement struct {
 
 func (scrn *ScreenStatement) statementNode()       {}
 func (scrn *ScreenStatement) TokenLiteral() string { return strings.ToUpper(scrn.Token.Literal) }
+
+// String returns the statement and any parameters as a string
 func (scrn *ScreenStatement) String() string {
 	var out bytes.Buffer
 
@@ -1039,6 +1072,14 @@ func (scrn *ScreenStatement) String() string {
 	}
 
 	return out.String()
+}
+
+// InitValue returns the default settings for the screen
+func (scrn *ScreenStatement) InitValue() {
+	scrn.Settings[ScrnMode] = ScrnModeMDA // monochrome text mode
+	scrn.Settings[ScrnColorSwitch] = 1    // color not allowed, 1 is false for MDA only
+	scrn.Settings[ScrnActivePage] = 0     // apage ignored
+	scrn.Settings[ScrnViewedPage] = 0     // vpage ignored
 }
 
 // Stop statement stops execution

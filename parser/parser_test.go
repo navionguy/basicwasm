@@ -191,7 +191,9 @@ func Test_ColorStatement(t *testing.T) {
 	}{
 		{inp: "COLOR 1,2,3", erc: 0},
 		{inp: "COLOR ,,3", erc: 0},
-		{inp: "COLOR", erc: 1},
+		{inp: "COLOR", erc: 0},
+		{inp: "COLOR 1,2,3,4", erc: 1},
+		{inp: "COLOR 1,2,", erc: 1},
 	}
 
 	for _, tt := range tests {

@@ -29,6 +29,7 @@ func Test_ParseFile(t *testing.T) {
 	for _, tt := range tests {
 		var mt mocks.MockTerm
 		mocks.InitMockTerm(&mt)
+		mt.ExpMsg = &mocks.Expector{}
 		env := object.NewTermEnvironment(mt)
 		rdr := bufio.NewReader(bytes.NewReader(tt.prg))
 		ParseFile(rdr, env)
@@ -191,6 +192,7 @@ func Test_ParseProtProg(t *testing.T) {
 
 		var mt mocks.MockTerm
 		mocks.InitMockTerm(&mt)
+		mt.ExpMsg = &mocks.Expector{}
 		env := object.NewTermEnvironment(mt)
 
 		ParseProtectedFile(src, env)

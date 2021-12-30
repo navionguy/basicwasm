@@ -535,6 +535,7 @@ func Test_ParseFile(t *testing.T) {
 		bts := bytes.NewReader(tt.inp)
 		buf := bufio.NewReader(bts)
 		var trm mocks.MockTerm
+		trm.ExpMsg = &mocks.Expector{}
 		env := object.NewTermEnvironment(trm)
 
 		ParseFile(buf, env)

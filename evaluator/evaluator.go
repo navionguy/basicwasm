@@ -41,7 +41,7 @@ func Eval(node ast.Node, code *ast.Code, env *object.Environment) object.Object 
 		evalBeepStatement(node, code, env)
 
 	case *ast.ChainStatement:
-		evalChainStatement(node, code, env)
+		return evalChainStatement(node, code, env)
 
 	case *ast.ClearCommand:
 		evalClearCommand(node, code, env)
@@ -320,23 +320,84 @@ func evalClearCommand(clear *ast.ClearCommand, code *ast.Code, env *object.Envir
 }
 
 // change screen foreground/background color
-func evalColorStatement(color *ast.ColorStatement, code *ast.Code, env *object.Environment) object.Object {
+func evalColorStatement(color *ast.ColorStatement, code *ast.Code, env *object.Environment) {
+	// get the current screen mode
+	scr := evalColorMode(env)
+
+	plt := evalColorPalette(scr, env)
+
+	switch scr.Settings[ast.ScrnMode] {
+	case ast.ScrnModeMDA, ast.ScrnModeCGA: // Text mode only
+		evalColorScreen0(color, plt.CurPalette, code, env)
+	default:
+		stdError(env, berrors.IllegalFuncCallErr)
+	}
+}
+
+func evalColorMode(env *object.Environment) *ast.ScreenStatement {
 	// what is the current screen mode?
 	ss := env.GetSetting(settings.Screen)
 
-	mode := 0 // default is screen 0
-	scr := ss.(*ast.ScreenStatement)
-
-	if scr != nil {
-		mode = scr.Settings[0]
-	}
-	switch mode {
-	case 0: // Text mode only
-	default:
-		return stdError(env, berrors.IllegalFuncCallErr)
+	// if I didn't get one from the settings
+	// need to create a default one
+	if ss == nil {
+		t := &ast.ScreenStatement{}
+		t.InitValue()
+		return t
 	}
 
-	return nil
+	// unwrap the actual statement
+	return ss.(*ast.ScreenStatement)
+}
+
+// for screen mode 0, the three parameters are foreground, background, border
+// ToDo: actually support border color if I ever see it used
+func evalColorScreen0(color *ast.ColorStatement, plt ast.ColorPalette, code *ast.Code, env *object.Environment) {
+	for i, exp := range color.Parms {
+		// error on border for now
+		if i == 2 {
+			stdError(env, berrors.IllegalFuncCallErr)
+			return
+		}
+
+		// if there is a param, evaluate and action it
+		if exp != nil {
+			val := evalExpressions(color.Parms[i:1], code, env)
+			ind, err := coerceIndex(val[0], env)
+
+			if err != nil {
+				return
+			}
+			evalColorSet((ind & 0x0f), (i == 1), plt, env)
+		}
+	}
+}
+
+// use the map to calculate  final output
+func evalColorSet(color int16, bkGrnd bool, plt ast.ColorPalette, env *object.Environment) {
+	rc := plt[color]
+
+	if bkGrnd {
+		rc += 10 // move into background range
+	}
+
+	// set the color
+	env.Terminal().Print(fmt.Sprintf("\x1B[%dm", rc))
+}
+
+func evalColorPalette(scr *ast.ScreenStatement, env *object.Environment) *ast.PaletteStatement {
+	// fetch the current palette settings
+	pset := env.GetSetting(settings.Palette)
+
+	// if no settings are saved, get the default values
+	if pset == nil {
+		// go build default palette and save it
+		plt := evalPaletteDefault(scr.Settings[0])
+		env.SaveSetting(settings.Palette, plt)
+		return plt
+	}
+
+	return pset.(*ast.PaletteStatement)
 }
 
 // user wants to continue execution, if we can
@@ -622,6 +683,11 @@ func evalScreenStatement(scrn *ast.ScreenStatement, code *ast.Code, env *object.
 			return err
 		}
 
+		// only valid values are 0,1,2,7,8,9,10
+		if (id < 0) || ((id > 2) && (id < 7)) || (id > 10) {
+			return stdError(env, berrors.IllegalFuncCallErr)
+		}
+
 		cur.Settings[i] = int(id)
 	}
 
@@ -636,10 +702,15 @@ func evalScreenGetCurrent(env *object.Environment) *ast.ScreenStatement {
 
 	// if no current setting, return default
 	if cur == nil {
-		return &ast.ScreenStatement{Settings: [4]int{0, 1, 0, 0}}
+		return evalScreenDefaults()
 	}
 
 	return cur.(*ast.ScreenStatement)
+}
+
+// build and return the default, power-on settings
+func evalScreenDefaults() *ast.ScreenStatement {
+	return &ast.ScreenStatement{Settings: [4]int{0, 1, 0, 0}}
 }
 
 // halt execution, if running, leave file opens, tell user where we are
@@ -994,6 +1065,37 @@ func evalNewCommand(cmd *ast.NewCommand, code *ast.Code, env *object.Environment
 	return &htl
 }
 
+// Build the default Palette struct
+func evalPaletteDefault(scrmode int) *ast.PaletteStatement {
+	plt := ast.PaletteStatement{}
+	plt.BasePalette = make(map[int16]int)
+
+	switch scrmode {
+	case 0, 1: // just load the standard colors
+		plt.BasePalette[object.GWBlack] = object.XBlack // [0]90
+		plt.BasePalette[object.GWBlue] = object.XBlue
+		plt.BasePalette[object.GWGreen] = object.XGreen
+		plt.BasePalette[object.GWCyan] = object.XCyan
+		plt.BasePalette[object.GWRed] = object.XRed
+		plt.BasePalette[object.GWMagenta] = object.XMagenta
+		plt.BasePalette[object.GWBrown] = object.XYellow
+		plt.BasePalette[object.GWWhite] = object.XWhite - 60 // [7]37
+		plt.BasePalette[object.GWGray] = object.XBlack - 60  // [0]30
+		plt.BasePalette[object.GWLtBlue] = object.XBlue - 60
+		plt.BasePalette[object.GWLtGreen] = object.XGreen - 60
+		plt.BasePalette[object.GWLtCyan] = object.XCyan - 60
+		plt.BasePalette[object.GWLtRed] = object.XRed - 60
+		plt.BasePalette[object.GWLtMagenta] = object.XMagenta - 60
+		plt.BasePalette[object.GWYellow] = object.XYellow - 60
+		plt.BasePalette[object.GWBrtWhite] = object.XWhite // [15]97
+	}
+
+	plt.CurPalette = plt.BasePalette
+
+	return &plt
+}
+
+// Process parameters of a Print statement
 func evalPrintStatement(node *ast.PrintStatement, code *ast.Code, env *object.Environment) {
 	for i, item := range node.Items {
 

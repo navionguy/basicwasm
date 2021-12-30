@@ -13,28 +13,32 @@ func TestExecCommand(t *testing.T) {
 		inp string
 		exp []string
 	}{
-		{inp: "STOP", exp: []string{"Break", "OK"}},
-		{inp: "10 CLS", exp: []string{"OK"}},
-		{inp: "20 PRINT X * Y", exp: []string{"OK"}},
-		{"LIST", []string{"10 CLS", "20 PRINT X * Y ", "OK"}},
-		{"nerf", []string{"Syntax error", "OK"}},
-		{"LET X = 5", []string{"OK"}},
-		{"LET Y = 2", []string{"OK"}},
-		{"PRINT X", []string{"5", "", "OK"}},
-		{"PRINT 45.2 / 3.4", []string{"13.29412", "", "OK"}},
-		{"CLS : LIST", []string{"10 CLS", "20 PRINT X * Y ", "OK"}},
-		{"GOTO 10", []string{"10", "", "OK"}},
-		{"AUTO 10", []string{"10*"}},
+		{inp: ""},
+		{inp: `10 PRINT X`},
+		{inp: "RESTORE X", exp: []string{"undefined line number X"}},
+		{inp: "CHAIN", exp: []string{"Type mismatch", "OK"}},
+		{inp: `PRINT "HELLO"`, exp: []string{"HELLO", "", "OK"}},
 	}
 
-	var trm mocks.MockTerm
-	mocks.InitMockTerm(&trm)
-	env := object.NewTermEnvironment(trm)
 	for _, tt := range tests {
-		trm.ExpMsg.Exp = tt.exp
+		trm := mocks.MockTerm{}
+		mocks.InitMockTerm(&trm)
+		trm.ExpMsg = &mocks.Expector{}
+		if len(tt.exp) > 0 {
+			trm.ExpMsg.Exp = tt.exp
+		}
+		env := object.NewTermEnvironment(trm)
 		execCommand(tt.inp, env)
-		if trm.ExpMsg.Failed {
-			t.Fatalf("didn't expect that!")
+		if len(tt.exp) > 0 {
+			if trm.ExpMsg.Failed {
+				t.Fatalf("%s didn't expect that!", tt.inp)
+			}
+
+			if len(trm.ExpMsg.Exp) != 0 {
+				t.Fatalf("%s expected %s but didn't get it", tt.inp, trm.ExpMsg.Exp[0])
+
+			}
+
 		}
 	}
 }
@@ -50,6 +54,7 @@ func Test_GiveError(t *testing.T) {
 	for _, tt := range tests {
 		var trm mocks.MockTerm
 		mocks.InitMockTerm(&trm)
+		trm.ExpMsg = &mocks.Expector{}
 		trm.ExpMsg.Exp = tt.exp
 		env := object.NewTermEnvironment(trm)
 		terr := errors.New(tt.inp)
