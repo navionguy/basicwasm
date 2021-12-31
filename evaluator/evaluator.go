@@ -1097,6 +1097,22 @@ func evalPaletteDefault(scrmode int) *ast.PaletteStatement {
 
 // Process parameters of a Print statement
 func evalPrintStatement(node *ast.PrintStatement, code *ast.Code, env *object.Environment) {
+	// go print items, if there are any
+	if len(node.Items) > 0 {
+		evalPrintItems(node, code, env)
+	}
+
+	// if last seperator is ; no CR/LF
+	if (len(node.Seperators) > 0) && (node.Seperators[len(node.Seperators)-1] == ";") {
+		return
+	}
+
+	// end with a newline
+	env.Terminal().Println("")
+}
+
+// Print the individual items
+func evalPrintItems(node *ast.PrintStatement, code *ast.Code, env *object.Environment) {
 	for i, item := range node.Items {
 
 		env.Terminal().Print(Eval(item, code, env).Inspect())
@@ -1105,12 +1121,6 @@ func evalPrintStatement(node *ast.PrintStatement, code *ast.Code, env *object.En
 			env.Terminal().Print("\t")
 		}
 	}
-	if node.Seperators[len(node.Seperators)-1] == ";" {
-		return
-	}
-
-	// end with a newline
-	env.Terminal().Println("")
 }
 
 func evalPrefixExpression(operator string, right object.Object, code *ast.Code, env *object.Environment) object.Object {

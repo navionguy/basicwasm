@@ -2,6 +2,7 @@ package mocks
 
 import (
 	"fmt"
+	"math"
 	"strings"
 )
 
@@ -79,15 +80,15 @@ func (mt MockTerm) GetCursor() (int, int) {
 	return *mt.Row, *mt.Col
 }
 
-func (mt MockTerm) Read(col, row, len int) string {
-	// make sure your test is correct
-	trim := (row-1)*80 + (col - 1)
+func (mt MockTerm) Read(col, row, length int) string {
+	tstr := []byte(*mt.StrVal)
 
-	tstr := *mt.StrVal
+	l := int(math.Min(float64(length), float64(len(tstr))))
+	c := int(math.Max(float64(col-1), float64(0)))
 
-	newstr := tstr[trim : trim+len]
+	newstr := tstr[c : l+c]
 
-	return newstr
+	return string(newstr)
 }
 
 func (mt MockTerm) ReadKeys(count int) []byte {

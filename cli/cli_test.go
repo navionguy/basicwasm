@@ -4,11 +4,56 @@ import (
 	"errors"
 	"testing"
 
+	"github.com/navionguy/basicwasm/ast"
 	"github.com/navionguy/basicwasm/mocks"
 	"github.com/navionguy/basicwasm/object"
 )
 
-func TestExecCommand(t *testing.T) {
+func Test_EvalKeyCodes(t *testing.T) {
+	tests := []struct {
+		inp  string
+		key  []byte
+		exp  []string
+		auto bool
+	}{
+		{inp: "PRINT", key: []byte("\r"), exp: []string{"\r\n", "", "OK"}},
+		{inp: "Down arrow", key: []byte{0x7f}, exp: []string{"\x1b[P"}},
+		{inp: "F", key: []byte("F"), exp: []string{"F"}},
+		{inp: "ctrl-c", key: []byte{0x03}, exp: []string{""}},
+		{inp: "ctrl-c auto", key: []byte{0x03}, exp: []string{"", "OK"}, auto: true},
+	}
+
+	for _, tt := range tests {
+		trm := mocks.MockTerm{}
+		mocks.InitMockTerm(&trm)
+		*trm.Row = 1
+		*trm.Col = len(tt.inp)
+		trm.StrVal = &tt.inp
+		trm.ExpMsg = &mocks.Expector{}
+		if len(tt.exp) > 0 {
+			trm.ExpMsg.Exp = tt.exp
+		}
+		env := object.NewTermEnvironment(trm)
+		if tt.auto {
+			ato := ast.AutoCommand{Start: 10, Increment: 10, Curr: true}
+			env.SetAuto(&ato)
+		}
+		evalKeyCodes(tt.key, env)
+		if len(tt.exp) > 0 {
+			if trm.ExpMsg.Failed {
+				t.Fatalf("%s didn't expect that!", tt.inp)
+			}
+
+			if len(trm.ExpMsg.Exp) != 0 {
+				t.Fatalf("%s expected %s but didn't get it", tt.inp, trm.ExpMsg.Exp[0])
+
+			}
+
+		}
+	}
+}
+
+func Test_ExecCommand(t *testing.T) {
 	tests := []struct {
 		inp string
 		exp []string

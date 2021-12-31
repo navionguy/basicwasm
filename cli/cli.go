@@ -15,47 +15,54 @@ func Start(env *object.Environment) {
 	go runLoop(env)
 }
 
+// runLoop reads key presses and send them off to be processed
+// basically, just loop until the main routine exits
 func runLoop(env *object.Environment) {
-	//var cmd []byte
 
+	// send the boot-up "OK" to the console
 	env.Terminal().Println("OK")
 	for {
-		key := env.Terminal().ReadKeys(1)
-		k := key[0]
-		switch k {
-		case '\r':
-			row, _ := env.Terminal().GetCursor()
-			//fmt.Printf("cursor at %d:%d\n", row, col)
-			env.Terminal().Print("\r\n")
-			execCommand(env.Terminal().Read(0, row, 80), env)
-			//fmt.Println(term.Read(0, row, 80))
-		case 0x7F:
-			row, col := env.Terminal().GetCursor()
+		keys := env.Terminal().ReadKeys(1)
 
-			/*if col > 0 {
-				col--
-			}*/
-			env.Terminal().Locate(row+1, col)
-			env.Terminal().Print("\x1b[P")
-		//env.Terminal().Print("\b\a")
-		case 0x03: // ctrl-c
-			env.Terminal().Println("")
-			if env.GetAuto() != nil {
-				env.SetAuto(nil)
-				prompt(env)
-			}
-		default:
-			/*var msg []byte
-			msg = append(msg, k)
-			hex := hex.EncodeToString(msg)
-			env.Terminal().Print(hex)*/
-			env.Terminal().Print(string(k))
-			//cmd = append(cmd, k)
-			//fmt.Printf("%s\n", hex.EncodeToString(cmd[len(cmd)-1:]))
-		}
+		evalKeyCodes(keys, env)
 	}
 }
 
+// given one or more key codes, turn them into action
+func evalKeyCodes(keys []byte, env *object.Environment) {
+	k := keys[0]
+	switch k {
+	case '\r':
+		row, _ := env.Terminal().GetCursor()
+		//fmt.Printf("cursor at %d:%d\n", row, col)
+		env.Terminal().Print("\r\n")
+		execCommand(env.Terminal().Read(0, row, 80), env)
+		//fmt.Println(term.Read(0, row, 80))
+	case 0x7F: // down arrow
+		row, col := env.Terminal().GetCursor()
+		env.Terminal().Locate(row+1, col)
+		env.Terminal().Print("\x1b[P")
+	//env.Terminal().Print("\b\a")
+	case 0x03: // ctrl-c
+		env.Terminal().Println("")
+		if env.GetAuto() != nil {
+			env.SetAuto(nil)
+			prompt(env)
+		}
+	default:
+		/*var msg []byte
+		msg = append(msg, k)
+		hex := hex.EncodeToString(msg)
+		env.Terminal().Print(hex)*/
+		env.Terminal().Print(string(k))
+		//cmd = append(cmd, k)
+		//fmt.Printf("%s\n", hex.EncodeToString(cmd[len(cmd)-1:]))
+	}
+
+}
+
+// we have input terminated with a return key
+// should be either a command or a line of source code
 func execCommand(input string, env *object.Environment) {
 
 	// go parse the input
