@@ -10,12 +10,38 @@ import (
 	"github.com/stretchr/testify/assert"
 )
 
+func Test_AutoCommand(t *testing.T) {
+	auto := AutoCommand{Token: token.Token{Type: token.AUTO, Literal: "AUTO"}, Start: -1, Increment: -1, Curr: true}
+
+	auto.statementNode()
+	assert.Equal(t, "AUTO", auto.TokenLiteral(), "AUTO gave wrong token literal")
+
+	assert.Equalf(t, "AUTO .", auto.String(), "auto.String returned %s wanted %s", auto.String(), "AUTO .")
+}
+
+func Test_BeepStatement(t *testing.T) {
+	beep := BeepStatement{Token: token.Token{Type: token.BEEP, Literal: "BEEP"}}
+
+	beep.statementNode()
+	assert.Equal(t, "BEEP", beep.TokenLiteral(), "BEEP gave wrong token literal")
+
+	assert.Equalf(t, "BEEP", beep.String(), "beep.String returned %s wanted %s", beep.String(), "BEEP")
+}
+
 func Test_BlockStatement(t *testing.T) {
 	blk := BlockStatement{Token: token.Token{Type: token.LBRACE, Literal: "{"}}
 
 	blk.statementNode()
 
 	assert.Equal(t, "{", blk.TokenLiteral())
+}
+
+func Test_CallExpression(t *testing.T) {
+	call := CallExpression{Token: token.Token{Type: token.LPAREN, Literal: "ABS"}}
+
+	call.expressionNode()
+
+	assert.Equalf(t, "ABS", call.TokenLiteral(), "call gave wrong token literal")
 }
 
 func TestStringAndToken(t *testing.T) {
@@ -719,13 +745,13 @@ func Test_ListStatement(t *testing.T) {
 
 func Test_LocateStatement(t *testing.T) {
 	tests := []struct {
-		parms [Lct_stop + 1]Expression
+		parms []Expression
 		exp   string
 	}{
-		{parms: [Lct_stop + 1]Expression{nil, &IntegerLiteral{Value: 12}}, exp: "LOCATE ,12"},
-		{parms: [Lct_stop + 1]Expression{&IntegerLiteral{Value: 12}}, exp: "LOCATE 12"},
-		{parms: [Lct_stop + 1]Expression{&IntegerLiteral{Value: 1}, &IntegerLiteral{Value: 12}}, exp: "LOCATE 1,12"},
-		{parms: [Lct_stop + 1]Expression{&IntegerLiteral{Value: 1},
+		{parms: []Expression{nil, &IntegerLiteral{Value: 12}}, exp: "LOCATE ,12"},
+		{parms: []Expression{&IntegerLiteral{Value: 12}}, exp: "LOCATE 12"},
+		{parms: []Expression{&IntegerLiteral{Value: 1}, &IntegerLiteral{Value: 12}}, exp: "LOCATE 1,12"},
+		{parms: []Expression{&IntegerLiteral{Value: 1},
 			&IntegerLiteral{Value: 12},
 			&IntegerLiteral{Value: 1},
 			&IntegerLiteral{Value: 3},
@@ -735,10 +761,8 @@ func Test_LocateStatement(t *testing.T) {
 
 	for _, tt := range tests {
 		stmt := LocateStatement{Token: token.Token{Type: token.LOCATE, Literal: "LOCATE"}}
-		for i := 0; i < len(tt.parms); i++ {
-			if tt.parms[i] != nil {
-				stmt.Parms[i] = tt.parms[i]
-			}
+		for _, p := range tt.parms {
+			stmt.Parms = append(stmt.Parms, p)
 		}
 		stmt.statementNode()
 

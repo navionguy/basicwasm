@@ -115,6 +115,9 @@ func Eval(node ast.Node, code *ast.Code, env *object.Environment) object.Object 
 	case *ast.LoadCommand:
 		return evalLoadCommand(node, code, env)
 
+	case *ast.LocateStatement:
+		return evalLocateStatement(node, code, env)
+
 	case *ast.OctalConstant:
 		return evalOctalConstant(node, env)
 
@@ -1036,6 +1039,63 @@ func evalLoadParse(rdr *bufio.Reader, stmt *ast.LoadCommand, code *ast.Code, env
 
 	newCode := env.StatementIter()
 	return evalRunStart(newCode, env)
+}
+
+// eval where to LOCATE the cursor
+func evalLocateStatement(stmt *ast.LocateStatement, code *ast.Code, env *object.Environment) object.Object {
+	// check if I have too many parameters or not enough
+	if (len(stmt.Parms) > 5) || (len(stmt.Parms) == 0) {
+		return stdError(env, berrors.Syntax)
+	}
+
+	// evaluate movement of cursor
+	return evalLocateCursorMove(stmt, code, env)
+}
+
+// figure out if/how the cursor needs to move
+func evalLocateCursorMove(stmt *ast.LocateStatement, code *ast.Code, env *object.Environment) object.Object {
+	row, col := env.Terminal().GetCursor()
+
+	// if no params for new position, I'm done here
+	if (stmt.Parms[0] == nil) && (stmt.Parms[1] == nil) {
+		return nil
+	}
+
+	// calculte new row
+	if stmt.Parms[0] != nil {
+		nr := evalExpressions(stmt.Parms[0:1], code, env)
+		newRow, err := coerceIndex(nr[0], env)
+
+		if err != nil {
+			return err
+		}
+		row = int(newRow)
+	}
+
+	// calculte new col
+	if (len(stmt.Parms) > 1) && (stmt.Parms[1] != nil) {
+		nc := evalExpressions(stmt.Parms[1:2], code, env)
+		newCol, err := coerceIndex(nc[0], env)
+
+		if err != nil {
+			return err
+		}
+		col = int(newCol)
+	}
+
+	env.Terminal().Locate(row, col)
+
+	return evalLocateCursorShow(stmt, code, env)
+}
+
+// check if he set the cursor visibility
+func evalLocateCursorShow(stmt *ast.LocateStatement, code *ast.Code, env *object.Environment) object.Object {
+	// did he specify the parmeter?
+	if (len(stmt.Parms) < 3) || (stmt.Parms[2] == nil) {
+		return nil
+	}
+
+	return stdError(env, berrors.Syntax)
 }
 
 // convert a string octal constant into an integer

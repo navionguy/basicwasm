@@ -34,9 +34,9 @@ type Expression interface {
 // AUTO .[,[increment]] where the '.' indicates start at current line
 type AutoCommand struct {
 	Token     token.Token
-	Start     int
-	Increment int
-	Curr      bool
+	Start     int  // starting line number
+	Increment int  // numbering increment
+	Curr      bool // start with current line?
 }
 
 func (ac *AutoCommand) statementNode() {}
@@ -392,16 +392,8 @@ func (ld *LoadCommand) String() string {
 // locate and optional configure the look of the cursor
 type LocateStatement struct {
 	Token token.Token
-	Parms [5]Expression
+	Parms []Expression
 }
-
-const (
-	Lct_row = iota
-	Lct_col
-	Lct_cursor
-	Lct_start
-	Lct_stop
-)
 
 func (lct *LocateStatement) statementNode() {}
 
@@ -410,15 +402,19 @@ func (lct *LocateStatement) TokenLiteral() string { return strings.ToUpper(lct.T
 func (lct *LocateStatement) String() string {
 	stmt := ""
 
-	for i := Lct_stop; i >= Lct_row; i-- {
-		if lct.Parms[i] != nil {
-			stmt = lct.Parms[i].String() + stmt
+	for _, pp := range lct.Parms {
+		if stmt != "" {
+			stmt = stmt + ","
 		}
-		if (stmt != "") && (i > 0) {
-			stmt = "," + stmt
+		if pp != nil {
+			stmt = stmt + pp.String()
+		}
+		if (stmt == "") && (pp == nil) {
+			stmt = " "
 		}
 	}
-	return "LOCATE " + stmt
+
+	return "LOCATE " + strings.TrimLeft(stmt, " ")
 }
 
 // ColorPalette maps[GWBasicColor]XTermColor

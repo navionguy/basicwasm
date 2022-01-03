@@ -43,17 +43,26 @@ const (
 
 // Console defines how to collect input and display output
 type Console interface {
+	// Cls clears the screen contents
 	Cls()
+	// Print outputs the passed string at the curent cursor position
 	Print(string)
+	// Println prints the string followed by a CR/LF
 	Println(string)
 
+	// Locate moves the cursor to the desired (row, col)
 	Locate(int, int)
+	// Log string to browser debug console
 	Log(string)
+	// GetCursor, return cursor location(row, col)
 	GetCursor() (int, int)
+	// Read, return contents of screen range
 	Read(col, row, len int) string
+	// ReadKeys reads up to (count) keycode values
 	ReadKeys(count int) []byte
+	// SoundBell emits facsimile of a console beep
 	SoundBell()
-
+	// BreakCheck returns true if a ctrl-c was entered
 	BreakCheck() bool
 }
 

@@ -286,7 +286,7 @@ func Test_ColorPalette(t *testing.T) {
 	assert.Equal(t, object.XBlack, plt.BasePalette[object.GWCyan])
 }
 
-func TestColorStatement(t *testing.T) {
+func Test_ColorStatement(t *testing.T) {
 	tests := []struct {
 		inp  string
 		mode int
@@ -745,6 +745,49 @@ func Test_LoadCommand(t *testing.T) {
 
 		if tt.fail && (rc == nil) {
 			t.Fatalf("%s should have errored, but didn't", tt.cmd)
+		}
+	}
+}
+
+func Test_LocateStatement(t *testing.T) {
+	tests := []struct {
+		inp string
+		err bool
+	}{
+		{inp: `LOCATE`, err: true},
+		{inp: `LOCATE ,,1`},
+		{inp: `LOCATE X`, err: true},
+		{inp: `LOCATE 4,5`},
+		{inp: `LOCATE 4,X`, err: true},
+		{inp: `LOCATE 5,6,1`, err: true},
+		{inp: `LOCATE 5`}, // just change the row
+		{inp: `LOCATE 1,2,3,4,5,6`, err: true},
+	}
+
+	for _, tt := range tests {
+		p := parser.New(lexer.New(tt.inp))
+
+		errs := p.Errors()
+		for _, e := range errs {
+			t.Fatalf(e)
+		}
+		var mt mocks.MockTerm
+		initMockTerm(&mt)
+		env := object.NewTermEnvironment(mt)
+		p.ParseCmd(env)
+
+		res := Eval(&ast.Program{}, env.CmdLineIter(), env)
+
+		// check for any error coming back
+		if res != nil {
+			err := res.(*object.Error)
+			if (err == nil) && tt.err {
+				t.Fatalf("%s got no error but expected one", tt.inp)
+			}
+
+			if (err != nil) && !tt.err {
+				t.Fatalf("%s got an unexpected error", tt.inp)
+			}
 		}
 	}
 }

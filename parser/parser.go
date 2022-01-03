@@ -823,6 +823,11 @@ func (p *Parser) parsePrintStatement() *ast.PrintStatement {
 	return stmt
 }
 
+// returns true if current token is the end of the statement
+func (p *Parser) chkOnEndOfStatement() bool {
+	return p.curTokenIs(token.COLON) || p.curTokenIs(token.LINENUM) || p.curTokenIs(token.EOF) || p.curTokenIs(token.EOL)
+}
+
 // returns true if the next token would put us at the end of a statement
 func (p *Parser) chkEndOfStatement() bool {
 	return p.peekTokenIs(token.COLON) || p.peekTokenIs(token.LINENUM) || p.peekTokenIs(token.EOF) || p.peekTokenIs(token.EOL)
@@ -910,17 +915,28 @@ func (p *Parser) finishParseLetStatment(stmt *ast.LetStatement) *ast.LetStatemen
 	return stmt
 }
 
+// build array of parameter expressions
 func (p *Parser) parseLocateStatement() *ast.LocateStatement {
 	defer untrace(trace("parseLocateStatement"))
 	stmt := ast.LocateStatement{Token: p.curToken}
 
-	for i := 0; (i < len(stmt.Parms)) && (!p.chkEndOfStatement()); i++ {
+	for !p.chkEndOfStatement() {
 		p.nextToken()
-		if !p.curTokenIs(token.COMMA) {
-			stmt.Parms[i] = p.parseExpression(LOWEST)
+		if p.curTokenIs(token.COMMA) && p.peekTokenIs(token.COMMA) {
+			stmt.Parms = append(stmt.Parms, nil)
 			p.nextToken()
+			continue
 		}
+
+		if p.curTokenIs(token.COMMA) && !p.peekTokenIs(token.COMMA) {
+			p.nextToken()
+			stmt.Parms = append(stmt.Parms, p.parseExpression(LOWEST))
+			continue
+		}
+
+		stmt.Parms = append(stmt.Parms, p.parseExpression(LOWEST))
 	}
+	p.nextToken()
 
 	return &stmt
 }

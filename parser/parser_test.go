@@ -730,11 +730,17 @@ func Test_LoadCommand(t *testing.T) {
 
 func Test_LocateStatement(t *testing.T) {
 	tests := []struct {
-		inp string
-		exp []ast.Expression
+		inp string           // statement to test
+		exp []ast.Expression // array of parameter expressions expected
+		err bool             // true if I expect a parse error
 	}{
+		{inp: `LOCATE 5,5 : PRINT "Hello"`, exp: []ast.Expression{&ast.IntegerLiteral{Token: token.Token{Type: token.INT, Literal: "5"}, Value: 5},
+			&ast.IntegerLiteral{Token: token.Token{Type: token.INT, Literal: "5"}, Value: 5}}},
 		{inp: `LOCATE`},
+		{inp: `LOCATE $`, err: true},
 		{inp: `LOCATE 1,2`, exp: []ast.Expression{&ast.IntegerLiteral{Token: token.Token{Type: token.INT, Literal: "1"}, Value: 1},
+			&ast.IntegerLiteral{Token: token.Token{Type: token.INT, Literal: "2"}, Value: 2}}},
+		{inp: `LOCATE 1,,2`, exp: []ast.Expression{&ast.IntegerLiteral{Token: token.Token{Type: token.INT, Literal: "1"}, Value: 1}, nil,
 			&ast.IntegerLiteral{Token: token.Token{Type: token.INT, Literal: "2"}, Value: 2}}},
 	}
 
@@ -744,25 +750,32 @@ func Test_LocateStatement(t *testing.T) {
 		env := object.NewTermEnvironment(mocks.MockTerm{})
 		p.ParseCmd(env)
 
-		itr := env.CmdLineIter()
-		stmt := itr.Value()
-		lct, ok := stmt.(*ast.LocateStatement)
+		if !tt.err {
+			itr := env.CmdLineIter()
+			stmt := itr.Value()
+			lct, ok := stmt.(*ast.LocateStatement)
 
-		if !ok {
-			t.Fatalf("Test_LocateStatement didn't return Locate object")
-		}
+			if !ok {
+				t.Fatalf("Test_LocateStatement didn't return Locate object")
+			}
 
-		for i, res := range lct.Parms {
-			if res != nil {
-				if tt.exp[i] != nil {
-					assert.Equal(t, tt.exp[i], res, "parseLocateStatement param %d mismatch", i)
-				} else {
-					t.Fatalf("Test_LocateStatement got a param it didn't expect")
+			for i, res := range lct.Parms {
+				if res != nil {
+					if tt.exp[i] != nil {
+						assert.Equal(t, tt.exp[i], res, "parseLocateStatement param %d mismatch", i)
+					} else {
+						t.Fatalf("Test_LocateStatement got a param it didn't expect")
+					}
 				}
 			}
-		}
 
-		checkParserErrors(t, p)
+			checkParserErrors(t, p)
+		} else {
+			// make sure I did catch the error
+			if len(p.errors) == 0 {
+				t.Fatalf("%s failed to generate parse error", tt.inp)
+			}
+		}
 	}
 }
 
