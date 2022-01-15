@@ -15,6 +15,7 @@ import (
 	"github.com/navionguy/basicwasm/object"
 	"github.com/navionguy/basicwasm/parser"
 	"github.com/navionguy/basicwasm/settings"
+	"github.com/navionguy/basicwasm/token"
 	"github.com/stretchr/testify/assert"
 
 	"testing"
@@ -531,6 +532,57 @@ func Test_CatchNotDir(t *testing.T) {
 	}
 }
 
+func Test_ForStatement(t *testing.T) {
+	// along the way we also test the NEXT statement
+
+	tests := []struct {
+		inp string
+		err bool
+	}{
+		{inp: `10 FOR I = 1 TO 3 : PRINT I : NEXT I`},
+		{inp: `10 FOR I = 1 TO 3 : PRINT I : NEXT J`},
+		{inp: `10 FOR I = 1 TO 4 STEP 2 : PRINT I : NEXT I`},
+		{inp: `10 FOR I = 1 TO 4 STEP 0 : PRINT I : NEXT I`},
+		{inp: `10 FOR I = 5 TO -3 STEP -1 : PRINT I : NEXT I`},
+		{inp: `10 FOR I = 7 TO 7 : PRINT I : NEXT I`},
+		{inp: `10 PRINT I : NEXT I`, err: true},
+	}
+
+	for _, tt := range tests {
+
+		l := lexer.New(tt.inp)
+		p := parser.New(l)
+		var mt mocks.MockTerm
+		initMockTerm(&mt)
+		env := object.NewTermEnvironment(mt)
+
+		p.ParseProgram(env)
+		itr := env.StatementIter()
+		res := Eval(&ast.Program{}, itr, env)
+
+		if tt.err {
+			err := res.(*object.Error)
+
+			assert.NotNil(t, err, "%s expected error, didn't get one", tt.inp)
+		}
+	}
+}
+
+func Test_NextStep(t *testing.T) {
+	four := object.ForBlock{Four: &ast.ForStatment{Init: &ast.LetStatement{Name: &ast.Identifier{Token: token.Token{Literal: "I"}}}}}
+
+	l := lexer.New(`10 NEXT J`)
+	p := parser.New(l)
+	var mt mocks.MockTerm
+	initMockTerm(&mt)
+	env := object.NewTermEnvironment(mt)
+
+	p.ParseProgram(env)
+	itr := env.StatementIter()
+	evalNextStep(four, itr, env)
+
+}
+
 func Test_GosubStatement(t *testing.T) {
 	tests := []struct {
 		inp string
@@ -606,6 +658,8 @@ func testEval(input string) object.Object {
 		return nil
 	}
 
+	// need to execute run command
+	env.SetRun(true)
 	return Eval(&ast.Program{}, env.StatementIter(), env)
 }
 
@@ -1039,7 +1093,9 @@ func Test_ReturnStatement(t *testing.T) {
 			initMockTerm(&mt)
 			env := object.NewTermEnvironment(mt)
 
-			assert.Equal(t, stdError(env, tt.err), res)
+			exp := stdError(env, tt.err)
+			exp.Message = exp.Message + " in 10"
+			assert.Equal(t, exp, res)
 		}
 	}
 }
@@ -1549,7 +1605,6 @@ func ExampleT_strings() {
 	// Hello Goodbye
 }
 
-/*
 func ExampleT_errors() {
 	tests := []struct {
 		input string
@@ -1570,15 +1625,8 @@ func ExampleT_errors() {
 	}
 
 	// Output:
-	// Undefined line number
-	// Undefined user function in 20
 	// 5
-	// index out of range in 40
-	// Subscript out of range in 50
-	// type mis-match in 60
-	// unsupport negative on STRING in 70
-	// type mis-match in 80
-}*/
+}
 
 func ExampleT_list() {
 	src := `

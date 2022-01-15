@@ -820,6 +820,28 @@ func Test_NewCommand(t *testing.T) {
 	assert.Equal(t, 1, env.CmdLineIter().Len(), "NewCommand didn't create one command")
 }
 
+func Test_NextCommand(t *testing.T) {
+	tests := []struct {
+		inp string
+		err bool
+	}{
+		{inp: `30 NEXT`},
+		{inp: `40 NEXT X`},
+		{inp: `50 NEXT 4`, err: true},
+	}
+
+	for _, tt := range tests {
+		l := lexer.New(tt.inp)
+		p := New(l)
+		env := object.NewTermEnvironment(mocks.MockTerm{})
+		p.ParseProgram(env)
+
+		if !tt.err {
+			checkParserErrors(t, p)
+		}
+	}
+}
+
 func Test_PaletteStatement(t *testing.T) {
 	tests := []struct {
 		inp string
@@ -1773,7 +1795,7 @@ func TestEndStatements(t *testing.T) {
 	}
 }
 
-func TestFilesCommand(t *testing.T) {
+func Test_FilesCommand(t *testing.T) {
 	tests := []struct {
 		input string
 	}{
@@ -1790,7 +1812,22 @@ func TestFilesCommand(t *testing.T) {
 	}
 }
 
-func TestPrintStatements(t *testing.T) {
+func Test_ForStatement(t *testing.T) {
+	tests := []struct {
+		inp string
+	}{
+		{inp: `10 FOR I = 1 to 10 STEP 2`},
+	}
+
+	for _, tt := range tests {
+		l := lexer.New(tt.inp)
+		p := New(l)
+		env := object.NewTermEnvironment(mocks.MockTerm{})
+		p.ParseProgram(env)
+	}
+}
+
+func Test_PrintStatements(t *testing.T) {
 	tests := []struct {
 		input    string
 		expStmts int

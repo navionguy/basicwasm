@@ -202,6 +202,8 @@ func (p *Parser) parseStatement() ast.Statement {
 		return nil
 	case token.FILES:
 		return p.parseFilesCommand()
+	case token.FOR:
+		return p.parseForStatement()
 	case token.GOSUB:
 		return p.parseGosubStatement()
 	case token.GOTO:
@@ -220,6 +222,8 @@ func (p *Parser) parseStatement() ast.Statement {
 		return p.parseLoadCommand()
 	case token.NEW:
 		return p.parseNewCommand()
+	case token.NEXT:
+		return p.parseNextStatement()
 	case token.PALETTE:
 		return p.parsePaletteStatement()
 	case token.READ:
@@ -552,6 +556,7 @@ func (p *Parser) parseEndStatement() *ast.EndStatement {
 	return stmt
 }
 
+// parse in a FILES command
 func (p *Parser) parseFilesCommand() *ast.FilesCommand {
 	defer untrace(trace("parseFilesCommand"))
 	cd := &ast.FilesCommand{Token: p.curToken}
@@ -564,6 +569,36 @@ func (p *Parser) parseFilesCommand() *ast.FilesCommand {
 	return cd
 }
 
+// parse the begining of a FOR loop
+func (p *Parser) parseForStatement() *ast.ForStatment {
+	defer untrace(trace("parseForStatement"))
+	four := ast.ForStatment{Token: p.curToken}
+	p.nextToken()
+
+	// get the starting assignment
+	if p.curTokenIs(token.IDENT) {
+		four.Init = p.parseImpliedLetStatement(p.curToken.Literal)
+		p.nextToken()
+	}
+
+	// get the termination value, if it is there
+	if p.curTokenIs(token.TO) && (strings.EqualFold(p.curToken.Literal, "to")) {
+		p.nextToken()
+		// read the final expression
+		four.Final = append(four.Final, p.parseExpression(LOWEST))
+	}
+
+	// their may be a step size specified
+	if p.peekTokenIs(token.IDENT) && (strings.EqualFold(p.peekToken.Literal, "step")) {
+		p.nextToken()
+		p.nextToken()
+		four.Step = append(four.Step, p.parseExpression(LOWEST))
+	}
+
+	return &four
+}
+
+// parse an Integer Literal
 func (p *Parser) parseIntegerLiteral() ast.Expression {
 	defer untrace(trace("parseIntegerLiteral"))
 	lit := &ast.IntegerLiteral{Token: p.curToken}
@@ -978,6 +1013,23 @@ func (p *Parser) parseNewCommand() *ast.NewCommand {
 	cmd := ast.NewCommand{Token: p.curToken}
 
 	return &cmd
+}
+
+// parse the NEXT statement
+func (p *Parser) parseNextStatement() *ast.NextStatement {
+	defer untrace(trace("parseNextStatement"))
+	nxt := ast.NextStatement{Token: p.curToken}
+
+	if !p.chkEndOfStatement() {
+		p.nextToken()
+		if p.curTokenIs(token.IDENT) {
+			nxt.Id = *p.innerParseIdentifier()
+		} else {
+			p.reportError(berrors.Syntax)
+		}
+	}
+
+	return &nxt
 }
 
 // adjust the screen color palette as directed

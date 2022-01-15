@@ -298,8 +298,8 @@ func Test_Stack(t *testing.T) {
 	for _, tt := range tests {
 		env := newEnvironment()
 		for i := 0; i < tt.pushCount; i++ {
-			cd := ast.Code{}
-			env.Push(cd)
+			ret := ast.RetPoint{}
+			env.Push(ret)
 		}
 
 		nilSeen := false

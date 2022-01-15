@@ -77,9 +77,11 @@ const (
 	END     = "END"
 	FALSE   = "FALSE"
 	FILES   = "FILES"
+	FOR     = "FOR"
 	GOSUB   = "GOSUB"
 	GOTO    = "GOTO"
 	IF      = "IF"
+	KEY     = "KEY"
 	LET     = "LET"
 	LIST    = "LIST"
 	LOAD    = "LOAD"
@@ -87,6 +89,7 @@ const (
 	MERGE   = "MERGE"
 	MOD     = "MOD"
 	NEW     = "NEW"
+	NEXT    = "NEXT"
 	PALETTE = "PALETTE"
 	PRINT   = "PRINT"
 	READ    = "READ"
@@ -97,6 +100,7 @@ const (
 	SCREEN  = "SCREEN"
 	STOP    = "STOP"
 	THEN    = "THEN"
+	TO      = "TO"
 	TRON    = "TRON"
 	TROFF   = "TROFF"
 	TRUE    = "TRUE"
@@ -126,9 +130,11 @@ var keywords = map[string]TokenType{
 	"end":     END,
 	"false":   FALSE,
 	"files":   FILES,
+	"for":     FOR,
 	"gosub":   GOSUB,
 	"goto":    GOTO,
 	"if":      IF,
+	"key":     KEY,
 	"let":     LET,
 	"list":    LIST,
 	"load":    LOAD,
@@ -136,6 +142,7 @@ var keywords = map[string]TokenType{
 	"merge":   MERGE,
 	"mod":     MOD,
 	"new":     NEW,
+	"next":    NEXT,
 	"palette": PALETTE,
 	"print":   PRINT,
 	"read":    READ,
@@ -146,6 +153,7 @@ var keywords = map[string]TokenType{
 	"screen":  SCREEN,
 	"stop":    STOP,
 	"then":    THEN,
+	"to":      TO,
 	"tron":    TRON,
 	"troff":   TROFF,
 	"true":    TRUE,

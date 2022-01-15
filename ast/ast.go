@@ -287,6 +287,30 @@ func (fls *FilesCommand) String() string {
 	return strings.Trim(fc, " ")
 }
 
+type ForStatment struct {
+	Token token.Token
+	Init  *LetStatement // assigns starting value
+	Final []Expression  // loop ends when this value reached
+	Step  []Expression  // value to increment /decrement
+}
+
+func (four *ForStatment) statementNode()       {}
+func (four *ForStatment) TokenLiteral() string { return four.Token.Literal }
+func (four *ForStatment) String() string {
+	var out bytes.Buffer
+
+	out.WriteString("FOR")
+	out.WriteString(four.Init.String())
+	out.WriteString(" TO ")
+	out.WriteString(four.Final[0].String())
+	if len(four.Step) > 0 {
+		out.WriteString(" STEP ")
+		out.WriteString(four.Step[0].String())
+	}
+
+	return out.String()
+}
+
 // FunctionLiteral starts the definition of a user function
 type FunctionLiteral struct {
 	Token      token.Token // The 'DEF' token
@@ -456,6 +480,16 @@ type NewCommand struct {
 func (new *NewCommand) statementNode()       {}
 func (new *NewCommand) TokenLiteral() string { return strings.ToUpper(new.Token.Literal) }
 func (new *NewCommand) String() string       { return new.Token.Literal + " " }
+
+// NextStatement
+type NextStatement struct {
+	Token token.Token
+	Id    Identifier // for loop iterator id, not required
+}
+
+func (nxt *NextStatement) statementNode()       {}
+func (nxt *NextStatement) TokenLiteral() string { return strings.ToUpper(nxt.Token.Literal) }
+func (nxt *NextStatement) String() string       { return nxt.Token.Literal + " " }
 
 // ExpressionStatement holds an expression
 type ExpressionStatement struct {

@@ -294,6 +294,17 @@ func TestCodeMultiStmts(t *testing.T) {
 	}
 }
 
+func Test_CodeRetPoint(t *testing.T) {
+	code := Code{currIndex: 1, currLine: 100, lines: []codeLine{{}, {lineNum: 10, curStmt: 5}}}
+
+	rp := code.GetReturnPoint()
+
+	assert.Equal(t, 1, rp.currIndex, "GetReturnPoint gave index %d, expected, 1", rp.currIndex)
+	assert.Equal(t, 5, rp.currStmt, "GetReturnPointgave stmt %d, expected 5", rp.currStmt)
+
+	code.JumpToRetPoint(rp)
+}
+
 func Test_ColorStatement(t *testing.T) {
 	tests := []struct {
 		prms []Expression
@@ -654,6 +665,14 @@ func Test_EOFExpression(t *testing.T) {
 	assert.Equal(t, "", eof.String())
 }
 
+func Test_ExpressionStatement(t *testing.T) {
+	exp := ExpressionStatement{Token: token.Token{Type: token.EQ, Literal: "="}}
+
+	exp.statementNode()
+	assert.Equal(t, "=", exp.TokenLiteral())
+	assert.Equal(t, "", exp.String())
+}
+
 func Test_FilesCommand(t *testing.T) {
 
 	tests := []struct {
@@ -671,6 +690,23 @@ func Test_FilesCommand(t *testing.T) {
 		assert.Equal(t, tt.exp, tt.cmd.String(), "Files command didn't build string correctly")
 
 	}
+}
+
+func Test_ForStatement(t *testing.T) {
+	four := ForStatment{Token: token.Token{Type: token.FOR, Literal: "FOR"}, Init: &LetStatement{
+		Token: token.Token{Type: token.LET, Literal: ""},
+		Name: &Identifier{
+			Token: token.Token{Type: token.IDENT, Literal: "myVar"},
+			Value: "myVar",
+		},
+		Value: &Identifier{
+			Token: token.Token{Type: token.IDENT, Literal: "anotherVar"},
+			Value: "anotherVar",
+		}}, Final: []Expression{&IntegerLiteral{Value: 10}}, Step: []Expression{&IntegerLiteral{Value: 2}}}
+
+	four.statementNode()
+	assert.Equal(t, "FOR", four.TokenLiteral())
+	assert.Equal(t, "FOR myVar = anotherVar TO 10 STEP 2", four.String())
 }
 
 func Test_GosubStatement(t *testing.T) {
@@ -803,6 +839,14 @@ func Test_NewCommand(t *testing.T) {
 
 	assert.Equal(t, "NEW", cmd.TokenLiteral())
 	assert.Equal(t, "NEW ", cmd.String())
+}
+
+func Test_NextStatement(t *testing.T) {
+	nxt := NextStatement{Token: token.Token{Type: token.NEXT, Literal: "NEXT"}}
+
+	nxt.statementNode()
+	assert.Equal(t, "NEXT", nxt.TokenLiteral())
+	assert.Equal(t, "NEXT ", nxt.String())
 }
 
 func Test_PaletteStatement(t *testing.T) {

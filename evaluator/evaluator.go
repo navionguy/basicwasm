@@ -70,11 +70,14 @@ func Eval(node ast.Node, code *ast.Code, env *object.Environment) object.Object 
 	case *ast.EndStatement:
 		return evalEndStatement(node, code, env)
 
+	case *ast.ExpressionStatement:
+		return Eval(node.Expression, code, env)
+
 	case *ast.FilesCommand:
 		evalFilesCommand(node, code, env)
 
-	case *ast.ExpressionStatement:
-		return Eval(node.Expression, code, env)
+	case *ast.ForStatment:
+		return evalForStatement(node, code, env)
 
 	case *ast.GosubStatement:
 		return evalGosubStatement(node, code, env)
@@ -117,6 +120,9 @@ func Eval(node ast.Node, code *ast.Code, env *object.Environment) object.Object 
 
 	case *ast.LocateStatement:
 		return evalLocateStatement(node, code, env)
+
+	case *ast.NextStatement:
+		return evalNextStatement(node, code, env)
 
 	case *ast.OctalConstant:
 		return evalOctalConstant(node, env)
@@ -586,14 +592,14 @@ func evalRestoreStatement(rst *ast.RestoreStatement, code *ast.Code, env *object
 // alternatively, allows you to recover from an event trap <- ToDo
 func evalReturnStatement(ret *ast.ReturnStatement, code *ast.Code, env *object.Environment) object.Object {
 	// get code iterator pointing to where I need to be
-	cd := env.Pop()
+	rt := env.Pop()
 
 	// check for stack underflow
-	if cd == nil {
+	if rt == nil {
 		return stdError(env, berrors.ReturnWoGosub)
 	}
 
-	*code = *cd
+	code.JumpToRetPoint(*rt)
 	return nil
 }
 
@@ -870,6 +876,20 @@ func displayFiles(files *filelist.FileList, env *object.Environment) {
 	env.Terminal().Println("")
 }
 
+// FOR statement begins a for-loop
+func evalForStatement(four *ast.ForStatment, code *ast.Code, env *object.Environment) object.Object {
+	// initialize my counter
+	val := Eval(four.Init, code, env)
+
+	// need to save off the ForStatement and the current code value
+	blk := object.ForBlock{Code: code.GetReturnPoint(), Four: four}
+
+	// add it to the list of running for loops
+	env.ForLoops = append(env.ForLoops, blk)
+
+	return val
+}
+
 // push current code position then jump to new position
 func evalGosubStatement(gosub *ast.GosubStatement, code *ast.Code, env *object.Environment) object.Object {
 	// if 0, means no line number specified
@@ -882,7 +902,7 @@ func evalGosubStatement(gosub *ast.GosubStatement, code *ast.Code, env *object.E
 	}
 
 	// save the return address and jump to the sub-routine
-	env.Push(*code)
+	env.Push(code.GetReturnPoint())
 	code.Jump(gosub.Gosub)
 	if env.GetTrace() {
 		env.Terminal().Print(fmt.Sprintf("[%d]", gosub.Gosub))
@@ -1123,6 +1143,85 @@ func evalNewCommand(cmd *ast.NewCommand, code *ast.Code, env *object.Environment
 	var htl object.HaltSignal
 
 	return &htl
+}
+
+// evalNextStatement decides if I should do it all over again
+func evalNextStatement(stmt *ast.NextStatement, code *ast.Code, env *object.Environment) object.Object {
+	// make sure we are actually in a FOR loop
+	if len(env.ForLoops) == 0 {
+		return stdError(env, berrors.NextWithoutFor)
+	}
+
+	blk := env.ForLoops[len(env.ForLoops)-1:]
+
+	// does the next specify the variable?
+	if stmt.Id.Token.Literal != "" {
+		// make sure they match
+		if !strings.EqualFold(stmt.Id.Token.Literal, blk[0].Four.Init.Name.Token.Literal) {
+			return stdError(env, berrors.NextWithoutFor)
+		}
+	}
+
+	return evalNextStep(blk[0], code, env)
+}
+
+// time to bump the counter by the step value
+func evalNextStep(four object.ForBlock, code *ast.Code, env *object.Environment) object.Object {
+	// get the counter variable
+	cntr, ok := env.Get(four.Four.Init.Name.Token.Literal)
+
+	// counter for loop wasn't saved, how did that happen
+	if !ok {
+		return stdError(env, berrors.InternalErr)
+	}
+
+	// get the step value or set it to one if nothing specified
+	var step []object.Object
+	if four.Four.Step != nil {
+		step = evalExpressions(four.Four.Step, code, env)
+	} else {
+		step = append(step, &object.Integer{Value: 1})
+	}
+
+	// add step to the cntr
+	cntr = evalInfixExpression("+", cntr, step[0], env)
+	// save off the counter variable
+	env.Set(four.Four.Init.Name.Token.Literal, cntr)
+
+	return evalNextComplete(step[0], cntr, four, code, env)
+}
+
+func evalNextComplete(step object.Object, cntr object.Object, four object.ForBlock, code *ast.Code, env *object.Environment) object.Object {
+	// get the value of the step
+	val := step.(*object.Integer)
+
+	// if step is zero, just stop
+	if val.Value == 0 {
+		// we're done
+		return nil
+	}
+
+	// compute the final value
+	fnl := evalExpressions(four.Four.Final, code, env)
+
+	var res object.Object
+	if val.Value > 0 {
+		res = evalInfixExpression(">", cntr, fnl[0], env)
+	} else {
+		res = evalInfixExpression("<", cntr, fnl[0], env)
+	}
+
+	if res != nil {
+		flg := res.(*object.Integer)
+		if (flg != nil) && (flg.Value == 1) {
+			// loop complete, no need to jump
+			return nil
+		}
+	}
+
+	// go back to where the four loop started
+	code.JumpToRetPoint(four.Code)
+	return nil
 }
 
 // Build the default Palette struct

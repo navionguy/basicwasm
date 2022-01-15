@@ -33,6 +33,12 @@ type Code struct {
 	err       error
 }
 
+// RetPoint holds the line and statement we want to return to
+type RetPoint struct {
+	currIndex int // index into lines
+	currStmt  int // current statment executing
+}
+
 // ConstData provides access to DATA elements
 type ConstData struct {
 	code *Code // pointer to the current lines of code
@@ -283,6 +289,18 @@ func (cd *Code) Jump(target int) string {
 	cd.currIndex = cd.Len()
 
 	return berrors.TextForError(berrors.UnDefinedLineNumber)
+}
+
+// GetReturnPoint sends back the current position in the code
+func (cd *Code) GetReturnPoint() RetPoint {
+	return RetPoint{currIndex: cd.currIndex, currStmt: cd.lines[cd.currIndex].curStmt}
+}
+
+// JumpToRetPoint puts us back at the passed RetPoint
+func (cd *Code) JumpToRetPoint(rp RetPoint) {
+	cd.currIndex = rp.currIndex
+	cd.currLine = cd.lines[cd.currIndex].lineNum
+	cd.lines[cd.currIndex].curStmt = rp.currStmt
 }
 
 // Next returns the next constant data item
