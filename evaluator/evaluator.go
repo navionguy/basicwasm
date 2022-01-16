@@ -1214,7 +1214,8 @@ func evalNextComplete(step object.Object, cntr object.Object, four object.ForBlo
 	if res != nil {
 		flg := res.(*object.Integer)
 		if (flg != nil) && (flg.Value == 1) {
-			// loop complete, no need to jump
+			// loop complete, no need to jump, delete our jump ptr
+			env.ForLoops = env.ForLoops[:len(env.ForLoops)-1]
 			return nil
 		}
 	}

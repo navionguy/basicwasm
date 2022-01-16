@@ -74,6 +74,7 @@ type HttpClient interface {
 
 // Environment holds my variables and possibly an outer environment
 type Environment struct {
+	ForLoops []ForBlock          // any For Loops that are active
 	store    map[string]Object   // variables and other program data
 	settings map[string]ast.Node // environment settings
 	outer    *Environment        // possibly a tempory containing environment
@@ -88,7 +89,7 @@ type Environment struct {
 	traceOn bool             // is tracing turned on
 	client  HttpClient       // for making server requests
 	run     bool             // program is currently execute, if false, a command is executing
-	stack   []ast.Code       // return addresses for GOSUB/RETURN
+	stack   []ast.RetPoint   // return addresses for GOSUB/RETURN
 }
 
 // Get attempts to retrieve an object from the environment
@@ -117,22 +118,22 @@ func (e *Environment) SaveSetting(name string, obj ast.Node) {
 }
 
 // Push an address, returns stack size
-func (e *Environment) Push(cd ast.Code) int {
-	e.stack = append(e.stack, cd)
+func (e *Environment) Push(ret ast.RetPoint) int {
+	e.stack = append(e.stack, ret)
 	return len(e.stack)
 }
 
 // Pop a return address, nil means stack is empty
-func (e *Environment) Pop() *ast.Code {
+func (e *Environment) Pop() *ast.RetPoint {
 	l := len(e.stack)
 	if l == 0 {
 		return nil
 	}
 
-	cd := e.stack[l-1]
+	ret := e.stack[l-1]
 	e.stack = e.stack[:l-1]
 
-	return &cd
+	return &ret
 }
 
 // ClearVars empties the map of environment objects
