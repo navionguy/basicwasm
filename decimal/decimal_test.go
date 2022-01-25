@@ -1,7 +1,10 @@
 package decimal
 
 import (
+	"math"
 	"testing"
+
+	"github.com/stretchr/testify/assert"
 )
 
 func TestNew(t *testing.T) {
@@ -118,6 +121,28 @@ func TestNeg(t *testing.T) {
 	}
 }
 
+/*
+func TestAdd(t *testing.T) {
+	tests := []struct {
+		inp: int
+	}{
+		{inp: 2},
+	}
+
+	tests := []struct {
+		inp: Decimal
+		exp: Decimal
+	}{
+		{inp: Decimal{value: 45, exp: -1}, exp: Decimal{value: 45, exp -1} },
+	}
+
+	for _, tt := range tests {
+		res := tt.inp.abs()
+
+		assert.Equalf(t, inp.v)
+	}
+}*/
+
 func TestAdd(t *testing.T) {
 	tests := []struct {
 		f1     Decimal
@@ -134,6 +159,64 @@ func TestAdd(t *testing.T) {
 		if res.Cmp(tt.expect) != 0 {
 			t.Errorf("d.Add() expected(v:%d, e:%d) got (v:%d, e:%d)", tt.expect.value, tt.expect.exp, res.value, res.exp)
 		}
+	}
+}
+
+func Test_IsZero(t *testing.T) {
+	tests := []struct {
+		flt  string
+		zero bool
+	}{
+		{flt: "45", zero: false},
+		{flt: "0", zero: true},
+	}
+
+	for _, tt := range tests {
+		dc, err := NewFromString(tt.flt)
+
+		assert.Nilf(t, err, "NewFromString(%s) returned an error", tt.flt)
+		assert.Equalf(t, dc.IsZero(), tt.zero, "IsZero(%s) expected %t, got %t", tt.flt, tt.zero, dc.IsZero())
+	}
+}
+
+func Test_RescalePair(t *testing.T) {
+	tests := []struct {
+		flt1 string
+		flt2 string
+		exp1 string
+		exp2 string
+	}{
+		{flt1: "45.25", flt2: "45.25", exp1: "45.25", exp2: "45.25"},
+		{flt1: "45.25", flt2: "45.253", exp1: "45.25", exp2: "45.253"},
+	}
+
+	for _, tt := range tests {
+		dc1, _ := NewFromString(tt.flt1)
+		dc2, _ := NewFromString(tt.flt2)
+		exp1, _ := NewFromString(tt.exp1)
+		exp2, _ := NewFromString(tt.exp2)
+
+		r1, r2 := rescalePair(dc1, dc2)
+
+		assert.Zerof(t, r1.Cmp(exp1), "%s rescaled to %s", tt.flt1, r1.String())
+		assert.Zerof(t, r2.Cmp(exp2), "%s rescaled to %s", tt.flt2, r2.String())
+	}
+}
+
+func Test_Sign(t *testing.T) {
+	tests := []struct {
+		val string
+		exp int
+	}{
+		{val: "38", exp: 1},
+		{val: "0", exp: 0},
+		{val: "-12", exp: -1},
+	}
+
+	for _, tt := range tests {
+		flt, _ := NewFromString(tt.val)
+
+		assert.Equalf(t, flt.sign(), tt.exp, "%s.sign() expected %d got %d", tt.val, tt.exp, flt.sign())
 	}
 }
 
@@ -180,21 +263,26 @@ func TestDiv(t *testing.T) {
 		numerator   Decimal
 		denomanator Decimal
 		expect      Decimal
+		err         int
 	}{
-		{Decimal{value: 4512, exp: -2}, Decimal{value: 73, exp: -1}, Decimal{value: 6180822, exp: -6}},
-		{Decimal{value: 4512, exp: -2}, Decimal{value: 34, exp: -1}, Decimal{value: 1327059, exp: -5}},
-		{Decimal{value: 4512, exp: -2}, Decimal{value: 44, exp: -1}, Decimal{value: 1025455, exp: -5}},
-		{Decimal{value: 4512, exp: -2}, Decimal{value: 2, exp: 0}, Decimal{value: 2256, exp: -2}},
-		{Decimal{value: 4512, exp: -2}, Decimal{value: -2, exp: 0}, Decimal{value: -2256, exp: -2}},
-		{Decimal{value: 451268, exp: -4}, Decimal{value: 34, exp: 5}, Decimal{value: 132, exp: -7}},
-		{Decimal{value: -451268, exp: -4}, Decimal{value: 3422, exp: -2}, Decimal{value: -1318726, exp: -6}},
+		{numerator: Decimal{value: 4513, exp: -2}, denomanator: Decimal{value: 0, exp: 0}, err: 11},
+		{numerator: Decimal{value: 4512, exp: -2}, denomanator: Decimal{value: 73, exp: math.MinInt32}, err: 6},
+		{numerator: Decimal{value: 4512, exp: -2}, denomanator: Decimal{value: 73, exp: -1}, expect: Decimal{value: 6180822, exp: -6}},
+		{numerator: Decimal{value: 4512, exp: -2}, denomanator: Decimal{value: 34, exp: -1}, expect: Decimal{value: 1327059, exp: -5}},
+		{numerator: Decimal{value: 4512, exp: -2}, denomanator: Decimal{value: 44, exp: -1}, expect: Decimal{value: 1025455, exp: -5}},
+		{numerator: Decimal{value: 4512, exp: -2}, denomanator: Decimal{value: 2, exp: 0}, expect: Decimal{value: 2256, exp: -2}},
+		{numerator: Decimal{value: 4512, exp: -2}, denomanator: Decimal{value: -2, exp: 0}, expect: Decimal{value: -2256, exp: -2}},
+		{numerator: Decimal{value: 451268, exp: -4}, denomanator: Decimal{value: 34, exp: 5}, expect: Decimal{value: 132, exp: -7}},
+		{numerator: Decimal{value: -451268, exp: -4}, denomanator: Decimal{value: 3422, exp: -2}, expect: Decimal{value: -1318726, exp: -6}},
 	}
 
 	for _, tt := range tests {
-		res := tt.numerator.Div(tt.denomanator)
+		res, err := tt.numerator.Div(tt.denomanator)
 
-		if res.Cmp(tt.expect) != 0 {
-			t.Errorf("Div expected(v:%d, e:%d) got (v:%d, e:%d)", tt.expect.value, tt.expect.exp, res.value, res.exp)
+		assert.Equal(t, tt.err, err)
+
+		if tt.expect.value != 0 {
+			assert.Zerof(t, res.Cmp(tt.expect), "Div expected(v:%d, e:%d) got (v:%d, e:%d)", tt.expect.value, tt.expect.exp, res.value, res.exp)
 		}
 	}
 }
@@ -305,16 +393,17 @@ func TestMin(t *testing.T) {
 
 func TestAbs(t *testing.T) {
 	tests := []struct {
-		val int
-		res int
+		val Decimal
+		res Decimal
 	}{
-		{5, 5},
-		{-4, 4},
-		{0, 0},
+		{val: Decimal{value: 45, exp: -1}, res: Decimal{value: 45, exp: -1}},
+		//{vaL: Decimal{value: 45, exp: -1}, res: Decimal{value: 45, exp: -1}},
+		//{-4, 4},
+		//{0, 0},
 	}
 
 	for _, tt := range tests {
-		res := abs(tt.val)
+		res := (&tt.val).Abs()
 
 		if res != tt.res {
 			t.Errorf("abs() expected %d got %d", tt.res, res)

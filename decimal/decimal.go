@@ -12,6 +12,8 @@ import (
 	"math"
 	"strconv"
 	"strings"
+
+	"github.com/navionguy/basicwasm/berrors"
 )
 
 // DivisionPrecision how precise is my work
@@ -132,46 +134,31 @@ func (d *Decimal) Mul(d2 Decimal) Decimal {
 //     14.52 / 7.3 = 6.180822
 //
 // who thought that up?
-func (d Decimal) Div(d2 Decimal) Decimal {
+func (d Decimal) Div(d2 Decimal) (Decimal, int) {
 	precision := 7
 
-	q, r := d.QuoRem(d2, precision)
+	// divide them and get any remainder
+	q, _, err := d.QuoRem(d2, precision)
 
-	if r.value == 0 {
-		return q.Round(-precision)
-	}
-
-	r = r.Abs()
-	r.value *= 2
-	r.exp += precision + q.exp
-
-	var c = r.Cmp(d2.Abs())
-
-	if c < 0 {
-		return q.Round(-precision)
-	}
-
-	if d.sign()*d2.sign() < 0 {
-		return q.Sub(New(1, -precision))
-	}
-
-	return q.Add(New(1, -precision))
+	return q.Round(-precision), err
 }
 
 // QuoRem does divsion with remainder
-// d.QuoRem(d2,precision) returns quotient q and remainder r such that
+// d.QuoRem(d2,precision) returns (quotient q, remainder r, error) such that
 //   d = d2 * q + r, q an integer multiple of 10^(-precision)
 //   0 <= r < abs(d2) * 10 ^(-precision) if d>=0
 //   0 >= r > -abs(d2) * 10 ^(-precision) if d<0
 // Note that precision<0 is allowed as input.
-func (d Decimal) QuoRem(d2 Decimal, precision int) (Decimal, Decimal) {
+//
+// If error is non zero, it is a error code as defined in berrors
+func (d Decimal) QuoRem(d2 Decimal, precision int) (Decimal, Decimal, int) {
 	if d2.sign() == 0 {
-		panic("decimal division by 0")
+		return d, d2, berrors.DivByZero
 	}
 	scale := -precision
 	e := d.exp - d2.exp - int(scale)
 	if e > math.MaxInt32 || e < math.MinInt32 {
-		panic("overflow in decimal QuoRem")
+		return d, d2, berrors.Overflow
 	}
 	var aa, bb int
 	var scalerest int
@@ -195,7 +182,7 @@ func (d Decimal) QuoRem(d2 Decimal, precision int) (Decimal, Decimal) {
 	r := aa % bb
 	dq := Decimal{value: q, exp: scale}
 	dr := Decimal{value: r, exp: scalerest}
-	return dq, dr
+	return dq, dr, 0
 }
 
 // Cmp compares two decimals and returns
@@ -237,6 +224,7 @@ func (d Decimal) Float64() (f float64, exact bool) {
 	return float64(d.value) * math.Pow10(d.exp), true
 }
 
+//sign() returns zero if val is zero, 1 if positive, -1 if negative
 func (d *Decimal) sign() int {
 	if d.value == 0 {
 		return 0
@@ -303,6 +291,16 @@ func (d Decimal) Round(places int) Decimal {
 
 }
 
+// IsZero returns true if d == 0
+func (d Decimal) IsZero() bool {
+	if d.value == 0 {
+		return true
+	}
+
+	return false
+}
+
+// rescalePair rescales two decimal to a common exponential value
 func rescalePair(d1, d2 Decimal) (Decimal, Decimal) {
 	if d1.exp == d2.exp {
 		return d1, d2

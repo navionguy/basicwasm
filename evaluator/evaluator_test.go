@@ -15,7 +15,6 @@ import (
 	"github.com/navionguy/basicwasm/object"
 	"github.com/navionguy/basicwasm/parser"
 	"github.com/navionguy/basicwasm/settings"
-	"github.com/navionguy/basicwasm/token"
 	"github.com/stretchr/testify/assert"
 
 	"testing"
@@ -539,6 +538,9 @@ func Test_ForStatement(t *testing.T) {
 		inp string
 		err bool
 	}{
+		{inp: `10 FOR I = `},
+		{inp: `10 FOR I = 5 TO 2 : PRINT I : NEXT I`},
+		{inp: `10 FOR I = 1 TO 2 STEP 0.5 : PRINT I : NEXT I`},
 		{inp: `10 FOR I = 1 TO 3 : PRINT I : NEXT I`},
 		{inp: `10 FOR I = 1 TO 3 : PRINT I : NEXT J`},
 		{inp: `10 FOR I = 1 TO 4 STEP 2 : PRINT I : NEXT I`},
@@ -561,26 +563,52 @@ func Test_ForStatement(t *testing.T) {
 		res := Eval(&ast.Program{}, itr, env)
 
 		if tt.err {
-			err := res.(*object.Error)
+			_, ok := res.(*object.Error)
 
-			assert.NotNil(t, err, "%s expected error, didn't get one", tt.inp)
+			assert.Truef(t, ok, "%s expected error, didn't get one", tt.inp)
 		}
 	}
 }
 
-func Test_NextStep(t *testing.T) {
-	four := object.ForBlock{Four: &ast.ForStatment{Init: &ast.LetStatement{Name: &ast.Identifier{Token: token.Token{Literal: "I"}}}}}
+func Test_ForSkip(t *testing.T) {
+	tests := []struct {
+		inp string
+		id  string
+		err bool
+	}{
+		{inp: `10 FOR I = 1 TO 10 : PRINT I : NEXT I : END`, id: "I"},
+		{inp: `20 FOR I = 1 TO 10 : PRINT I
+		30 FOR J = 1 TO 5 : PRINT J : NEXT J
+		40 NEXT I`, id: "I"},
+		{inp: `30 FOR I = 1 TO 10 : PRINT I : END`, err: true},
+		{inp: `40 FOR I = 1 TO 10 : FOR J = 2 TO 3 : PRINT I`, err: true},
+		{inp: `50 FOR I = 1 TO 10 : PRINT I : NEXT J : END`, id: "I"},
+	}
 
-	l := lexer.New(`10 NEXT J`)
-	p := parser.New(l)
-	var mt mocks.MockTerm
-	initMockTerm(&mt)
-	env := object.NewTermEnvironment(mt)
+	for _, tt := range tests {
+		l := lexer.New(tt.inp)
+		p := parser.New(l)
+		var mt mocks.MockTerm
+		initMockTerm(&mt)
+		env := object.NewTermEnvironment(mt)
 
-	p.ParseProgram(env)
-	itr := env.StatementIter()
-	evalNextStep(four, itr, env)
+		p.ParseProgram(env)
+		itr := env.StatementIter()
+		itr.Next()
+		itr.Next()
+		four := &ast.ForStatment{Init: &ast.LetStatement{Name: &ast.Identifier{Value: tt.id}}}
+		evalForSkipLoop(four, itr, env)
 
+		if !tt.err {
+			nxt := itr.Value()
+
+			_, ok := nxt.(*ast.NextStatement)
+
+			if !ok {
+				t.Fatalf("%s failed to find an expected NEXT", tt.inp)
+			}
+		}
+	}
 }
 
 func Test_GosubStatement(t *testing.T) {
@@ -1360,6 +1388,7 @@ func ExampleT_int() {
 		{`50 LET Y = 10 <> 3 : PRINT Y`},
 		{`60 LET Y = 10 = 10 : PRINT Y`},
 		{`70 LET Y = 10 = 3 : PRINT Y`},
+		{`80 LET Y = 10 / 0 : PRINT Y`},
 	}
 
 	for _, tt := range tests {
@@ -1403,6 +1432,7 @@ func ExampleT_fixed() {
 		{`220 LET Y = 45.12 = 12 : PRINT Y`},
 		{`230 LET Y = 45 >= 12 : PRINT Y`},
 		{`240 LET Y = 45 <= 12 : PRINT Y`},
+		{`250 LET Y = 10.25 / 0 : PRINT Y`},
 	}
 
 	for _, tt := range tests {
@@ -1455,6 +1485,7 @@ func ExampleT_float() {
 		{`140 LET Y = 2.35E+4 >= 23.6 : PRINT Y`},
 		{`150 LET Y = 2.35E+4 <> 53.6 : PRINT Y`},
 		{`160 LET Y = 2.35E+4 <> 45.12 : PRINT Y`},
+		{`170 LET Y = 2.35E+4 / 0 : PRINT Y`},
 	}
 
 	for _, tt := range tests {
@@ -1504,6 +1535,7 @@ func ExampleT_floatDbl() {
 		{`190 LET X = -2.35123412341234D+4 : PRINT X`},
 		{`200 LET X = -2.35123412341234E+4 : PRINT X`},
 		{`210 LET X = -2.351 : PRINT X`},
+		{`220 LET X = 2.35D+4 / 0 : PRINT`},
 	}
 
 	for _, tt := range tests {
@@ -1571,7 +1603,7 @@ func ExampleT_array() {
 	// Hello
 	// Goodbye
 	//
-	// ERROR: Syntax error in 70
+	// Syntax error in 70
 	// 5
 	// 5
 	// 0.000000E+00

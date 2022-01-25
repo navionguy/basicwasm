@@ -112,7 +112,7 @@ func Test_Integer(t *testing.T) {
 		{obj: &Integer{Value: 5}, exp: "5", tp: "INTEGER"},
 		{obj: &Fixed{Value: fv}, exp: "14.25", tp: "FIXED"},
 		{obj: &String{Value: "Hello"}, exp: "Hello", tp: "STRING"},
-		{obj: &Error{Message: "Error"}, exp: "ERROR: Error", tp: "ERROR"},
+		{obj: &Error{Message: "Error"}, exp: "Error", tp: "ERROR"},
 		{obj: &Builtin{}, exp: "builtin function", tp: "BUILTIN"},
 		{obj: &Null{}, exp: "null", tp: "NULL"},
 		{obj: &IntDbl{Value: 65999}, exp: "65999", tp: "INTDBL"},

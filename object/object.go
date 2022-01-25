@@ -151,7 +151,7 @@ type Error struct {
 }
 
 func (e *Error) Type() ObjectType { return ERROR_OBJ }
-func (e *Error) Inspect() string  { return "ERROR: " + e.Message }
+func (e *Error) Inspect() string  { return e.Message }
 
 type ForBlock struct {
 	Code ast.RetPoint     // the location in the AST of the FOR statement

@@ -876,18 +876,91 @@ func displayFiles(files *filelist.FileList, env *object.Environment) {
 	env.Terminal().Println("")
 }
 
+type forStmtParams struct {
+	forBlock object.ForBlock // gets added to the array of nested for loops
+	initial  object.Object   // the starting value of the for loop
+	stepSign bool            // is the step value positive or negative
+}
+
 // FOR statement begins a for-loop
 func evalForStatement(four *ast.ForStatment, code *ast.Code, env *object.Environment) object.Object {
 	// initialize my counter
-	val := Eval(four.Init, code, env)
+	initial := Eval(four.Init, code, env)
+
+	if initial == nil {
+		return stdError(env, berrors.Syntax)
+	}
 
 	// need to save off the ForStatement and the current code value
 	blk := object.ForBlock{Code: code.GetReturnPoint(), Four: four}
 
-	// add it to the list of running for loops
-	env.ForLoops = append(env.ForLoops, blk)
+	forStmt := forStmtParams{forBlock: blk, initial: initial}
 
-	return val
+	return evalForCalcStep(forStmt, code, env)
+}
+
+// calculate the sign (+/-) of the step
+// need that to ensure initial value doesn't already
+// exceed the desired final value
+func evalForCalcStep(four forStmtParams, code *ast.Code, env *object.Environment) object.Object {
+	// build the default step value of one
+	step := []ast.Expression{&ast.IntegerLiteral{Value: 1}}
+
+	// if step is specified, go get it
+	if four.forBlock.Four.Step != nil {
+		step = four.forBlock.Four.Step
+	}
+
+	// eval the step expression and then get sign
+	// first time through the loop I ignore zero step
+	stp := evalExpressions(step, code, env)
+	four.stepSign, _ = evalNextStepSign(stp[0], env)
+
+	return evalForTestSkip(four, code, env)
+}
+
+func evalForTestSkip(four forStmtParams, code *ast.Code, env *object.Environment) object.Object {
+	_, start := evalNextComplete(four.stepSign, four.initial, four.forBlock.Four, code, env)
+
+	if start {
+		return evalForStartLoop(four.forBlock, code, env)
+	}
+
+	return evalForSkipLoop(four.forBlock.Four, code, env)
+}
+
+//
+func evalForStartLoop(fb object.ForBlock, code *ast.Code, env *object.Environment) object.Object {
+
+	// add ForBlock to the list of running for loops
+	env.ForLoops = append(env.ForLoops, fb)
+
+	return nil
+}
+
+// evalForSkipLoop initial condition exceeds final
+// just skip over statements until you find a NEXT
+func evalForSkipLoop(four *ast.ForStatment, code *ast.Code, env *object.Environment) object.Object {
+	// iterate over the code until we find the next NEXT
+	for more := code.Next(); more == true; {
+		switch typ := code.Value().(type) {
+		case *ast.ForStatment:
+			// found an inner FOR loop, skip over it
+			rc := evalForSkipLoop(typ, code, env)
+			if rc != nil {
+				return rc
+			}
+		case *ast.NextStatement:
+			// found a NEXT, but do the variables match?
+			if (len(typ.Id.String()) != 0) && !strings.EqualFold(typ.Id.String(), four.Init.Name.Value) {
+				// nope, that's a problem
+				return stdError(env, berrors.NextWithoutFor)
+			}
+			return nil
+		}
+		more = code.Next()
+	}
+	return stdError(env, berrors.ForWoNext)
 }
 
 // push current code position then jump to new position
@@ -1177,10 +1250,18 @@ func evalNextStep(four object.ForBlock, code *ast.Code, env *object.Environment)
 
 	// get the step value or set it to one if nothing specified
 	var step []object.Object
+	var pos, zero bool
 	if four.Four.Step != nil {
 		step = evalExpressions(four.Four.Step, code, env)
+		pos, zero = evalNextStepSign(step[0], env)
 	} else {
 		step = append(step, &object.Integer{Value: 1})
+		pos = true
+	}
+
+	// if step is zero, stop
+	if zero {
+		return nil
 	}
 
 	// add step to the cntr
@@ -1188,41 +1269,43 @@ func evalNextStep(four object.ForBlock, code *ast.Code, env *object.Environment)
 	// save off the counter variable
 	env.Set(four.Four.Init.Name.Token.Literal, cntr)
 
-	return evalNextComplete(step[0], cntr, four, code, env)
-}
+	obj, jump := evalNextComplete(pos, cntr, four.Four, code, env)
 
-func evalNextComplete(step object.Object, cntr object.Object, four object.ForBlock, code *ast.Code, env *object.Environment) object.Object {
-	// get the value of the step
-	val := step.(*object.Integer)
-
-	// if step is zero, just stop
-	if val.Value == 0 {
-		// we're done
+	if jump {
+		// go back to where the four loop started
+		code.JumpToRetPoint(four.Code)
 		return nil
 	}
 
+	return obj
+}
+
+// evalNextStepSign returns step>0, step == zero and step value
+func evalNextStepSign(stepper object.Object, env *object.Environment) (bool, bool) {
+	pos := evalInfixBooleanExpression(">", stepper, &object.Integer{Value: 0}, env)
+	neg := evalInfixBooleanExpression("<", stepper, &object.Integer{Value: 0}, env)
+
+	if !pos && !neg {
+		return true, true
+	}
+
+	return pos, false
+}
+
+// return possible err and keep going true/false
+func evalNextComplete(pos bool, cntr object.Object, four *ast.ForStatment, code *ast.Code, env *object.Environment) (object.Object, bool) {
 	// compute the final value
-	fnl := evalExpressions(four.Four.Final, code, env)
+	fnl := evalExpressions(four.Final, code, env)
 
-	var res object.Object
-	if val.Value > 0 {
-		res = evalInfixExpression(">", cntr, fnl[0], env)
+	// check if counter has passed final value
+	var res bool
+	if pos {
+		res = evalInfixBooleanExpression(">", cntr, fnl[0], env)
 	} else {
-		res = evalInfixExpression("<", cntr, fnl[0], env)
+		res = evalInfixBooleanExpression("<", cntr, fnl[0], env)
 	}
 
-	if res != nil {
-		flg := res.(*object.Integer)
-		if (flg != nil) && (flg.Value == 1) {
-			// loop complete, no need to jump, delete our jump ptr
-			env.ForLoops = env.ForLoops[:len(env.ForLoops)-1]
-			return nil
-		}
-	}
-
-	// go back to where the four loop started
-	code.JumpToRetPoint(four.Code)
-	return nil
+	return fnl[0], !res
 }
 
 // Build the default Palette struct
@@ -1293,26 +1376,43 @@ func evalPrefixExpression(operator string, right object.Object, code *ast.Code, 
 }
 
 func evalMinusPrefixOperatorExpression(right object.Object, env *object.Environment) object.Object {
-	switch right.Type() {
-	case object.INTEGER_OBJ:
-		value := right.(*object.Integer).Value
-		return &object.Integer{Value: -value}
-	case object.INTEGER_DBL:
-		value := right.(*object.IntDbl).Value
-		return &object.IntDbl{Value: -value}
-	case object.FIXED_OBJ:
-		value := right.(*object.Fixed).Value
-		return &object.Fixed{Value: value.Neg()}
-	case object.FLOATSGL_OBJ:
-		value := right.(*object.FloatSgl).Value
-		return &object.FloatSgl{Value: -value}
-	case object.FLOATDBL_OBJ:
-		value := right.(*object.FloatDbl).Value
-		return &object.FloatDbl{Value: -value}
+	switch obj := right.(type) {
+	case *object.Integer:
+		obj.Value = -obj.Value
+	case *object.IntDbl:
+		obj.Value = -obj.Value
+	case *object.FloatDbl:
+		obj.Value = -obj.Value
+	case *object.FloatSgl:
+		obj.Value = -obj.Value
+	case *object.Fixed:
+		obj.Value = obj.Value.Neg()
+	default:
+		return stdError(env, berrors.Syntax)
 	}
-	return newError(env, "unsupport negative on %s", right.Type())
+
+	return right
 }
 
+// pass parms to evalInfixExpression if result is zero, return false otherwise return true
+func evalInfixBooleanExpression(operator string, left, right object.Object, env *object.Environment) bool {
+	exp := evalInfixExpression(operator, left, right, env)
+
+	if exp == nil {
+		return false
+	}
+
+	switch val := exp.(type) {
+	case *object.Integer:
+		return (val.Value != 0)
+	case *object.Fixed:
+		return !val.Value.IsZero()
+
+	}
+	return true
+}
+
+// evaluate an infix expression, returned value type should match either left or right type
 func evalInfixExpression(operator string, left, right object.Object, env *object.Environment) object.Object {
 	fn, ok := typeConverters[string(left.Type())+string(right.Type())]
 
@@ -1347,6 +1447,9 @@ func evalIntegerInfixExpression(operator string, leftVal, rightVal int, env *obj
 	case "*":
 		return builtins.FixType(env, leftVal*rightVal)
 	case "/":
+		if rightVal == 0 {
+			return stdError(env, berrors.DivByZero)
+		}
 		return builtins.FixType(env, float64(leftVal)/float64(rightVal))
 	case "\\":
 		// I'm learning stuff I never knew about GWBasic
@@ -1381,7 +1484,11 @@ func evalFixedInfixExpression(operator string, left, right decimal.Decimal, env 
 		return &object.Fixed{Value: left.Mul(right)}
 	case "/":
 		decimal.DivisionPrecision = 6
-		return &object.Fixed{Value: left.Div(right)}
+		val, err := left.Div(right)
+		if err != 0 {
+			return stdError(env, err)
+		}
+		return &object.Fixed{Value: val}
 	case "<":
 		return &object.Integer{Value: bool2int16(left.Cmp(right) == -1)}
 	case "<=":
@@ -1409,6 +1516,9 @@ func evalFloatInfixExpression(operator string, leftVal, rightVal float32, env *o
 	case "*":
 		return builtins.FixType(env, leftVal*rightVal)
 	case "/":
+		if rightVal == 0 {
+			return stdError(env, berrors.DivByZero)
+		}
 		return builtins.FixType(env, leftVal/rightVal)
 	case "<":
 		return &object.Integer{Value: bool2int16(leftVal < rightVal)}
@@ -1437,6 +1547,9 @@ func evalFloatDblInfixExpression(operator string, leftVal, rightVal float64, env
 	case "*":
 		return builtins.FixType(env, leftVal*rightVal)
 	case "/":
+		if rightVal == 0 {
+			return stdError(env, berrors.DivByZero)
+		}
 		return builtins.FixType(env, leftVal/rightVal)
 	case "<":
 		return &object.Integer{Value: bool2int16(leftVal < rightVal)}
