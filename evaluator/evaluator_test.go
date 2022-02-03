@@ -216,14 +216,51 @@ func Test_BeepStatement(t *testing.T) {
 	assert.True(t, chk, "Test_BeepStatement term.beep() not called!")
 }
 
-func Test_ChainStatement(t *testing.T) {
+func Test_BreakSignal(t *testing.T) {
+	tests := []struct {
+		inp string
+		exp string
+	}{
+		{inp: `10 PRINT "Hello World!"`, exp: "Hello World!"},
+	}
+
+	for _, tt := range tests {
+		l := lexer.New(tt.inp)
+		p := parser.New(l)
+		var mt mocks.MockTerm
+		initMockTerm(&mt)
+		mt.ExpMsg = &mocks.Expector{Exp: []string{tt.exp}}
+		flag := true
+		mt.SawBreak = &flag
+		env := object.NewTermEnvironment(mt)
+
+		p.ParseProgram(env)
+
+		if len(p.Errors()) > 0 {
+			for _, er := range p.Errors() {
+				fmt.Println(er)
+			}
+			return
+		}
+
+		env.SetRun(true)
+		rc := Eval(&ast.Program{}, env.StatementIter(), env)
+
+		_, ok := rc.(*object.HaltSignal)
+
+		assert.True(t, ok, "failed to get a HaltSignal")
+	}
+}
+
+func Test_ChainStatementCommandLine(t *testing.T) {
 	tests := []struct {
 		stmt string
 		rs   int // response code  eg '200'
 		send string
+		exp  string
 	}{
 		{stmt: `CHAIN "start.bas"`, rs: 404, send: ``},
-		{stmt: `CHAIN "start.bas"`, rs: 200, send: `10 PRINT "Hello World!"`},
+		{stmt: `CHAIN "start.bas"`, rs: 200, send: `10 PRINT "Hello World!"`, exp: "Hello World!"},
 		{stmt: `CHAIN 5`, rs: 200, send: `10 PRINT`},
 	}
 
@@ -231,8 +268,8 @@ func Test_ChainStatement(t *testing.T) {
 		l := lexer.New(tt.stmt)
 		p := parser.New(l)
 		var mt mocks.MockTerm
-		mt.ExpMsg = &mocks.Expector{}
 		initMockTerm(&mt)
+		mt.ExpMsg = &mocks.Expector{Exp: []string{tt.exp}}
 		env := object.NewTermEnvironment(mt)
 		ts := httptest.NewServer(http.HandlerFunc(func(res http.ResponseWriter, req *http.Request) {
 			res.WriteHeader(tt.rs)
@@ -252,6 +289,51 @@ func Test_ChainStatement(t *testing.T) {
 		}
 
 		Eval(&ast.Program{}, env.CmdLineIter(), env)
+
+		if len(tt.exp) != 0 {
+			assert.False(t, mt.ExpMsg.Failed, "cmdline CHAIN file no output!")
+		}
+	}
+}
+
+func Test_ChainStatementRunning(t *testing.T) {
+	tests := []struct {
+		stmt string
+		rs   int // response code  eg '200'
+		send string
+		exp  string
+	}{
+		{stmt: `10 CHAIN "start.bas"`, rs: 200, send: `10 PRINT "Hello World!"`, exp: "Hello World!"},
+	}
+
+	for _, tt := range tests {
+		l := lexer.New(tt.stmt)
+		p := parser.New(l)
+		var mt mocks.MockTerm
+		initMockTerm(&mt)
+		mt.ExpMsg = &mocks.Expector{Exp: []string{tt.exp}}
+		env := object.NewTermEnvironment(mt)
+		ts := httptest.NewServer(http.HandlerFunc(func(res http.ResponseWriter, req *http.Request) {
+			res.WriteHeader(tt.rs)
+			res.Write([]byte(tt.send))
+		}))
+		defer ts.Close()
+		url := object.String{Value: ts.URL}
+		env.Set(object.SERVER_URL, &url)
+
+		p.ParseProgram(env)
+
+		if len(p.Errors()) > 0 {
+			for _, er := range p.Errors() {
+				fmt.Println(er)
+			}
+			return
+		}
+
+		env.SetRun(true)
+		Eval(&ast.Program{}, env.StatementIter(), env)
+
+		assert.False(t, mt.ExpMsg.Failed, "running CHAIN file no output!")
 	}
 }
 
@@ -367,6 +449,21 @@ func TestClsStatement(t *testing.T) {
 		if !*mt.SawCls {
 			t.Errorf("No call to Cls() seen")
 		}
+	}
+}
+
+func Test_CommonStatement(t *testing.T) {
+	tests := []struct {
+		inp string
+	}{
+		{inp: "10 COMMON A$, B$"},
+		{inp: `10 COMMON A$
+		20 A$ = "Test"
+		30 A$ = "Foo"`},
+	}
+
+	for _, tt := range tests {
+		testEval(tt.inp)
 	}
 }
 
@@ -1075,13 +1172,19 @@ func Test_ReadStatement(t *testing.T) {
 		{`50 DATA 2.35123412341234E+4 : READ A`, &object.FloatSgl{Value: 23512.341796875}},
 		{`60 DATA 2.35123412341234D+4 : READ A`, &object.FloatDbl{Value: 23512.3412341234}},
 		{`70 DATA -2.35123412341234D+4 : READ A`, &object.FloatDbl{Value: -23512.3412341234}},
-		{`80 DATA "Fred" : READ A$ : READ B$`, &object.Error{Message: "Out of data in 80"}},
+		{`80 DATA "Fred" : READ A$ : READ B$`, &object.Error{Message: "Out of DATA in 80"}},
+		{`90 DATA 3,4,5 : READ 3+5`, &object.Error{Message: "Syntax error in 90"}},
+		{`100 DATA 3,4,5 : READ`, nil},
 	}
 
 	for _, tt := range tests {
 		res := testEval(tt.inp)
 
-		compareObjects(tt.inp, res, tt.exp, t)
+		if tt.exp == nil {
+			assert.Nil(t, res, "got an object when I didn't expect one!")
+		} else {
+			compareObjects(tt.inp, res, tt.exp, t)
+		}
 	}
 }
 

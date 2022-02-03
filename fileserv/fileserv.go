@@ -323,8 +323,8 @@ func buildRequestURL(target string, env *object.Environment) string {
 // and main pushes it into the environment object store
 func getURL(env *object.Environment) string {
 
-	mom, ok := env.Get(object.SERVER_URL)
-	if !ok {
+	mom := env.Get(object.SERVER_URL)
+	if mom == nil {
 		mom = &object.String{Value: "http://localhost:8080/"}
 	}
 	url := mom.Inspect()
@@ -337,8 +337,8 @@ func getURL(env *object.Environment) string {
 
 // GetCWD returns the current working directory from the environment
 func GetCWD(env *object.Environment) string {
-	drv, ok := env.Get(object.WORK_DRIVE)
-	if !ok { // if he wasn't set, use a default
+	drv := env.Get(object.WORK_DRIVE)
+	if drv == nil { // if he wasn't set, use a default
 		drv = &object.String{Value: `C:\`}
 	}
 

@@ -101,6 +101,32 @@ func Test_CodeInterface(t *testing.T) {
 	assert.NotNil(t, cd)
 }
 
+func Test_Common(t *testing.T) {
+	env := newEnvironment()
+
+	assert.Zero(t, len(env.common), "New environment didn't zero common map")
+
+	env.Common("I")
+
+	// did he create the common item
+	assert.Equalf(t, 1, len(env.common), "Expected one common item, got %d", len(env.common))
+	// should also have created a place holder value
+	assert.Equalf(t, 1, len(env.store), "Place holder variable not created")
+
+	// now assign a value to the variable
+	env.Set("I", &Integer{Value: 16})
+
+	// Clear the variable space
+	env.ClearVars()
+
+	// make him common again, like after a CHAIN
+	env.Common("I")
+
+	// he should have recognized it was already there
+	assert.Equalf(t, 1, len(env.common), "Second COMMON resulted in %d common items", len(env.common))
+	assert.NotNil(t, env.common["I"].value, "Second COMMON lost value")
+}
+
 func Test_Integer(t *testing.T) {
 	fv, _ := decimal.NewFromString("14.25")
 
@@ -178,22 +204,18 @@ func Test_TermEnvironment(t *testing.T) {
 }
 
 func testIntEnvGet(t *testing.T, env Environment, item string, exp Object) bool {
-	obj, ok := env.Get(item)
+	obj := env.Get(item)
 
-	if !ok && exp == nil {
-		// got nothing, and I wasn't suppose too
-		return true
-	}
-	if !ok && exp != nil {
+	if (obj == nil) && (exp != nil) {
 		t.Errorf("testIntEnvGet got nothing, but I should have %s", exp.Inspect())
 		return false
 	}
-	if ok && exp == nil {
+	if (obj != nil) && (exp == nil) {
 		t.Errorf("testIntEnvGet got something, wasn't expecting anything")
 		return false
 	}
 
-	_, ok = obj.(*Integer)
+	_, ok := obj.(*Integer)
 
 	if !ok {
 		// I didn't get an Integer object
@@ -235,14 +257,15 @@ func TestRandom(t *testing.T) {
 }
 
 func Test_Function(t *testing.T) {
-	tkBlk := token.Token{Literal: "{"}
-	tkBep := token.Token{Literal: "BEEP"}
+	id := ast.Identifier{Value: "X"}
+	tkBlk := token.Token{Literal: "FNDBL"}
+	tkBep := token.Token{Literal: "= X * 2"}
 	stmt := ast.BeepStatement{Token: tkBep}
-	fn := &Function{Body: &ast.BlockStatement{Token: tkBlk, Statements: []ast.Statement{&stmt}}}
+	fn := &Function{Body: &ast.BlockStatement{Token: tkBlk, Statements: []ast.Statement{&stmt}}, Parameters: []*ast.Identifier{&id}}
 
-	if fn.Type() != FUNCTION_OBJ {
-		t.Fatalf("Function gave incorrect type %v", fn.Type())
-	}
+	assert.Equalf(t, ObjectType("FUNCTION"), fn.Type(), "Expeced type FUNCTION but got %s", fn.Type())
+
+	assert.Equal(t, "DEF FNDBL(X) BEEP", fn.Inspect(), "Function object didn't create properly.")
 }
 
 func Test_HaltSingal(t *testing.T) {
@@ -283,6 +306,13 @@ func Test_Restart(t *testing.T) {
 		assert.Equal(t, itr, itr2, "%s got %T, wanted %T", tt.title, itr2, itr)
 	}
 
+}
+
+func Test_RestartSignal(t *testing.T) {
+	rs := RestartSignal{}
+
+	assert.Equal(t, ObjectType("RESTART"), rs.Type(), "Restart signal invalid type")
+	assert.Equal(t, "RESTART", rs.Inspect(), "Restart Inspect() returned %s", rs.Inspect())
 }
 
 func Test_Stack(t *testing.T) {

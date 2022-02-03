@@ -62,7 +62,7 @@ type Console interface {
 	ReadKeys(count int) []byte
 	// SoundBell emits facsimile of a console beep
 	SoundBell()
-	// BreakCheck returns true if a ctrl-c was entered
+	// BreakCheck returns true if a ctrl-c was entere
 	BreakCheck() bool
 }
 
@@ -74,12 +74,13 @@ type HttpClient interface {
 
 // Environment holds my variables and possibly an outer environment
 type Environment struct {
-	ForLoops []ForBlock          // any For Loops that are active
-	store    map[string]Object   // variables and other program data
-	settings map[string]ast.Node // environment settings
-	outer    *Environment        // possibly a tempory containing environment
-	program  *ast.Program        // current Abstract Syntax Tree
-	term     Console             // the terminal console object
+	ForLoops []ForBlock           // any For Loops that are active
+	store    map[string]*variable // variables and other program data
+	common   map[string]*variable // variables the live through a CHAIN
+	settings map[string]ast.Node  // environment settings
+	outer    *Environment         // possibly a tempory containing environment
+	program  *ast.Program         // current Abstract Syntax Tree
+	term     Console              // the terminal console object
 
 	// The following hold "state" information controlled by commands/statements
 	autoOn  *ast.AutoCommand // is auto line numbering turned on
@@ -92,19 +93,74 @@ type Environment struct {
 	stack   []ast.RetPoint   // return addresses for GOSUB/RETURN
 }
 
-// Get attempts to retrieve an object from the environment
-func (e *Environment) Get(name string) (Object, bool) {
-	obj, ok := e.store[strings.ToUpper(name)]
-	if !ok && e.outer != nil {
-		obj, ok = e.outer.Get(name)
+type variable struct {
+	value Object // the variable object
+}
+
+// preserve a variable across a chain
+func (e *Environment) Common(name string) {
+	// everything stores in upper case
+	name = strings.ToUpper(name)
+
+	// is he already common
+	cv, exists := e.common[name]
+
+	// does he already have a value
+	v, ok := e.store[name]
+
+	// if he is already common and doesn't exist in the store
+	// put his variable into the store
+
+	if exists && !ok {
+		e.store[name] = cv
+		return
 	}
-	return obj, ok
+
+	//
+	if !ok {
+		v = &variable{}
+		e.store[name] = v
+	}
+
+	// save the variable into common map
+	e.common[name] = v
+}
+
+// Get attempts to retrieve an object from the environment, nil if not found
+func (e *Environment) Get(name string) Object {
+	name = strings.ToUpper(name)
+	v, ok := e.store[name]
+
+	// if I found him, send the value
+	if ok {
+		return v.value
+	}
+
+	// am I in an enclosed environment?
+	if !ok && e.outer != nil {
+		return e.outer.Get(name)
+	}
+
+	// no value to return
+	return nil
 }
 
 // Set stores an object in the environment
-func (e *Environment) Set(name string, val Object) Object {
-	e.store[strings.ToUpper(name)] = val
-	return val
+func (e *Environment) Set(name string, val Object) {
+	// I always store in upper case
+	name = strings.ToUpper(name)
+
+	// is he already saved?
+	t, ok := e.store[name]
+
+	if ok {
+		t.value = val
+		return
+	}
+
+	// create and store a variable to hold the value
+	v := &variable{value: val}
+	e.store[name] = v
 }
 
 // Fetch a runtime setting
@@ -138,7 +194,7 @@ func (e *Environment) Pop() *ast.RetPoint {
 
 // ClearVars empties the map of environment objects
 func (e *Environment) ClearVars() {
-	e.store = make(map[string]Object)
+	e.store = make(map[string]*variable)
 }
 
 // ClearFiles closes all open files
@@ -148,7 +204,7 @@ func (e *Environment) ClearFiles() {
 
 // ClearCommon variables
 func (e *Environment) ClearCommon() {
-	// ToDo: implement run time support for Common variables
+	e.common = make(map[string]*variable)
 }
 
 // Terminal allows access to the termianl console

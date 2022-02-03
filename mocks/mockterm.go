@@ -16,10 +16,15 @@ func (ep *Expector) chkExpectations(msg string) {
 		return // no Expectations
 	}
 	if strings.Compare(msg, ep.Exp[0]) != 0 {
-		fmt.Print(("unexpected this is ->"))
+		fmt.Print("unexpected this is ->")
 		ep.Failed = true
 	}
-	ep.Exp = ep.Exp[1:]
+	if len(ep.Exp) > 1 {
+		ep.Exp = ep.Exp[1:]
+		return
+	}
+
+	ep.Exp = nil
 }
 
 type MockTerm struct {

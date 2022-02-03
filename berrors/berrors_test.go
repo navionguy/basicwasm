@@ -12,10 +12,12 @@ func TestTextForError(t *testing.T) {
 		exp string
 	}{
 		{inp: CantContinue, exp: "Can't continue"},
+		{inp: DivByZero, exp: "Division by zero"},
 		{inp: FileNotFound, exp: "File not found"},
 		{inp: IllegalDirect, exp: "Illegal direct"},
 		{inp: NextWithoutFor, exp: "NEXT without FOR"},
 		{inp: OutOfData, exp: "Out of DATA"},
+		{inp: Overflow, exp: "Overflow"},
 		{inp: ReturnWoGosub, exp: "RETURN without GOSUB"},
 		{inp: Syntax, exp: "Syntax error"},
 		{inp: TypeMismatch, exp: "Type mismatch"},

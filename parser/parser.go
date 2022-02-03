@@ -1078,16 +1078,17 @@ func (p *Parser) parseReadStatement() *ast.ReadStatement {
 	for !p.peekTokenIs(token.LINENUM) && !p.peekTokenIs(token.EOF) && !p.peekTokenIs(token.EOL) && !p.peekTokenIs(token.COLON) {
 		p.nextToken()
 
-		if p.curTokenIs(token.IDENT) {
-			id := p.parseIdentifier()
+		// parse in the variable expression
+		exp := p.parseExpression(LOWEST)
 
-			if id != nil {
-				stmt.Vars = append(stmt.Vars, id)
-			}
+		// add him to the list of variables
+		if exp != nil {
+			stmt.Vars = append(stmt.Vars, exp)
+		}
 
-			if p.peekTokenIs(token.COMMA) {
-				p.nextToken()
-			}
+		// check if there is more coming
+		if p.peekTokenIs(token.COMMA) {
+			p.nextToken()
 		}
 	}
 

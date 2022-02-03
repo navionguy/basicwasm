@@ -30,20 +30,21 @@ const (
 )
 
 const (
-	ARRAY_OBJ    = "ARRAY"
-	BSTR_OBJ     = "BSTR"
-	BUILTIN_OBJ  = "BUILTIN"
-	FIXED_OBJ    = "FIXED"
-	FLOATSGL_OBJ = "FLOATSGL"
-	FLOATDBL_OBJ = "FLOATDBL"
-	FUNCTION_OBJ = "FUNCTION"
-	ERROR_OBJ    = "ERROR"
-	HALT_SIGNAL  = "HALT"
-	INTEGER_OBJ  = "INTEGER"
-	INTEGER_DBL  = "INTDBL"
-	NULL_OBJ     = "NULL"
-	STRING_OBJ   = "STRING"
-	TYPED_OBJ    = "TYPED"
+	ARRAY_OBJ      = "ARRAY"
+	BSTR_OBJ       = "BSTR"
+	BUILTIN_OBJ    = "BUILTIN"
+	FIXED_OBJ      = "FIXED"
+	FLOATSGL_OBJ   = "FLOATSGL"
+	FLOATDBL_OBJ   = "FLOATDBL"
+	FUNCTION_OBJ   = "FUNCTION"
+	ERROR_OBJ      = "ERROR"
+	HALT_SIGNAL    = "HALT"
+	INTEGER_OBJ    = "INTEGER"
+	INTEGER_DBL    = "INTDBL"
+	NULL_OBJ       = "NULL"
+	RESTART_SIGNAL = "RESTART"
+	STRING_OBJ     = "STRING"
+	TYPED_OBJ      = "TYPED"
 )
 
 // NewEnclosedEnvironment allows variables during function calls
@@ -56,9 +57,10 @@ func NewEnclosedEnvironment(outer *Environment) *Environment {
 
 // NewEnvironment creates a place to store variables and settings
 func newEnvironment() *Environment {
-	stor := make(map[string]Object)
-	sett := make(map[string]ast.Node)
-	e := &Environment{store: stor, settings: sett}
+	e := &Environment{settings: make(map[string]ast.Node)}
+	e.ClearCommon()
+	e.ClearFiles()
+	e.ClearVars()
 	if e.program == nil {
 		e.program = &ast.Program{}
 	}
@@ -226,7 +228,6 @@ func (f *Function) Inspect() string {
 	out.WriteString(strings.Join(params, ", "))
 	out.WriteString(") ")
 	out.WriteString(f.Body.String())
-	out.WriteString("foo")
 
 	return out.String()
 }
@@ -238,6 +239,12 @@ type HaltSignal struct {
 
 func (hs *HaltSignal) Type() ObjectType { return HALT_SIGNAL }
 func (hs *HaltSignal) Inspect() string  { return "HALT" }
+
+// RestartSignal restarts the eval loop after a chain
+type RestartSignal struct{}
+
+func (rs *RestartSignal) Type() ObjectType { return RESTART_SIGNAL }
+func (rs *RestartSignal) Inspect() string  { return "RESTART" }
 
 type TypedVar struct {
 	Value  Object

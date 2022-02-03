@@ -67,6 +67,9 @@ func Eval(node ast.Node, code *ast.Code, env *object.Environment) object.Object 
 	case *ast.BlockStatement:
 		return evalBlockStatement(node, code, env)
 
+	case *ast.CommonStatement:
+		evalCommonStatement(node, code, env)
+
 	case *ast.EndStatement:
 		return evalEndStatement(node, code, env)
 
@@ -292,6 +295,8 @@ func evalChainLoad(file string, code *ast.Code, chain *ast.ChainStatement, env *
 
 // parse the file into an executable AST
 func evalChainParse(rdr *bufio.Reader, code *ast.Code, chain *ast.ChainStatement, env *object.Environment) object.Object {
+	env.NewProgram()
+	env.ClearVars()
 	fileserv.ParseFile(rdr, env)
 	env.ConstData().Restore() // start at the first DATA statement
 
@@ -307,8 +312,8 @@ func evalChainStart(chain *ast.ChainStatement, code *ast.Code, env *object.Envir
 		return evalChainExecute(chain, env)
 	}
 
-	// ToDo: we are running
-	return nil
+	// time to trigger a restart
+	return &object.RestartSignal{}
 }
 
 // executing a command entry, start program execution
@@ -409,6 +414,14 @@ func evalColorPalette(scr *ast.ScreenStatement, env *object.Environment) *ast.Pa
 	return pset.(*ast.PaletteStatement)
 }
 
+// common statement allows data to survive across a chain
+func evalCommonStatement(com *ast.CommonStatement, code *ast.Code, env *object.Environment) {
+	for _, id := range com.Vars {
+		env.Common(id.Value)
+	}
+	return
+}
+
 // user wants to continue execution, if we can
 func evalContCommand(cont *ast.ContCommand, code *ast.Code, env *object.Environment) object.Object {
 	// if a program is currently running, you can't use this command
@@ -474,49 +487,41 @@ func evalStatements(code *ast.Code, env *object.Environment) object.Object {
 	for halt := false; ok && !halt; {
 		rc = Eval(code.Value(), code, env)
 
-		halt = evalStatementsErrorChk(rc, env) || evalStatementsHaltChk(rc, code, env)
+		// build a default object.Object in case rc is nil
+		var sw object.Object
+		sw = &object.Null{}
 
-		hlt := evalStatementsBreakChk(code, env)
+		// use rc if it isn't nil
+		if rc != nil {
+			sw = rc
+		}
 
-		if hlt != nil {
-			rc = hlt
+		switch sw.Type() {
+		case object.ObjectType("RESTART"):
+			code = env.StatementIter()
+			halt = (code.Len() == 0)
+		case object.ObjectType("ERROR"):
 			halt = true
+		case object.ObjectType("HALT"):
+			halt = true
+			env.SaveSetting(settings.Restart, code)
+		default:
+			if env.Terminal().BreakCheck() {
+				rc = evalStatementsBreakChk(code, env)
+				halt = true
+			} else {
+				halt = !code.Next()
+			}
 		}
 	}
 	return rc
 }
 
-// returns TRUE if it is an error
-func evalStatementsErrorChk(rc object.Object, env *object.Environment) bool {
-	_, ok := rc.(*object.Error)
-
-	if !ok {
-		return false
-	}
-
-	return true
-}
-
-// check for a halt signal, which just stops execution
-// true indicates execution can proceed
-func evalStatementsHaltChk(rc object.Object, code *ast.Code, env *object.Environment) bool {
-	_, ok := rc.(*object.HaltSignal)
-
-	if !ok {
-		// only move to the next statement if I'm not halting
-		// but signal halt if I'm out of code
-		return !code.Next()
-	}
-
-	env.SaveSetting(settings.Restart, code)
-	return true
-}
-
 // check for a user break - Ctrl-C, returns a halt if it was seen
 func evalStatementsBreakChk(code *ast.Code, env *object.Environment) object.Object {
-	if !env.Terminal().BreakCheck() {
+	/*	if !env.Terminal().BreakCheck() {
 		return nil
-	}
+	}*/
 	msg := "Break"
 
 	if env.ProgramRunning() {
@@ -537,13 +542,13 @@ func evalReadStatement(rd *ast.ReadStatement, code *ast.Code, env *object.Enviro
 		name, ok := item.(*ast.Identifier)
 
 		if !ok {
-			return newError(env, syntaxErr)
+			return stdError(env, berrors.Syntax)
 		}
 
 		cst := env.ConstData().Next()
 
 		if cst == nil {
-			return newError(env, outOfDataErr)
+			return stdError(env, berrors.OutOfData)
 		}
 
 		switch val := (*cst).(type) {
@@ -566,7 +571,7 @@ func evalReadStatement(rd *ast.ReadStatement, code *ast.Code, env *object.Enviro
 			// but I wanted to be clear what was going on
 		}
 
-		saveVariable(code, env, name, value)
+		return saveVariable(code, env, name, value)
 	}
 	return value
 }
@@ -642,7 +647,7 @@ func evalRunParse(rdr *bufio.Reader, run *ast.RunCommand, env *object.Environmen
 	// create a new program code space
 	env.NewProgram()
 	if !run.KeepOpen {
-		// ToDo: once I implement files, I'll need a way to close them all at once
+		env.ClearFiles()
 	}
 
 	// parse the loaded file into an AST for evaluation
@@ -1241,10 +1246,10 @@ func evalNextStatement(stmt *ast.NextStatement, code *ast.Code, env *object.Envi
 // time to bump the counter by the step value
 func evalNextStep(four object.ForBlock, code *ast.Code, env *object.Environment) object.Object {
 	// get the counter variable
-	cntr, ok := env.Get(four.Four.Init.Name.Token.Literal)
+	cntr := env.Get(four.Four.Init.Name.Token.Literal)
 
 	// counter for loop wasn't saved, how did that happen
-	if !ok {
+	if cntr == nil {
 		return stdError(env, berrors.InternalErr)
 	}
 
@@ -1357,8 +1362,11 @@ func evalPrintStatement(node *ast.PrintStatement, code *ast.Code, env *object.En
 // Print the individual items
 func evalPrintItems(node *ast.PrintStatement, code *ast.Code, env *object.Environment) {
 	for i, item := range node.Items {
+		res := Eval(item, code, env)
 
-		env.Terminal().Print(Eval(item, code, env).Inspect())
+		if res != nil {
+			env.Terminal().Print(res.Inspect())
+		}
 
 		if node.Seperators[i] == "," {
 			env.Terminal().Print("\t")
@@ -1621,8 +1629,8 @@ func extendFunctionEnv(fn *object.Function, args []object.Object) *object.Enviro
 func evalIdentifier(node *ast.Identifier, code *ast.Code, env *object.Environment) object.Object {
 
 	label := node.Value
-	val, ok := env.Get(node.Value)
-	if ok && (label[len(label)-1] != ']') {
+	val := env.Get(node.Value)
+	if (val != nil) && (label[len(label)-1] != ']') {
 		return val
 	}
 
@@ -1630,14 +1638,13 @@ func evalIdentifier(node *ast.Identifier, code *ast.Code, env *object.Environmen
 		return builtin
 	}
 
-	if ok && (label[len(label)-1] == ']') && (node.Index != nil) {
+	if (val != nil) && (label[len(label)-1] == ']') && (node.Index != nil) {
 		arrValue := evalIndexArray(node.Index, val, nil, code, env)
 
 		return arrValue
 	}
 
-	return newError(env, "Syntax error")
-	//return newError(env, "identifier not found: "+node.Value)
+	return stdError(env, berrors.Syntax)
 }
 
 func evalIndexArray(index []*ast.IndexExpression, array, newVal object.Object, code *ast.Code, env *object.Environment) object.Object {
@@ -1709,14 +1716,21 @@ func evalArrayIndexExpression(array, index, newVal object.Object, env *object.En
 // saveVariable into the environment
 func saveVariable(code *ast.Code, env *object.Environment, name *ast.Identifier, val object.Object) object.Object {
 	sname := name.Value
-	cv, ok := env.Get(sname)
 
-	if !ok {
+	typeid, isarray := parseVarName(sname)
+
+	if !checkTypes(typeid, val) {
+		return stdError(env, berrors.Syntax)
+	}
+
+	cv := env.Get(sname)
+
+	if cv == nil {
 		// variable doesn't exist, time to create
 		return saveNewVariable(code, env, name, val)
 	}
 
-	typeid, isarray := parseVarName(sname)
+	//typeid, isarray := parseVarName(sname)
 
 	cvarray, cvisarray := cv.(*object.Array)
 
@@ -1724,10 +1738,6 @@ func saveVariable(code *ast.Code, env *object.Environment, name *ast.Identifier,
 		arrVar := evalIndexArray(name.Index, cvarray, val, code, env)
 		env.Set(sname, cvarray)
 		return arrVar
-	}
-
-	if !checkTypes(typeid, val) {
-		return newError(env, "type mis-match")
 	}
 
 	tv := &object.TypedVar{Value: val, TypeID: typeid}
@@ -1811,6 +1821,10 @@ func checkTypes(typeid string, val object.Object) bool {
 		if strings.ContainsAny(typeid, "%#!") || (typeid == "") {
 			return true
 		}
+	case object.INTEGER_DBL:
+		if strings.Contains(typeid, "!") || (typeid == "") {
+			return true
+		}
 	case object.FIXED_OBJ:
 		if strings.ContainsAny(typeid, "#!") || (typeid == "") {
 			return true
@@ -1858,9 +1872,9 @@ func parseVarName(name string) (string, bool) {
 
 func newError(env *object.Environment, format string, a ...interface{}) *object.Error {
 	msg := fmt.Sprintf(format, a...)
-	tk, ok := env.Get(token.LINENUM)
+	tk := env.Get(token.LINENUM)
 
-	if ok {
+	if tk != nil {
 		msg += fmt.Sprintf(" in %d", tk.(*object.IntDbl).Value)
 	}
 
@@ -1872,9 +1886,9 @@ func stdError(env *object.Environment, berr int) *object.Error {
 	msg := berrors.TextForError(berr)
 
 	if env.ProgramRunning() {
-		tk, ok := env.Get(token.LINENUM)
+		tk := env.Get(token.LINENUM)
 
-		if ok {
+		if tk != nil {
 			msg += fmt.Sprintf(" in %d", tk.(*object.IntDbl).Value)
 		}
 	}

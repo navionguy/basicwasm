@@ -986,11 +986,12 @@ func extractString(obj object.Object) ([]byte, bool, bool) {
 	}
 }
 
+// return error object with passed string -- DEPRACATED!
 func newError(env *object.Environment, format string, a ...interface{}) *object.Error {
 	msg := fmt.Sprintf(format, a...)
-	tk, ok := env.Get(token.LINENUM)
+	tk := env.Get(token.LINENUM)
 
-	if ok {
+	if tk != nil {
 		msg += fmt.Sprintf(" in %d", tk.(*object.IntDbl).Value)
 	}
 

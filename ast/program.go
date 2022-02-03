@@ -155,6 +155,13 @@ func (p *Program) ConstData() *ConstData {
 func (cd *Code) TokenLiteral() string { return "" }
 func (cd *Code) String() string       { return "The Code" }
 
+func (cd *Code) Restart() {
+	cd.currIndex = 0
+	if cd.Len() > 0 {
+		cd.lines[0].curStmt = 0
+	}
+}
+
 // going to add, or possibly replace, a line of code
 func (cd *Code) addLine(lineNum int) {
 	// create a new codeLine struct

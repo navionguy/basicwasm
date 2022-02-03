@@ -61,6 +61,8 @@ func TextForError(err int) string {
 	switch err {
 	case CantContinue:
 		return "Can't continue"
+	case DivByZero:
+		return "Division by zero"
 	case FileNotFound:
 		return "File not found"
 	case IllegalDirect:
@@ -69,6 +71,8 @@ func TextForError(err int) string {
 		return "NEXT without FOR"
 	case OutOfData:
 		return "Out of DATA"
+	case Overflow:
+		return "Overflow"
 	case ReturnWoGosub:
 		return "RETURN without GOSUB"
 	case Syntax:
