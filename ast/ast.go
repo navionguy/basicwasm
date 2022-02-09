@@ -39,7 +39,7 @@ type AutoCommand struct {
 	Curr      bool // start with current line?
 }
 
-func (ac *AutoCommand) statementNode() {}
+func (ac *AutoCommand) statementNode() { return }
 
 // TokenLiteral returns my token literal
 func (ac *AutoCommand) TokenLiteral() string { return strings.ToUpper(ac.Token.Literal) }
@@ -334,8 +334,10 @@ func (fl *FunctionLiteral) String() string {
 	out.WriteString(fl.TokenLiteral())
 	out.WriteString("(")
 	out.WriteString(strings.Join(params, ", "))
-	out.WriteString(")=")
-	out.WriteString(fl.Body.String())
+	out.WriteString(")")
+	if fl.Body != nil {
+		out.WriteString(fl.Body.String())
+	}
 
 	return out.String()
 }
@@ -506,10 +508,13 @@ func (es *ExpressionStatement) TokenLiteral() string {
 
 // String returns text version of my expression
 func (es *ExpressionStatement) String() string {
+	var out bytes.Buffer
+
+	out.WriteString(es.Token.Literal + " = ")
 	if es.Expression != nil {
-		return es.Expression.String()
+		out.WriteString(es.Expression.String())
 	}
-	return ""
+	return out.String()
 }
 
 // DataStatement how basic did constants
@@ -543,7 +548,7 @@ type DimStatement struct {
 	Vars  []*Identifier
 }
 
-func (ds *DimStatement) statementNode()       {}
+func (ds *DimStatement) statementNode()       { return }
 func (ds *DimStatement) TokenLiteral() string { return ds.Token.Literal }
 
 // String displays the statment
@@ -570,7 +575,7 @@ type Identifier struct {
 	Array bool
 }
 
-func (i *Identifier) expressionNode()      {}
+func (i *Identifier) expressionNode()      { return }
 func (i *Identifier) TokenLiteral() string { return strings.ToUpper(i.Token.Literal) }
 func (i *Identifier) String() string {
 	var out bytes.Buffer
@@ -598,7 +603,7 @@ type IntegerLiteral struct {
 	Value int16
 }
 
-func (il *IntegerLiteral) expressionNode() {}
+func (il *IntegerLiteral) expressionNode() { return }
 
 // TokenLiteral returns literal value
 func (il *IntegerLiteral) TokenLiteral() string { return il.Token.Literal }
@@ -612,13 +617,13 @@ type DblIntegerLiteral struct {
 	Value int32
 }
 
-func (dil *DblIntegerLiteral) expressionNode() {}
+func (dil *DblIntegerLiteral) expressionNode() { return }
 
 // TokenLiteral returns literal value
 func (dil *DblIntegerLiteral) TokenLiteral() string { return dil.Token.Literal }
 
 // String returns value as an integer
-func (dil *DblIntegerLiteral) String() string { return fmt.Sprintf("%d!", dil.Value) }
+func (dil *DblIntegerLiteral) String() string { return fmt.Sprintf("%d", dil.Value) }
 
 // FixedLiteral is a Fixed Point number
 type FixedLiteral struct {
@@ -659,7 +664,7 @@ func (fd *FloatDoubleLiteral) expressionNode() {}
 // TokenLiteral returns literal value
 func (fd *FloatDoubleLiteral) TokenLiteral() string { return fd.Token.Literal }
 
-// String returns value as an integer
+// String returns value as a string
 func (fd *FloatDoubleLiteral) String() string { return fd.Token.Literal }
 
 // HexConstant holds values in the from &H76 &H32F
@@ -847,9 +852,15 @@ func (ie *InfixExpression) TokenLiteral() string {
 // String the readable version of me
 func (ie *InfixExpression) String() string {
 	var out bytes.Buffer
-	out.WriteString(ie.Left.String())
-	out.WriteString(" " + ie.Operator + " ")
-	out.WriteString(ie.Right.String())
+	if ie.Left != nil {
+		out.WriteString(ie.Left.String() + " ")
+	}
+	if len(ie.Operator) > 0 {
+		out.WriteString(ie.Operator + " ")
+	}
+	if ie.Right != nil {
+		out.WriteString(ie.Right.String())
+	}
 	return out.String()
 }
 
@@ -870,7 +881,9 @@ func (ge *GroupedExpression) TokenLiteral() string {
 func (ge *GroupedExpression) String() string {
 	var out bytes.Buffer
 	out.WriteString("(")
-	out.WriteString(ge.Exp.String())
+	if ge.Exp != nil {
+		out.WriteString(ge.Exp.String())
+	}
 	out.WriteString(")")
 
 	return out.String()
@@ -893,12 +906,17 @@ func (ie *IfExpression) TokenLiteral() string { return strings.ToUpper(ie.Token.
 func (ie *IfExpression) String() string {
 	var out bytes.Buffer
 
-	out.WriteString("IF")
-	out.WriteString(ie.Condition.String())
-	out.WriteString("THEN")
-	out.WriteString(ie.Consequence.String())
+	out.WriteString("IF ")
+	if ie.Condition != nil {
+		out.WriteString(ie.Condition.String())
+	}
+	out.WriteString(" THEN ")
+	if ie.Consequence != nil {
+		out.WriteString(ie.Consequence.String())
+	}
 
 	if ie.Alternative != nil {
+		out.WriteString(" ELSE")
 		s := ie.Alternative
 		out.WriteString(s.String())
 	}

@@ -6,6 +6,7 @@ import (
 	"strings"
 	"testing"
 
+	"github.com/navionguy/basicwasm/decimal"
 	"github.com/navionguy/basicwasm/token"
 	"github.com/stretchr/testify/assert"
 )
@@ -594,7 +595,7 @@ func ExampleStatement() {
 		Curr:      false,
 	})
 	program.AddStatement(&ExpressionStatement{
-		Token: token.Token{Type: token.IDENT, Literal: "ABS"},
+		Token: token.Token{Type: token.IDENT, Literal: "X"},
 		Expression: &CallExpression{
 			Token:    token.Token{Type: token.LPAREN, Literal: "("},
 			Function: &Identifier{Token: token.Token{Type: token.IDENT, Literal: "ABS"}, Value: "ABS"},
@@ -625,7 +626,7 @@ func ExampleStatement() {
 	fmt.Println(program.String())
 
 	// Output:
-	// 10 AUTO 10, 10 : ABS(1) : CLS 1 : LET myVar = anotherVar
+	// 10 AUTO 10, 10 : X = ABS(1) : CLS 1 : LET myVar = anotherVar
 }
 
 func Test_ClearCommand(t *testing.T) {
@@ -649,6 +650,15 @@ func Test_Csrlin(t *testing.T) {
 	assert.Equal(t, "csrlin ", csr.String())
 }
 
+func Test_DblIntegerLiteral(t *testing.T) {
+	dint := &DblIntegerLiteral{Token: token.Token{Type: token.TYPE_DBL, Literal: "#"}, Value: 375}
+
+	dint.expressionNode()
+
+	assert.Equal(t, "#", dint.TokenLiteral())
+	assert.Equal(t, "375", dint.String())
+}
+
 func Test_EndStatement(t *testing.T) {
 	end := EndStatement{Token: token.Token{Type: token.END, Literal: "END"}}
 
@@ -666,11 +676,12 @@ func Test_EOFExpression(t *testing.T) {
 }
 
 func Test_ExpressionStatement(t *testing.T) {
-	exp := ExpressionStatement{Token: token.Token{Type: token.EQ, Literal: "="}}
+	exp := ExpressionStatement{Token: token.Token{Type: token.EQ, Literal: "X"},
+		Expression: &InfixExpression{Token: token.Token{Type: token.ASTERISK}, Left: &Identifier{Value: "X"}, Operator: "*", Right: &Identifier{Value: "Y"}}}
 
 	exp.statementNode()
-	assert.Equal(t, "=", exp.TokenLiteral())
-	assert.Equal(t, "", exp.String())
+	assert.Equal(t, "X", exp.TokenLiteral())
+	assert.Equal(t, "X = X * Y", exp.String())
 }
 
 func Test_FilesCommand(t *testing.T) {
@@ -692,6 +703,32 @@ func Test_FilesCommand(t *testing.T) {
 	}
 }
 
+func Test_FixedLiteral(t *testing.T) {
+	d := decimal.New(12345, -2)
+	fx := &FixedLiteral{Token: token.Token{Type: token.FIXED, Literal: "123.45"}, Value: d}
+
+	fx.expressionNode()
+
+	assert.Equal(t, "123.45", fx.TokenLiteral())
+	assert.Equal(t, "123.45", fx.String())
+}
+
+func Test_FloatDoubleLiteral(t *testing.T) {
+	fdbl := &FloatDoubleLiteral{Token: token.Token{Type: token.FLOAT, Literal: "1.09432D-06"}}
+
+	fdbl.expressionNode()
+	assert.Equal(t, "1.09432D-06", fdbl.TokenLiteral())
+	assert.Equal(t, "1.09432D-06", fdbl.String())
+}
+
+func Test_FloatSingleLiteral(t *testing.T) {
+	fsng := &FloatSingleLiteral{Token: token.Token{Type: token.FLOAT, Literal: "3.14159E02"}, Value: 314.159}
+
+	fsng.expressionNode()
+	assert.Equal(t, "3.14159E02", fsng.TokenLiteral())
+	assert.Equal(t, "3.14159E02", fsng.String())
+}
+
 func Test_ForStatement(t *testing.T) {
 	four := ForStatment{Token: token.Token{Type: token.FOR, Literal: "FOR"}, Init: &LetStatement{
 		Token: token.Token{Type: token.LET, Literal: ""},
@@ -707,6 +744,17 @@ func Test_ForStatement(t *testing.T) {
 	four.statementNode()
 	assert.Equal(t, "FOR", four.TokenLiteral())
 	assert.Equal(t, "FOR myVar = anotherVar TO 10 STEP 2", four.String())
+}
+
+func Test_FunctionLiteral(t *testing.T) {
+	fn := &FunctionLiteral{Token: token.Token{Type: token.DEF, Literal: "FNMUL"}, Parameters: []*Identifier{{Value: "X"}, {Value: "Y"}},
+		Body: &BlockStatement{Statements: []Statement{&ExpressionStatement{Expression: &InfixExpression{Token: token.Token{Type: token.ASTERISK},
+			Left: &Identifier{Value: "X"}, Operator: "*", Right: &Identifier{Value: "Y"}}}}}}
+
+	fn.expressionNode()
+
+	assert.Equal(t, "FNMUL", fn.TokenLiteral())
+	assert.Equal(t, "DEF FNMUL(X, Y) = X * Y", fn.String())
 }
 
 func Test_GosubStatement(t *testing.T) {
@@ -727,6 +775,25 @@ func Test_GotoStatement(t *testing.T) {
 	assert.Equal(t, "GOTO 1000", gto.String())
 }
 
+func Test_GroupedExpression(t *testing.T) {
+	grp := GroupedExpression{Token: token.Token{Type: token.LPAREN, Literal: "("}, Exp: &IntegerLiteral{Value: 5}}
+
+	grp.expressionNode()
+
+	assert.Equal(t, "(", grp.TokenLiteral())
+
+	assert.Equal(t, "(5)", grp.String())
+}
+
+func Test_HexConstant(t *testing.T) {
+	hx := &HexConstant{Token: token.Token{Type: token.HEX, Literal: "&H"}, Value: "cf"}
+
+	hx.expressionNode()
+
+	assert.Equal(t, "&H", hx.TokenLiteral())
+	assert.Equal(t, "&Hcf", hx.String())
+}
+
 func Test_Identifier(t *testing.T) {
 	tests := []struct {
 		id  Identifier
@@ -734,8 +801,8 @@ func Test_Identifier(t *testing.T) {
 		exp string
 	}{
 		{id: Identifier{Token: token.Token{Type: token.IDENT, Literal: "[]"}, Array: true,
-			Index: []*IndexExpression{&IndexExpression{Left: &IntegerLiteral{Value: 5}, Index: &IntegerLiteral{Value: 0}},
-				&IndexExpression{Left: &IntegerLiteral{Value: 6}, Index: &IntegerLiteral{Value: 1}},
+			Index: []*IndexExpression{{Left: &IntegerLiteral{Value: 5}, Index: &IntegerLiteral{Value: 0}},
+				{Left: &IntegerLiteral{Value: 6}, Index: &IntegerLiteral{Value: 1}},
 			}}, lit: "[]", exp: "[0,1]"},
 		{id: Identifier{Token: token.Token{Type: token.IDENT, Literal: "X"}, Value: "5"}, lit: "X", exp: "5"},
 	}
@@ -745,6 +812,29 @@ func Test_Identifier(t *testing.T) {
 		assert.Equal(t, tt.lit, tt.id.TokenLiteral())
 		assert.Equal(t, tt.exp, tt.id.String())
 	}
+}
+
+func Test_IfExpression(t *testing.T) {
+
+	ife := &IfExpression{Token: token.Token{Type: token.IF, Literal: "IF"},
+		Condition:   &InfixExpression{Left: &Identifier{Value: "X"}, Operator: "!=", Right: &IntegerLiteral{Value: 5}},
+		Consequence: &GosubStatement{Gosub: 200},
+		Alternative: &GotoStatement{Goto: "1000"}}
+
+	ife.expressionNode()
+	assert.Equal(t, "IF", ife.TokenLiteral())
+
+	assert.Equal(t, "IF X != 5 THEN GOSUB 200 ELSE 1000", ife.String())
+}
+
+func Test_IndexExpression(t *testing.T) {
+	ind := &IndexExpression{Token: token.Token{Type: token.INT, Literal: "[]"}, Index: &IntegerLiteral{Value: 5}}
+
+	ind.expressionNode()
+
+	assert.Equal(t, "[]", ind.TokenLiteral())
+
+	assert.Equal(t, "5", ind.String())
 }
 
 // exercise the InfixExpression structure
@@ -768,6 +858,15 @@ func Test_InfixExpression(t *testing.T) {
 
 		assert.Equalf(t, tt.exp, exp.String(), "exp %s got %s instead", tt.exp, exp.String())
 	}
+}
+
+func Test_IntegerLiteral(t *testing.T) {
+	il := &IntegerLiteral{Token: token.Token{Type: token.INT, Literal: "13"}, Value: 13}
+
+	il.expressionNode()
+
+	assert.Equal(t, "13", il.TokenLiteral())
+	assert.Equal(t, "13", il.String())
 }
 
 func Test_ListStatement(t *testing.T) {
@@ -830,6 +929,15 @@ func Test_LoadCommand(t *testing.T) {
 		assert.Equal(t, tt.exp, tt.cmd.String(), "Load command didn't build string correctly")
 
 	}
+}
+
+func Test_OctalConstant(t *testing.T) {
+	oct := OctalConstant{Token: token.Token{Type: token.OCTAL, Literal: "&"}, Value: "37"}
+
+	oct.expressionNode()
+
+	assert.Equal(t, "&", oct.TokenLiteral())
+	assert.Equal(t, "&37", oct.String())
 }
 
 func Test_NewCommand(t *testing.T) {
@@ -902,6 +1010,16 @@ func Test_PrintStatement(t *testing.T) {
 	assert.Equal(t, `PRINT 12,"Fred";`, prt.String(), "Print statement didn't build string correctly")
 }
 
+func Test_ReadStatement(t *testing.T) {
+	rd := &ReadStatement{Token: token.Token{Type: token.READ, Literal: "READ"}, Vars: []Expression{&Identifier{Value: "X"}, &Identifier{Value: "Y"}}}
+
+	rd.statementNode()
+
+	assert.Equal(t, "READ", rd.TokenLiteral())
+
+	assert.Equal(t, "READ X, Y", rd.String())
+}
+
 func Test_RemStatement(t *testing.T) {
 	stmt := &RemStatement{Token: token.Token{Type: token.REM, Literal: "REM"}, Comment: "A Comment"}
 
@@ -909,6 +1027,15 @@ func Test_RemStatement(t *testing.T) {
 
 	assert.Equal(t, "REM", stmt.TokenLiteral(), "Rem statement has incorrect TokenLiteral")
 	assert.Equal(t, stmt.String(), "REM A Comment", "Rem statement didn't build string correctly")
+}
+
+func Test_RestoreStatement(t *testing.T) {
+	rstr := &RestoreStatement{Token: token.Token{Type: token.RESTORE, Literal: "RESTORE"}, Line: 200}
+
+	rstr.statementNode()
+
+	assert.Equal(t, "RESTORE", rstr.TokenLiteral())
+	assert.Equal(t, "RESTORE 200", rstr.String())
 }
 
 func Test_ReturnStatement(t *testing.T) {

@@ -1242,7 +1242,7 @@ func TestNumericConversion(t *testing.T) {
 		}, ""},
 		{"624537", token.INT, func(p *Parser) ast.Expression {
 			return p.parseIntegerLiteral()
-		}, "624537!"},
+		}, "624537"},
 	}
 
 	for _, tt := range tests {
