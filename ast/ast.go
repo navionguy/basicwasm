@@ -351,6 +351,30 @@ func (p *Program) String() string {
 	return out.String()
 }
 
+type KeyStatement struct {
+	Token token.Token // "KEY"
+	Param Expression  // ON, OFF, 1...
+	Data  Expression  // string to assign to key
+}
+
+func (key *KeyStatement) statementNode() {}
+
+func (key *KeyStatement) TokenLiteral() string { return strings.ToUpper(key.Token.Literal) }
+
+func (key *KeyStatement) String() string {
+	var out bytes.Buffer
+
+	out.WriteString(key.TokenLiteral() + " ")
+	if key.Param != nil {
+		out.WriteString(key.Param.String())
+	}
+	if key.Data != nil {
+		out.WriteString(", " + key.Data.String())
+	}
+
+	return out.String()
+}
+
 // LetStatement holds the assignment expression
 type LetStatement struct {
 	Token token.Token // the token.LET token Name *Identifier

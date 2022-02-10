@@ -90,6 +90,8 @@ const (
 	MOD     = "MOD"
 	NEW     = "NEW"
 	NEXT    = "NEXT"
+	OFF     = "OFF"
+	ON      = "ON"
 	PALETTE = "PALETTE"
 	PRINT   = "PRINT"
 	READ    = "READ"
@@ -143,6 +145,8 @@ var keywords = map[string]TokenType{
 	"mod":     MOD,
 	"new":     NEW,
 	"next":    NEXT,
+	"off":     OFF,
+	"on":      ON,
 	"palette": PALETTE,
 	"print":   PRINT,
 	"read":    READ,

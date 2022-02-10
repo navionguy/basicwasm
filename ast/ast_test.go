@@ -869,6 +869,15 @@ func Test_IntegerLiteral(t *testing.T) {
 	assert.Equal(t, "13", il.String())
 }
 
+func Test_KeyStatement(t *testing.T) {
+	key := &KeyStatement{Token: token.Token{Type: token.KEY, Literal: "KEY"}, Param: &IntegerLiteral{Value: 1}, Data: &StringLiteral{Value: "FILES"}}
+
+	key.statementNode()
+
+	assert.Equal(t, "KEY", key.TokenLiteral())
+	assert.Equal(t, `KEY 1, "FILES"`, key.String())
+}
+
 func Test_ListStatement(t *testing.T) {
 	list := ListStatement{Token: token.Token{Type: token.LIST, Literal: "LIST"}, Start: "10", Lrange: "-", Stop: "100"}
 
