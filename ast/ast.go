@@ -141,6 +141,25 @@ func (chn *ChainStatement) String() string {
 	return lit
 }
 
+type ChDirStatement struct {
+	Token token.Token
+	Path  []Expression // should be the directory to change to
+}
+
+func (cd *ChDirStatement) statementNode()       {}
+func (cd *ChDirStatement) TokenLiteral() string { return strings.ToUpper(cd.Token.Literal) }
+func (cd *ChDirStatement) String() string {
+	var out bytes.Buffer
+
+	out.WriteString(cd.TokenLiteral() + " ")
+
+	for _, it := range cd.Path {
+		out.WriteString(it.String())
+	}
+
+	return out.String()
+}
+
 // Clear clears all variables and closes open file
 type ClearCommand struct {
 	Token token.Token
@@ -352,9 +371,9 @@ func (p *Program) String() string {
 }
 
 type KeyStatement struct {
-	Token token.Token // "KEY"
-	Param Expression  // ON, OFF, 1...
-	Data  Expression  // string to assign to key
+	Token token.Token  // "KEY"
+	Param token.Token  // ON, OFF, 1...
+	Data  []Expression // string to assign to key
 }
 
 func (key *KeyStatement) statementNode() {}
@@ -365,11 +384,14 @@ func (key *KeyStatement) String() string {
 	var out bytes.Buffer
 
 	out.WriteString(key.TokenLiteral() + " ")
-	if key.Param != nil {
-		out.WriteString(key.Param.String())
-	}
-	if key.Data != nil {
-		out.WriteString(", " + key.Data.String())
+	out.WriteString(key.Param.Literal)
+	for i, d := range key.Data {
+		if i > 0 {
+			out.WriteString(", ")
+		}
+		if key.Data != nil {
+			out.WriteString(", " + d.String())
+		}
 	}
 
 	return out.String()
@@ -1163,6 +1185,14 @@ func (stop *StopStatement) statementNode()       {}
 func (stop *StopStatement) TokenLiteral() string { return strings.ToUpper(stop.Token.Literal) }
 func (stop *StopStatement) String() string       { return strings.ToUpper(stop.Token.Literal) + " " }
 
+type ToStatement struct {
+	Token token.Token
+}
+
+func (to *ToStatement) statementNode()       {}
+func (to *ToStatement) TokenLiteral() string { return strings.ToUpper(to.Token.Literal) }
+func (to *ToStatement) String() string       { return " " + strings.ToUpper(to.Token.Literal) + " " }
+
 // TroffCommand turns off tracing
 type TroffCommand struct {
 	Token token.Token
@@ -1186,3 +1216,42 @@ func (ton *TronCommand) statementNode() {}
 func (ton *TronCommand) TokenLiteral() string { return strings.ToUpper(ton.Token.Literal) }
 
 func (ton *TronCommand) String() string { return ton.TokenLiteral() }
+
+// View Statement changes the viewport size for graphics
+type ViewStatement struct {
+	Token token.Token
+	Parms []Node
+}
+
+func (vw *ViewStatement) statementNode()       {}
+func (vw *ViewStatement) TokenLiteral() string { return strings.ToUpper(vw.Token.Literal) }
+func (vw *ViewStatement) String() string {
+	var out bytes.Buffer
+
+	out.WriteString(vw.TokenLiteral() + " ")
+
+	for _, pm := range vw.Parms {
+		out.WriteString(pm.String())
+	}
+
+	return out.String()
+}
+
+type ViewPrintStatement struct {
+	Token token.Token
+	Parms []Node // top, "TO", bottom
+}
+
+func (vw *ViewPrintStatement) statementNode()       {}
+func (vw *ViewPrintStatement) TokenLiteral() string { return strings.ToUpper(vw.Token.Literal) }
+func (vw *ViewPrintStatement) String() string {
+	var out bytes.Buffer
+
+	out.WriteString(vw.TokenLiteral() + " ")
+
+	for _, pm := range vw.Parms {
+		out.WriteString(pm.String())
+	}
+
+	return out.String()
+}

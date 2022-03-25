@@ -108,6 +108,14 @@ func Test_ChainStatement(t *testing.T) {
 	}
 }
 
+func Test_ChDir(t *testing.T) {
+	cd := &ChDirStatement{Token: token.Token{Type: token.CHDIR, Literal: "CHDIR"}, Path: []Expression{&StringLiteral{Value: `D:\`}}}
+
+	cd.statementNode()
+	assert.Equal(t, "CHDIR", cd.TokenLiteral())
+	assert.Equal(t, `CHDIR "D:\"`, cd.String())
+}
+
 func Test_ClsStatement(t *testing.T) {
 	tests := []struct {
 		inp ClsStatement
@@ -870,7 +878,7 @@ func Test_IntegerLiteral(t *testing.T) {
 }
 
 func Test_KeyStatement(t *testing.T) {
-	key := &KeyStatement{Token: token.Token{Type: token.KEY, Literal: "KEY"}, Param: &IntegerLiteral{Value: 1}, Data: &StringLiteral{Value: "FILES"}}
+	key := &KeyStatement{Token: token.Token{Type: token.KEY, Literal: "KEY"}, Param: token.Token{Type: token.INT, Literal: "1"}, Data: []Expression{&StringLiteral{Value: "FILES"}}}
 
 	key.statementNode()
 
@@ -1125,6 +1133,14 @@ func Test_StringLiteral(t *testing.T) {
 	assert.Equal(t, "\"Test String\"", str.String())
 }
 
+func Test_ToStatement(t *testing.T) {
+	to := &ToStatement{Token: token.Token{Type: token.TO, Literal: "TO"}}
+
+	to.statementNode()
+	assert.Equal(t, "TO", to.TokenLiteral())
+	assert.Equal(t, " TO ", to.String())
+}
+
 func Test_TronTroffCommands(t *testing.T) {
 
 	cmd := &TroffCommand{
@@ -1144,4 +1160,22 @@ func Test_TronTroffCommands(t *testing.T) {
 
 	assert.Equal(t, "TRON", cmd2.TokenLiteral(), "TRON command has incorrect TokenLiteral")
 	assert.Equal(t, cmd2.String(), "TRON", "TRON command didn't build string correctly")
+}
+
+func Test_ViewStatement(t *testing.T) {
+	vw := &ViewStatement{Token: token.Token{Type: token.VIEW, Literal: "VIEW"},
+		Parms: []Node{&Identifier{Value: "("}, &IntegerLiteral{Value: 3}, &Identifier{Value: ","}, &IntegerLiteral{Value: 24}, &Identifier{Value: ")"},
+			&Identifier{Value: " - "}, &Identifier{Value: "("}, &IntegerLiteral{Value: 100}, &Identifier{Value: ","}, &IntegerLiteral{Value: 100}, &Identifier{Value: ")"}}}
+
+	vw.statementNode()
+	assert.Equal(t, "VIEW", vw.TokenLiteral())
+	assert.Equal(t, "VIEW (3,24) - (100,100)", vw.String())
+}
+
+func Test_ViewPrintStatement(t *testing.T) {
+	vwp := &ViewPrintStatement{Token: token.Token{Type: token.VIEW, Literal: "VIEW PRINT"}, Parms: []Node{&IntegerLiteral{Value: 3}, &ToStatement{Token: token.Token{Type: token.TO, Literal: "TO"}}, &IntegerLiteral{Value: 24}}}
+
+	vwp.statementNode()
+	assert.Equal(t, "VIEW PRINT", vwp.TokenLiteral())
+	assert.Equal(t, "VIEW PRINT 3 TO 24", vwp.String())
 }

@@ -75,19 +75,19 @@ func New(l *lexer.Lexer) *Parser {
 
 	// create map parsers for prefix elements
 	p.prefixParseFns = make(map[token.TokenType]prefixParseFn)
+	p.registerPrefix(token.AMPERSAND, p.parseHexOctalConstant)
 	p.registerPrefix(token.CSRLIN, p.parseCsrLinVar)
-	p.registerPrefix(token.IDENT, p.parseIdentifier)
-	p.registerPrefix(token.INT, p.parseIntegerLiteral)
-	p.registerPrefix(token.INTD, p.parseIntDoubleLiteral)
-	p.registerPrefix(token.MINUS, p.parsePrefixExpression)
-	p.registerPrefix(token.LPAREN, p.parseGroupedExpression)
-	p.registerPrefix(token.IF, p.parseIfExpression)
-	p.registerPrefix(token.STRING, p.parseStringLiteral)
 	p.registerPrefix(token.DEF, p.parseFunctionLiteral)
 	p.registerPrefix(token.EOF, p.parseEOFExpression)
 	p.registerPrefix(token.FLOAT, p.parseFloatingPointLiteral)
 	p.registerPrefix(token.FIXED, p.parseFixedPointLiteral)
-	p.registerPrefix(token.AMPERSAND, p.parseHexOctalConstant)
+	p.registerPrefix(token.IDENT, p.parseIdentifier)
+	p.registerPrefix(token.IF, p.parseIfExpression)
+	p.registerPrefix(token.INT, p.parseIntegerLiteral)
+	p.registerPrefix(token.INTD, p.parseIntDoubleLiteral)
+	p.registerPrefix(token.LPAREN, p.parseGroupedExpression)
+	p.registerPrefix(token.MINUS, p.parsePrefixExpression)
+	p.registerPrefix(token.STRING, p.parseStringLiteral)
 
 	// and infix elements
 	p.infixParseFns = make(map[token.TokenType]infixParseFn)
@@ -179,6 +179,8 @@ func (p *Parser) parseStatement() ast.Statement {
 		return p.parseBeepStatement()
 	case token.CHAIN:
 		return p.parseChainStatement()
+	case token.CHDIR:
+		return p.parseChDirStatement()
 	case token.CLEAR:
 		return p.parseClearCommand()
 	case token.CLS:
@@ -191,6 +193,8 @@ func (p *Parser) parseStatement() ast.Statement {
 		return p.parseContCommand()
 	case token.DATA:
 		return p.parseDataStatement()
+	case token.DIM:
+		return p.parseDimStatement()
 	case token.END:
 		return p.parseEndStatement()
 	case token.EOL:
@@ -210,6 +214,8 @@ func (p *Parser) parseStatement() ast.Statement {
 		return p.parseGotoStatement()
 	case token.IF:
 		return p.parseExpressionStatement()
+	case token.KEY:
+		return p.parseKeyStatement()
 	case token.LET:
 		return p.parseLetStatement()
 	case token.LINENUM:
@@ -246,8 +252,8 @@ func (p *Parser) parseStatement() ast.Statement {
 		return p.parseTronCommand()
 	case token.PRINT:
 		return p.parsePrintStatement()
-	case token.DIM:
-		return p.parseDimStatement()
+	case token.VIEW:
+		return p.parseViewStatement()
 	default:
 		if strings.ContainsAny(p.peekToken.Literal, "=[($%!#") {
 			stmt := p.parseImpliedLetStatement(p.curToken.Literal)
@@ -371,6 +377,13 @@ func (p *Parser) parseChainParameter(param int, chain *ast.ChainStatement) {
 		chain.Range = p.parseExpression(LOWEST)
 	}
 	return
+}
+
+func (p *Parser) parseChDirStatement() *ast.ChDirStatement {
+	defer untrace(trace("parseChDirStatement"))
+	cd := ast.ChDirStatement{Token: p.curToken}
+
+	return &cd
 }
 
 func (p *Parser) parseClearCommand() *ast.ClearCommand {
@@ -904,13 +917,38 @@ func (p *Parser) parseGotoStatement() *ast.GotoStatement {
 	return &stmt
 }
 
+// Key statement can come in many forms
+func (p *Parser) parseKeyStatement() *ast.KeyStatement {
+	defer untrace(trace("parseKeyStatement"))
+
+	stmt := &ast.KeyStatement{Token: p.curToken}
+
+	// if there is a parameter, save it
+	if !p.chkEndOfStatement() {
+		p.nextToken()
+		stmt.Param = p.curToken
+	}
+
+	// load up any data items
+	for ; p.peekTokenIs(token.COMMA); p.nextToken() {
+		p.nextToken()
+		if !p.chkEndOfStatement() {
+			p.nextToken()
+			item := p.parseExpression(LOWEST)
+			stmt.Data = append(stmt.Data, item)
+		}
+	}
+
+	return stmt
+}
+
 func (p *Parser) parseLetStatement() *ast.LetStatement {
 	defer untrace(trace("parseLetStatement"))
 
 	p.curToken.Literal = strings.ToUpper(p.curToken.Literal)
 	stmt := &ast.LetStatement{Token: p.curToken}
 	if !p.expectPeek(token.IDENT) {
-		return nil
+		return stmt
 	}
 	stmt.Name = p.innerParseIdentifier()
 
@@ -1660,4 +1698,58 @@ func (p *Parser) reportError(err int) {
 	}
 
 	p.errors = append(p.errors, msg)
+}
+
+// parse VIEW, also catches VIEW PRINT
+func (p *Parser) parseViewStatement() ast.Statement {
+	untrace(trace("parseViewStatement"))
+	vw := ast.ViewStatement{Token: p.curToken}
+
+	// if the first param is PRINT, this affects text window
+	if p.peekTokenIs(token.PRINT) {
+		return p.parseViewPrintStatement()
+	}
+
+	for !p.chkEndOfStatement() {
+		p.nextToken()
+		switch p.curToken.Type {
+		case token.COMMA:
+			vw.Parms = append(vw.Parms, &ast.Identifier{Value: ","})
+		case token.LPAREN:
+			vw.Parms = append(vw.Parms, &ast.Identifier{Value: "("})
+		case token.MINUS:
+			vw.Parms = append(vw.Parms, &ast.Identifier{Value: " - "})
+		case token.RPAREN:
+			vw.Parms = append(vw.Parms, &ast.Identifier{Value: ")"})
+		case token.SCREEN:
+			vw.Parms = append(vw.Parms, &ast.ScreenStatement{Token: token.Token{Type: token.SCREEN, Literal: "SCREEN"}})
+		default:
+			vw.Parms = append(vw.Parms, p.parseExpression(LOWEST))
+		}
+	}
+
+	return &vw
+}
+
+// View Print changes the boundaries of the text window
+func (p *Parser) parseViewPrintStatement() ast.Statement {
+	untrace(trace("parseViewPrintStatement"))
+
+	// create a ViewPrintStatement, build the literal
+	vp := ast.ViewPrintStatement{Token: p.curToken}
+	p.nextToken()
+	vp.Token.Literal += " " + p.curToken.Literal // winds up "VIEW PRINT"
+
+	// loop up parameters until the end of the statement
+	for !p.chkEndOfStatement() {
+		p.nextToken()
+		switch p.curToken.Type {
+		case token.TO:
+			vp.Parms = append(vp.Parms, &ast.ToStatement{Token: token.Token{Type: token.TO, Literal: "TO"}})
+		default:
+			vp.Parms = append(vp.Parms, p.parseExpression(LOWEST))
+		}
+	}
+
+	return &vp
 }

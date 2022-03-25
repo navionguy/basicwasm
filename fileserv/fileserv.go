@@ -37,6 +37,7 @@ var (
 		"driveA": flag.String("driveA", "", ""),
 		"driveB": flag.String("driveB", "", ""),
 		"driveC": flag.String("driveC", "./source", "current directory on start-up"),
+		"driveD": flag.String("driveD", "/Users/don/Downloads/HCALC_129", "HamCalc source files"),
 		// TODO: add the rest of the possible drive letter flags
 	}
 )

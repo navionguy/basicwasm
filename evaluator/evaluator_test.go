@@ -550,6 +550,37 @@ func Test_CsrLinExpression(t *testing.T) {
 	assert.Equal(t, int16(row+1), res.Value)
 }
 
+func Test_EvalExpressionNode(t *testing.T) {
+	tests := []struct {
+		nd  ast.Node
+		inp string
+		err bool
+	}{
+		{inp: `10 REM A comment`, err: true},
+		{inp: `20 REM A comment`, nd: &ast.IntegerLiteral{Value: 5}},
+		{inp: `20 REM A comment`, nd: &ast.ClsStatement{}, err: true},
+	}
+
+	for _, tt := range tests {
+		l := lexer.New(tt.inp)
+		p := parser.New(l)
+		var mt mocks.MockTerm
+		initMockTerm(&mt)
+		row := 5
+		mt.Row = &row
+		env := object.NewTermEnvironment(mt)
+		p.ParseProgram(env)
+		iter := env.StatementIter()
+
+		rc := evalExpressionNode(tt.nd, iter, env)
+
+		if tt.err {
+			_, ok := rc.(*object.Error)
+			assert.True(t, ok, "evalExpressionNode for %s should have thrown an error", tt.inp)
+		}
+	}
+}
+
 func Test_FilesCommand(t *testing.T) {
 	tests := []struct {
 		param string
@@ -1960,4 +1991,46 @@ func TestBuiltinFunctions(t *testing.T) {
 			}
 		}
 	}
+}
+
+func Test_ViewPrintStatement(t *testing.T) {
+	tests := []struct {
+		inp string
+		exp string
+		err bool
+	}{
+		{inp: `VIEW PRINT 3 TO 19`, exp: "\x1b[3;19r"},
+		{inp: `VIEW PRINT -33 TO 19`, err: true},
+		{inp: `VIEW PRINT`, exp: "\x1b[1;24r"},
+		{inp: `VIEW PRINT 3 TO`, err: true},
+		{inp: `VIEW PRINT 3 4 19`, err: true},
+		{inp: `VIEW PRINT FOR TO 19`, err: true},
+	}
+
+	for _, tt := range tests {
+		l := lexer.New(tt.inp)
+		p := parser.New(l)
+		var mt mocks.MockTerm
+		initMockTerm(&mt)
+		expr := mocks.Expector{Exp: []string{tt.exp}}
+		mt.ExpMsg = &expr
+		env := object.NewTermEnvironment(mt)
+
+		p.ParseCmd(env)
+
+		rc := Eval(&ast.Program{}, env.CmdLineIter(), env)
+
+		assert.Equal(t, tt.err, (rc != nil))
+
+		if tt.err && rc != nil {
+			if rc.Type() != object.ERROR_OBJ {
+
+			}
+		}
+
+		if len(tt.exp) > 0 {
+			assert.False(t, expr.Failed, "term didn't get the word")
+		}
+	}
+
 }

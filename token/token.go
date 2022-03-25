@@ -64,6 +64,7 @@ const (
 	AUTO    = "AUTO"
 	BEEP    = "BEEP"
 	CHAIN   = "CHAIN"
+	CHDIR   = "CHDIR"
 	CLEAR   = "CLEAR"
 	CLS     = "CLS"
 	COLOR   = "COLOR"
@@ -107,6 +108,7 @@ const (
 	TROFF   = "TROFF"
 	TRUE    = "TRUE"
 	USING   = "USING"
+	VIEW    = "VIEW"
 )
 
 type Token struct {
@@ -119,6 +121,7 @@ var keywords = map[string]TokenType{
 	"auto":    AUTO,
 	"beep":    BEEP,
 	"chain":   CHAIN,
+	"chdir":   CHDIR,
 	"clear":   CLEAR,
 	"cls":     CLS,
 	"color":   COLOR,
@@ -162,6 +165,7 @@ var keywords = map[string]TokenType{
 	"troff":   TROFF,
 	"true":    TRUE,
 	"using":   USING,
+	"view":    VIEW,
 }
 
 // LookupIdent returns a TokenType object

@@ -222,6 +222,12 @@ func Eval(node ast.Node, code *ast.Code, env *object.Environment) object.Object 
 
 	case *ast.TronCommand:
 		evalTronCommand(env)
+
+	case *ast.ViewPrintStatement:
+		return evalViewPrintStatement(node, code, env)
+
+	case *ast.ViewStatement:
+		return evalViewStatement(node, code, env)
 	}
 
 	return nil
@@ -1589,16 +1595,33 @@ func evalIfExpression(ie *ast.IfExpression, code *ast.Code, env *object.Environm
 	return Eval(ie.Consequence, code, env)
 }
 
+// take an array of expressions and evaluate them
 func evalExpressions(exps []ast.Expression, code *ast.Code, env *object.Environment) []object.Object {
 	var result []object.Object
 	for _, e := range exps {
-		evaluated := Eval(e, code, env)
+		//evaluated := Eval(e, code, env)
+		evaluated := evalExpressionNode(e, code, env)
 		if isError(evaluated) {
 			return []object.Object{evaluated}
 		}
 		result = append(result, evaluated)
 	}
 	return result
+}
+
+// evaluate a single node value
+func evalExpressionNode(node ast.Node, code *ast.Code, env *object.Environment) object.Object {
+	if node == nil {
+		return stdError(env, berrors.IllegalFuncCallErr)
+	}
+
+	rc := Eval(node, code, env)
+
+	if rc == nil {
+		return stdError(env, berrors.IllegalFuncCallErr)
+	}
+
+	return rc
 }
 
 func applyFunction(fn object.Object, args []object.Object, code *ast.Code, env *object.Environment) object.Object {
@@ -1916,4 +1939,69 @@ func bool2int16(b bool) int16 {
 		i = 0
 	}
 	return i
+}
+
+func evalViewPrintStatement(stmt *ast.ViewPrintStatement, code *ast.Code, env *object.Environment) object.Object {
+	// if no params, that means I should clear whatever portal is set
+	if len(stmt.Parms) == 0 {
+		// reset to full
+		evalViewPrintOff(env)
+		return nil
+	}
+
+	// did I get all three parameters
+	if len(stmt.Parms) == 3 {
+		// quick syntax check
+		_, ok := stmt.Parms[1].(*ast.ToStatement)
+
+		if !ok {
+			return stdError(env, berrors.Syntax)
+		}
+		return evalViewPrintOn(stmt, code, env)
+	}
+
+	return stdError(env, berrors.MissingOp)
+}
+
+// clears any output limits
+func evalViewPrintOff(env *object.Environment) {
+	// the xtermjs sequence is `CSI Ps;Ps r` size is [top;bottom]  CSI is `ESC[`
+	env.Terminal().Print("\x1b[1;24r")
+}
+
+// going to turn ON a view range, get the start and end values
+func evalViewPrintOn(stmt *ast.ViewPrintStatement, code *ast.Code, env *object.Environment) object.Object {
+
+	// now eval the two expressions
+	// low value first
+	//low := evalExpressionNode(stmt.Parms[0], code, env)
+	low, rc := coerceIndex(evalExpressionNode(stmt.Parms[0], code, env), env)
+
+	if rc != nil {
+		return rc
+	}
+
+	// then the high value
+	high, rc := coerceIndex(evalExpressionNode(stmt.Parms[2], code, env), env)
+
+	return evalViewPrintRange(low, high, env)
+}
+
+// check the view range for validaty
+func evalViewPrintRange(low, high int16, env *object.Environment) object.Object {
+	// bounds check the values
+	if (low < 1) || (high < 1) || (low > 25) || (high > 25) || (low >= high) {
+		return stdError(env, berrors.Syntax)
+	}
+
+	// were good, set the view port
+	// the xtermjs sequence is `CSI Ps;Ps r` size is [top;bottom]  CSI is `ESC[`
+	cmd := fmt.Sprintf("\x1b[%d;%dr", low, high)
+	env.Terminal().Print(cmd)
+
+	return nil
+}
+
+func evalViewStatement(stmt *ast.ViewStatement, code *ast.Code, env *object.Environment) object.Object {
+	return nil
 }

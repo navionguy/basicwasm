@@ -473,50 +473,57 @@ func TestDimStatement(t *testing.T) {
 		}
 	}
 }
-func Test_LetStatementImplied(t *testing.T) {
-	input := `10 x = 5: y = 20`
 
-	l := lexer.New(input)
-	p := New(l)
-	fmt.Println("Test_LetStatementImplied Parsing")
-	env := object.NewTermEnvironment(mocks.MockTerm{})
-	p.ParseProgram(env)
-
-	checkParserErrors(t, p)
-
-	if env.StatementIter().Len() != 3 {
-		t.Fatalf("program.Statements does not contain 3 statements. got=%d", env.StatementIter().Len())
-	}
-
+func Test_KeyStatement(t *testing.T) {
 	tests := []struct {
-		expectedToken      string
-		expectedIdentifier string
+		inp string
 	}{
-		{token.LINENUM, "10"},
-		{"", "X"},
-		{"", "Y"},
+		{inp: `10 KEY`},
+		{inp: `20 KEY OFF`},
+		{inp: `30 KEY 1,"FILES"`},
 	}
 
-	itr := env.StatementIter()
 	for _, tt := range tests {
-		stmt := itr.Value()
-		itr.Next()
+		l := lexer.New(tt.inp)
+		p := New(l)
+		env := object.NewTermEnvironment(mocks.MockTerm{})
+		p.ParseProgram(env)
 
-		_, ok := stmt.(*ast.LineNumStmt)
-		if !ok {
-			if !testLetStatement("", t, stmt, tt.expectedIdentifier) {
-				return
-			}
+		checkParserErrors(t, p)
+	}
+}
+
+func Test_LetStatementImplied(t *testing.T) {
+	tests := []struct {
+		inp string
+		exp []string
+	}{
+		{inp: `10 X = 5: Y = 20`, exp: []string{` X = 5`, ` Y = 20`}},
+	}
+
+	for _, tt := range tests {
+		l := lexer.New(tt.inp)
+		p := New(l)
+		env := object.NewTermEnvironment(mocks.MockTerm{})
+		p.ParseProgram(env)
+
+		checkParserErrors(t, p)
+		itr := env.StatementIter()
+
+		assert.Equal(t, len(tt.exp)+1, itr.Len())
+
+		for _, e := range tt.exp {
+			assert.True(t, itr.Next())
+			assert.Equal(t, e, itr.Value().String())
 		}
 	}
 }
 
 func Test_LetStatement(t *testing.T) {
 	input := `10 let x = 5: let y$ = "test": let foobar% = 838383 : LET BANG! = 46.8 : LET POUND# = 7654321.1234`
-
+	//input := `10 LET 4 = 5` ToDo support this
 	l := lexer.New(input)
 	p := New(l)
-	fmt.Println("Test_LetStatement Parsing")
 	env := object.NewTermEnvironment(mocks.MockTerm{})
 	p.ParseProgram(env)
 
@@ -2127,5 +2134,26 @@ func compareStatements(inp string, got interface{}, want interface{}, t *testing
 		if gotRestore.Line != wantVal.Line {
 			t.Fatalf("bad value from %s, got %d, wanted %d", inp, gotRestore.Line, wantVal.Line)
 		}
+	}
+}
+
+func Test_ViewStatement(t *testing.T) {
+	tests := []struct {
+		inp string
+		exp int // expected size of vw.Parms
+	}{
+		{inp: `VIEW PRINT 3 TO 23`, exp: 3},
+		{inp: `VIEW SCREEN (5,5) - (120,150)`},
+	}
+
+	for _, tt := range tests {
+		l := lexer.New(tt.inp)
+		p := New(l)
+		env := object.NewTermEnvironment(mocks.MockTerm{})
+		p.ParseCmd(env)
+
+		itr := env.CmdLineIter()
+		cmd := itr.Value()
+		assert.Equal(t, tt.inp, cmd.String())
 	}
 }
