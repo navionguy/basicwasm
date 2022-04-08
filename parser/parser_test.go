@@ -149,6 +149,38 @@ func Test_ChainStatement(t *testing.T) {
 	}
 }
 
+func Test_ChDir(t *testing.T) {
+	tests := []struct {
+		inp string
+		exp []ast.Expression
+	}{
+		{inp: `CHDIR`},
+		{inp: `CHDIR "D:\"`, exp: []ast.Expression{&ast.StringLiteral{Value: `D:\`}}},
+	}
+
+	for _, tt := range tests {
+		l := lexer.New(tt.inp)
+		p := New(l)
+		env := object.NewTermEnvironment(mocks.MockTerm{})
+		p.ParseCmd(env)
+		checkParserErrors(t, p)
+
+		if env.CmdLineIter().Len() != 1 {
+			t.Fatalf("program.Statements does not contain single command")
+		}
+
+		iter := env.CmdLineIter()
+		stmt := iter.Value()
+		cdstmt, ok := stmt.(*ast.ChDirStatement)
+
+		assert.True(t, ok, "stmt not *ast.ChiDirStatement. got=%T", stmt)
+
+		assert.Equal(t, "CHDIR", cdstmt.TokenLiteral(), "CHDIR token literal wrong")
+
+		assert.Equal(t, len(tt.exp), len(cdstmt.Path), "CHDIR unexpected path")
+	}
+}
+
 func TestCls(t *testing.T) {
 	tests := []struct {
 		input string
@@ -942,7 +974,7 @@ func Test_ReadStatement(t *testing.T) {
 	}
 }
 
-func TestRemStatement(t *testing.T) {
+func Test_RemStatement(t *testing.T) {
 	tests := []struct {
 		inp string
 		res string
@@ -950,7 +982,7 @@ func TestRemStatement(t *testing.T) {
 		{inp: "10 REM A code comment", res: "REM A code comment"},
 		{inp: "20 REM", res: "REM "},
 		{inp: "30 ' Alternate form remark", res: "' Alternate form remark"},
-		{inp: "40 ' Once a remark : GOTO 20", res: "' Once a remark : GOTO 20"},
+		{inp: "40 'Once a remark : GOTO 20", res: "' Once a remark : GOTO 20"},
 	}
 
 	for _, tt := range tests {

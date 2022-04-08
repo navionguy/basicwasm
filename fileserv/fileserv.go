@@ -346,6 +346,22 @@ func GetCWD(env *object.Environment) string {
 	return drv.Inspect()
 }
 
+// change to a new working directory
+func SetCWD(path string, env *object.Environment) error {
+	// ask the server for contents of path
+	_, err := GetFile(path, env)
+
+	// error tells us he is invalid
+	if err != nil {
+		return err
+	}
+
+	// looks good, save the new working directory
+	env.Set(object.WORK_DRIVE, &object.String{Value: path})
+
+	return nil
+}
+
 // convert from:
 //		C:\DIRNAME\FILENAME.EXT
 // to

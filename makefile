@@ -34,7 +34,7 @@
 			./token/token.go \
 			./terminal/terminal.go \
 #	tinygo build -no-debug -o ./webmodules/gwbasic.wasm -target=wasm ./webmodules/src/gwbasic/gwbasic.go
-	GOOS=js GOARCH=wasm go build -ldflags "-s -w" -o ./webmodules/gwbasic.wasm ./webmodules/src/gwbasic/gwbasic.go
+	GOOS=js GOARCH=wasm go1.18 build -ldflags "-s -w" -o ./webmodules/gwbasic.wasm ./webmodules/src/gwbasic/gwbasic.go
 
 ./assets/js/wasm_exec.js : /usr/local/go/misc/wasm/wasm_exec.js
 	cp /usr/local/go/misc/wasm/wasm_exec.js ./assets/js/wasm_exec.js

@@ -337,6 +337,40 @@ func Test_ChainStatementRunning(t *testing.T) {
 	}
 }
 
+func Test_ChDirStatement(t *testing.T) {
+	tests := []struct {
+		path ast.Expression
+		exp  string
+		rc   int
+	}{
+		{},
+		{path: &ast.StringLiteral{Value: `"D:\"`}, exp: `http://localhost:8000/driveD/`, rc: 200},
+		{path: &ast.StringLiteral{Value: `"D:\"`}, exp: `http://localhost:8000/driveD/`, rc: 404},
+		{path: &ast.IntegerLiteral{Value: 6}},
+	}
+
+	for _, tt := range tests {
+		cd := ast.ChDirStatement{}
+		if tt.path != nil {
+			cd.Path = append(cd.Path, tt.path)
+		}
+		var mt mocks.MockTerm
+		initMockTerm(&mt)
+		env := object.NewTermEnvironment(mt)
+		ts := httptest.NewServer(http.HandlerFunc(func(res http.ResponseWriter, req *http.Request) {
+			res.WriteHeader(tt.rc)
+			res.Write([]byte(tt.exp))
+		}))
+		defer ts.Close()
+
+		url := object.String{Value: ts.URL}
+		env.Set(object.SERVER_URL, &url)
+
+		evalChDirStatement(&cd, env.CmdLineIter(), env)
+
+	}
+}
+
 func Test_ColorMode(t *testing.T) {
 	var mt mocks.MockTerm
 	initMockTerm(&mt)

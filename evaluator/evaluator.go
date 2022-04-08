@@ -43,6 +43,9 @@ func Eval(node ast.Node, code *ast.Code, env *object.Environment) object.Object 
 	case *ast.ChainStatement:
 		return evalChainStatement(node, code, env)
 
+	case *ast.ChDirStatement:
+		evalChDirStatement(node, code, env)
+
 	case *ast.ClearCommand:
 		evalClearCommand(node, code, env)
 
@@ -330,6 +333,33 @@ func evalChainExecute(chain *ast.ChainStatement, env *object.Environment) object
 	rc := evalRunStart(pcode, env)
 
 	return rc
+}
+
+// executing a directory change
+func evalChDirStatement(chdir *ast.ChDirStatement, code *ast.Code, env *object.Environment) {
+	// should be one, and only one, parameter
+	if len(chdir.Path) != 1 {
+		stdError(env, berrors.Syntax)
+		return
+	}
+
+	// evaluate my path expression
+	rc := evalExpressionNode(chdir.Path[0], code, env)
+
+	// I should get a string value
+	path, ok := rc.(*object.String)
+	if !ok {
+		stdError(env, berrors.Syntax)
+		return
+	}
+
+	// tell the server to switch to that path
+	err := fileserv.SetCWD(path.Value, env)
+
+	// if he can't find it, I can't use it
+	if err != nil {
+		stdError(env, berrors.PathNotFound)
+	}
 }
 
 // clear all variables and close all files

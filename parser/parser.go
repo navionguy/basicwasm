@@ -379,9 +379,18 @@ func (p *Parser) parseChainParameter(param int, chain *ast.ChainStatement) {
 	return
 }
 
+// ChDir should have one expression that evaluates to a string
 func (p *Parser) parseChDirStatement() *ast.ChDirStatement {
 	defer untrace(trace("parseChDirStatement"))
 	cd := ast.ChDirStatement{Token: p.curToken}
+
+	if p.chkEndOfStatement() {
+		return &cd // no path supplied, evaluator will display error
+	}
+
+	p.nextToken()
+	cd.Path = append(cd.Path, p.parseExpression(LOWEST))
+	p.nextToken()
 
 	return &cd
 }

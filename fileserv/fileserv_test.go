@@ -399,6 +399,30 @@ func Test_GetCWD(t *testing.T) {
 	}
 }
 
+func Test_SetCWD(t *testing.T) {
+	tests := []struct {
+		inp string
+		url string
+		err bool
+	}{
+		{inp: `C:\prog\start\`, url: `http://localhost:8080/driveC/prog/start`},
+		{inp: `D:\HamCalc`, url: `invalid`, err: true},
+	}
+
+	for _, tt := range tests {
+		var trm object.Console
+		env := object.NewTermEnvironment(trm)
+		clnt := mocks.MockClient{Contents: "HELLO.BAS", Url: tt.url}
+		env.SetClient(&clnt)
+
+		fail := SetCWD(tt.inp, env)
+
+		if tt.err == true {
+			assert.NotNil(t, fail)
+		}
+	}
+}
+
 func Test_GetURL(t *testing.T) {
 	tests := []struct {
 		url string

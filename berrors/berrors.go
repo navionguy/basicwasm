@@ -54,6 +54,30 @@ const (
 	InternalErr
 	BadFileNum
 	FileNotFound
+	_
+	_
+	_
+	_
+	_
+	_
+	_
+	_ // 60
+	_
+	_
+	_
+	_
+	_
+	_
+	_
+	_
+	_
+	PermissionDenied // 70
+	_
+	_
+	_
+	_
+	_
+	PathNotFound
 )
 
 // TextForError returns the error text based on error number
@@ -81,6 +105,8 @@ func TextForError(err int) string {
 		return "Type mismatch"
 	case UnDefinedLineNumber:
 		return "Undefined line number"
+	case PathNotFound:
+		return "Path not found"
 	}
 
 	return "Unprintable error"
