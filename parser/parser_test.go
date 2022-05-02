@@ -99,6 +99,35 @@ func Test_BeepStatement(t *testing.T) {
 
 }
 
+func Test_BuiltinExpression(t *testing.T) {
+	tests := []struct {
+		inp string
+	}{
+		{inp: `ABS(5)`},
+	}
+
+	for _, tt := range tests {
+		l := lexer.New(tt.inp)
+		p := New(l)
+		env := object.NewTermEnvironment(mocks.MockTerm{})
+		p.ParseCmd(env)
+		checkParserErrors(t, p)
+
+		itr := env.CmdLineIter()
+
+		if itr.Len() != 1 {
+			t.Fatal("program.Cmd does not contain single command")
+		}
+
+		stmt := itr.Value()
+
+		exp, ok := stmt.(*ast.ExpressionStatement)
+		assert.True(t, ok, "Test_BuiltinExpression didn't get ExpressionStatement")
+
+		assert.Equal(t, "ABS(5)", exp.String(), "unexpected Builtin")
+	}
+}
+
 func Test_ChainStatement(t *testing.T) {
 	tests := []struct {
 		cmd    string // command to parse

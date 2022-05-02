@@ -255,6 +255,12 @@ func (p *Parser) parseStatement() ast.Statement {
 	case token.VIEW:
 		return p.parseViewStatement()
 	default:
+		// we get here with things that appear to be identifiers
+		// first check, is it a builtin function?
+		if builtins.Builtins[p.curToken.Literal] != nil {
+			exp := ast.ExpressionStatement{Expression: p.parseBuiltinExpression()}
+			return &exp
+		}
 		if strings.ContainsAny(p.peekToken.Literal, "=[($%!#") {
 			stmt := p.parseImpliedLetStatement(p.curToken.Literal)
 
@@ -322,6 +328,17 @@ func (p *Parser) parseBlockStatement() *ast.BlockStatement {
 	//p.nextToken()
 
 	return block
+}
+
+// calling one of the built in functions
+func (p *Parser) parseBuiltinExpression() *ast.BuiltinExpression {
+	// build the expression with the builtin's name
+	built := ast.BuiltinExpression{Token: p.curToken}
+	p.nextToken()
+
+	// go get any parameters he is passing
+	built.Params = p.parseCallArguments()
+	return &built
 }
 
 // parseChainStatement()

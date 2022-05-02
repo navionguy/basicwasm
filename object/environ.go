@@ -41,6 +41,9 @@ const (
 	XWhite               // 97
 )
 
+// size of arrays that haven't been DIM'd
+const DefaultDimSize = 10
+
 // Console defines how to collect input and display output
 type Console interface {
 	// Cls clears the screen contents
@@ -118,8 +121,8 @@ func (e *Environment) Common(name string) {
 
 	//
 	if !ok {
-		v = &variable{}
-		e.store[name] = v
+		e.Set(name, e.getDefaultValue(name))
+		v, _ = e.store[name]
 	}
 
 	// save the variable into common map
@@ -142,11 +145,68 @@ func (e *Environment) Get(name string) Object {
 	}
 
 	// no value to return
-	return nil
+	return e.getDefaultValue(name)
+}
+
+// Variable isn't in memory, create it with correct default value
+func (e *Environment) getDefaultValue(name string) Object {
+	// check for type indicators
+	// if single char name, no type default to integer
+	if len(name) == 1 {
+		return &Integer{Value: 0}
+	}
+
+	// it *may* have a type
+	switch e.getType(name) {
+	case '$': // string
+		return &String{Value: ""}
+	case '%', '!': // single precesion
+		return &Integer{Value: 0}
+	case '#': // double precision
+		return &IntDbl{Value: 0}
+	case ']': // array of something
+		parts := strings.Split(name, "[")
+		return e.buildDefaultArray(parts[0])
+	}
+
+	// the default case
+	return &Integer{Value: 0}
+}
+
+// Build an array of default values
+// Warning, here lies hidden recursion!
+// Strap on your miners hat and prepare to descend
+func (e *Environment) buildDefaultArray(name string) Object {
+	def := Array{TypeID: "[]"}
+
+	for i := 0; i < DefaultDimSize; i++ {
+		def.Elements = append(def.Elements, e.getDefaultValue(name))
+	}
+
+	return &def
+}
+
+// determine type for variable
+// TODO: implement defined type name ranges eg. DEFDBL
+func (e *Environment) getType(name string) byte {
+
+	if len(name) > 1 {
+		t := name[len(name)-1]
+		switch t {
+		case '%', '!', '$', '#', ']': // single precesion
+			return t
+		}
+	}
+
+	return 0x00
 }
 
 // Set stores an object in the environment
 func (e *Environment) Set(name string, val Object) {
+	// don't store a nil
+	if val == nil {
+		return
+	}
 	// I always store in upper case
 	name = strings.ToUpper(name)
 
@@ -200,6 +260,7 @@ func (e *Environment) ClearVars() {
 // ClearFiles closes all open files
 func (e *Environment) ClearFiles() {
 	// ToDo: add support for files
+	// cause that would be trivial to do, NOT!!!
 }
 
 // ClearCommon variables

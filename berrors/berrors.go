@@ -103,6 +103,8 @@ func TextForError(err int) string {
 		return "Syntax error"
 	case TypeMismatch:
 		return "Type mismatch"
+	case UndefinedFunction:
+		return "Undefined user function"
 	case UnDefinedLineNumber:
 		return "Undefined line number"
 	case PathNotFound:

@@ -1,6 +1,7 @@
 package object
 
 import (
+	"fmt"
 	"strings"
 	"testing"
 
@@ -168,9 +169,15 @@ func Test_Environment(t *testing.T) {
 		set   Object
 		exp   Object
 	}{
-		{setev: nil, getev: env, item: "A", set: nil, exp: nil},
+		{setev: nil, getev: env, item: "A$[]", set: nil, exp: &String{Value: ""}},
+		{setev: nil, getev: env, item: "A[]", set: nil, exp: &Integer{Value: 0}},
+		{setev: nil, getev: env, item: "A#", set: nil, exp: &IntDbl{Value: 0}},
+		{setev: nil, getev: env, item: "A%", set: nil, exp: &Integer{Value: 0}},
+		{setev: nil, getev: env, item: "A$", set: nil, exp: &String{Value: ""}},
+		{setev: nil, getev: env, item: "INDEX", set: nil, exp: &Integer{Value: 0}},
+		{setev: nil, getev: env, item: "A", set: nil, exp: &Integer{Value: 0}},
 		{setev: env, getev: env, item: "B", set: &Integer{Value: 5}, exp: &Integer{Value: 5}},
-		{setev: encenv, getev: env, item: "B", set: &Integer{Value: 6}, exp: &Integer{Value: 5}},
+		{setev: encenv, getev: env, item: "B", set: &Integer{Value: 6}, exp: &Integer{Value: 5}}, // this test depends on var set in previous test!!!
 		{setev: env, getev: encenv, item: "D", set: &Integer{Value: 6}, exp: &Integer{Value: 6}},
 	}
 
@@ -178,7 +185,17 @@ func Test_Environment(t *testing.T) {
 		if tt.setev != nil {
 			tt.setev.Set(tt.item, tt.set)
 		}
-		testIntEnvGet(t, *tt.getev, tt.item, tt.exp)
+		obj := tt.getev.Get(tt.item)
+
+		assert.NotNil(t, obj, "Environment.Get(%s) returned nil", tt.item)
+
+		// if he is an array, get the first element
+		arr, ok := obj.(*Array)
+		if ok {
+			obj = arr.Elements[0]
+		}
+
+		assert.True(t, strings.EqualFold(obj.Inspect(), tt.exp.Inspect()), "Get of %s differed %s | %s", tt.item, obj.Inspect(), tt.exp.Inspect())
 	}
 }
 
@@ -203,7 +220,7 @@ func Test_TermEnvironment(t *testing.T) {
 	}
 }
 
-func testIntEnvGet(t *testing.T, env Environment, item string, exp Object) bool {
+func testEnvGet(t *testing.T, env Environment, item string, exp Object) bool {
 	obj := env.Get(item)
 
 	if (obj == nil) && (exp != nil) {
@@ -215,18 +232,9 @@ func testIntEnvGet(t *testing.T, env Environment, item string, exp Object) bool 
 		return false
 	}
 
-	_, ok := obj.(*Integer)
+	assert.Equal(t, fmt.Sprintf("%T", exp), fmt.Sprintf("%T", obj), "%s got unexpected type %T", item, obj)
 
-	if !ok {
-		// I didn't get an Integer object
-		return false
-	}
-
-	if obj.Inspect() != exp.Inspect() {
-		return false
-	}
-
-	return true
+	return strings.EqualFold(obj.Inspect(), exp.Inspect())
 }
 
 func TestRandom(t *testing.T) {

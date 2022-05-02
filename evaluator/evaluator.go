@@ -40,6 +40,9 @@ func Eval(node ast.Node, code *ast.Code, env *object.Environment) object.Object 
 	case *ast.BeepStatement:
 		evalBeepStatement(node, code, env)
 
+	case *ast.BuiltinExpression:
+		return evalBuiltinExpression(node, code, env)
+
 	case *ast.ChainStatement:
 		return evalChainStatement(node, code, env)
 
@@ -105,7 +108,7 @@ func Eval(node ast.Node, code *ast.Code, env *object.Environment) object.Object 
 		// life gets more complicated, not less
 		if !strings.ContainsAny(node.Name.Token.Literal, "[($%!#") {
 			env.Set(node.Name.Token.Literal, val)
-			return val
+			return nil
 		}
 		return saveVariable(code, env, node.Name, val)
 
@@ -115,11 +118,9 @@ func Eval(node ast.Node, code *ast.Code, env *object.Environment) object.Object 
 		if env.GetTrace() {
 			env.Terminal().Print(fmt.Sprintf("[%d]", node.Value))
 		}
-		return ln
 
 	case *ast.ListStatement:
 		evalListStatement(node, code, env)
-		return nil
 
 	case *ast.LoadCommand:
 		return evalLoadCommand(node, code, env)
@@ -164,7 +165,7 @@ func Eval(node ast.Node, code *ast.Code, env *object.Environment) object.Object 
 		return &object.String{Value: node.Value}
 
 	case *ast.Identifier:
-		return evalIdentifier(node, code, env)
+		return evalImpliedLetStatement(node, code, env)
 
 	case *ast.PrefixExpression:
 		right := Eval(node.Right, code, env)
@@ -183,7 +184,7 @@ func Eval(node ast.Node, code *ast.Code, env *object.Environment) object.Object 
 		body := node.Body
 		obj := &object.Function{Parameters: params, Env: env, Body: body}
 		env.Set(node.Token.Literal, obj)
-		return obj
+		return nil
 
 	case *ast.ReadStatement:
 		return evalReadStatement(node, code, env)
@@ -210,7 +211,7 @@ func Eval(node ast.Node, code *ast.Code, env *object.Environment) object.Object 
 		function := Eval(node.Function, code, env)
 		if isError(function) {
 			// looking up the function failed, must be undefined
-			return newError(env, "Undefined user function")
+			return stdError(env, berrors.UndefinedFunction)
 		}
 
 		args := evalExpressions(node.Arguments, code, env)
@@ -240,7 +241,7 @@ func Eval(node ast.Node, code *ast.Code, env *object.Environment) object.Object 
 // line number.  Once it is ready, save it into the environment for operating
 func evalAutoCommand(cmd *ast.AutoCommand, code *ast.Code, env *object.Environment) {
 
-	// if no start specified, assume 10 for know
+	// if no start specified, assume 10 for now
 	if cmd.Start == -1 {
 		cmd.Start = 10
 	}
@@ -275,6 +276,23 @@ func evalBlockStatement(block *ast.BlockStatement, code *ast.Code, env *object.E
 	}
 
 	return result
+}
+
+// execute a built in function
+func evalBuiltinExpression(builtin *ast.BuiltinExpression, code *ast.Code, env *object.Environment) object.Object {
+
+	// if I can't find the function, it isn't really built in
+	blt, ok := builtins.Builtins[builtin.TokenLiteral()]
+
+	if !ok {
+		return stdError(env, berrors.Syntax)
+	}
+
+	// evaluate all of his parameters
+	params := evalExpressions(builtin.Params, code, env)
+
+	// return functions result
+	return blt.Fn(env, blt, params...)
 }
 
 // tries to load a new program and start it's execution.
@@ -523,25 +541,19 @@ func evalStatements(code *ast.Code, env *object.Environment) object.Object {
 	for halt := false; ok && !halt; {
 		rc = Eval(code.Value(), code, env)
 
-		// build a default object.Object in case rc is nil
-		var sw object.Object
-		sw = &object.Null{}
+		// Eval should *almost* always return nil
+		// the exceptions are:
+		// RESTART - user has entered a CONTinue command
+		// HALT - user hit CTRL-C to stop execution
+		// ERROR - a runtime error has occurred
 
-		// use rc if it isn't nil
 		if rc != nil {
-			sw = rc
-		}
+			halt, code, rc = evalStatementResult(rc, code, env)
 
-		switch sw.Type() {
-		case object.ObjectType("RESTART"):
-			code = env.StatementIter()
-			halt = (code.Len() == 0)
-		case object.ObjectType("ERROR"):
-			halt = true
-		case object.ObjectType("HALT"):
-			halt = true
-			env.SaveSetting(settings.Restart, code)
-		default:
+			if !halt {
+				halt = !code.Next()
+			}
+		} else {
 			if env.Terminal().BreakCheck() {
 				rc = evalStatementsBreakChk(code, env)
 				halt = true
@@ -550,7 +562,36 @@ func evalStatements(code *ast.Code, env *object.Environment) object.Object {
 			}
 		}
 	}
+
 	return rc
+}
+
+// figure out three things:
+// should execution stop (bool)
+// did I get a CTRL-C that the eval loop didn't see? rc == "HALT" (this may be redundant)
+// if I should keep going, where should I start from
+// .
+// This is *really* clunky code, I should rewrite once I'm smarter
+func evalStatementResult(rc object.Object, code *ast.Code, env *object.Environment) (bool, *ast.Code, object.Object) {
+
+	halt := false
+
+	switch rc.Type() {
+	case object.ObjectType("RESTART"):
+		code = env.StatementIter()
+		halt = (code.Len() == 0)
+	case object.ObjectType("ERROR"):
+		halt = true
+	case object.ObjectType("HALT"):
+		halt = true
+		env.SaveSetting(settings.Restart, code)
+		rc = nil
+	default:
+		halt = true
+		rc = stdError(env, berrors.Syntax)
+	}
+
+	return halt, code, rc
 }
 
 // check for a user break - Ctrl-C, returns a halt if it was seen
@@ -573,6 +614,11 @@ func evalStatementsBreakChk(code *ast.Code, env *object.Environment) object.Obje
 // read constant values out of data statements into variables
 func evalReadStatement(rd *ast.ReadStatement, code *ast.Code, env *object.Environment) object.Object {
 	var value object.Object
+
+	// if no vars, that's a problem
+	if len(rd.Vars) == 0 {
+		return stdError(env, berrors.Syntax)
+	}
 
 	for _, item := range rd.Vars {
 		name, ok := item.(*ast.Identifier)
@@ -607,9 +653,12 @@ func evalReadStatement(rd *ast.ReadStatement, code *ast.Code, env *object.Enviro
 			// but I wanted to be clear what was going on
 		}
 
-		return saveVariable(code, env, name, value)
+		rc := saveVariable(code, env, name, value)
+		if rc != nil {
+			return rc
+		}
 	}
-	return value
+	return nil
 }
 
 // evalRestoreStatement makes sure you can re-read data statements
@@ -925,12 +974,19 @@ type forStmtParams struct {
 
 // FOR statement begins a for-loop
 func evalForStatement(four *ast.ForStatment, code *ast.Code, env *object.Environment) object.Object {
-	// initialize my counter
-	initial := Eval(four.Init, code, env)
-
-	if initial == nil {
+	// check for obvious problems
+	if (four.Init == nil) || (len(four.Final) == 0) {
 		return stdError(env, berrors.Syntax)
 	}
+
+	// initialize my counter
+	rc := Eval(four.Init, code, env)
+
+	if rc != nil {
+		return stdError(env, berrors.Syntax)
+	}
+
+	initial := env.Get(four.Init.Name.Value)
 
 	// need to save off the ForStatement and the current code value
 	blk := object.ForBlock{Code: code.GetReturnPoint(), Four: four}
@@ -1052,7 +1108,7 @@ func evalGotoJump(line int, code *ast.Code, env *object.Environment) object.Obje
 		env.Terminal().Print(fmt.Sprintf("[%d]", line))
 	}
 
-	return &object.Integer{Value: int16(line)}
+	return nil
 }
 
 // 'GOTO' entered from command line, start running at target line
@@ -1081,6 +1137,19 @@ func evalHexConstant(stmt *ast.HexConstant, code *ast.Code, env *object.Environm
 	}
 
 	return &object.Integer{Value: int16(dst)}
+}
+
+// appears to be an "Implied" LET statement
+func evalImpliedLetStatement(node *ast.Identifier, code *ast.Code, env *object.Environment) object.Object {
+
+	// if it is a builtin function, just return it
+	if builtin, ok := builtins.Builtins[node.Value]; ok {
+		return builtin
+	}
+
+	id := env.Get(node.Value)
+
+	return id
 }
 
 func evalListStatement(stmt *ast.ListStatement, code *ast.Code, env *object.Environment) {
@@ -1240,9 +1309,9 @@ func evalOctalConstant(stmt *ast.OctalConstant, env *object.Environment) object.
 	if err != nil {
 		st := err.Error()
 		if strings.Contains(st, "value out of range") {
-			return newError(env, overflowErr)
+			return stdError(env, berrors.Overflow)
 		}
-		return newError(env, syntaxErr)
+		return stdError(env, berrors.Syntax)
 	}
 
 	return &object.Integer{Value: int16(dst)}
@@ -1338,6 +1407,15 @@ func evalNextComplete(pos bool, cntr object.Object, four *ast.ForStatment, code 
 	// compute the final value
 	fnl := evalExpressions(four.Final, code, env)
 
+	if len(fnl) == 0 {
+		return stdError(env, berrors.Syntax), false
+	}
+
+	_, ok := fnl[0].(*object.Error)
+	if ok {
+		return fnl[0], false
+	}
+
 	// check if counter has passed final value
 	var res bool
 	if pos {
@@ -1346,7 +1424,7 @@ func evalNextComplete(pos bool, cntr object.Object, four *ast.ForStatment, code 
 		res = evalInfixBooleanExpression("<", cntr, fnl[0], env)
 	}
 
-	return fnl[0], !res
+	return nil, !res
 }
 
 // Build the default Palette struct
@@ -1398,16 +1476,29 @@ func evalPrintStatement(node *ast.PrintStatement, code *ast.Code, env *object.En
 // Print the individual items
 func evalPrintItems(node *ast.PrintStatement, code *ast.Code, env *object.Environment) {
 	for i, item := range node.Items {
-		res := Eval(item, code, env)
-
-		if res != nil {
-			env.Terminal().Print(res.Inspect())
-		}
+		env.Terminal().Print(evalPrintItemType(item, code, env))
 
 		if node.Seperators[i] == "," {
 			env.Terminal().Print("\t")
 		}
 	}
+}
+
+// figure out what a print item is, and turn it into a string
+func evalPrintItemType(item ast.Expression, code *ast.Code, env *object.Environment) string {
+	switch node := item.(type) {
+	case *ast.StringLiteral:
+		return node.Value
+	case *ast.Identifier:
+		return evalPrintIdentifier(node, code, env)
+	}
+	return ""
+}
+
+// print the specified variable
+func evalPrintIdentifier(item *ast.Identifier, code *ast.Code, env *object.Environment) string {
+	id := evalIdentifier(item, code, env)
+	return id.Inspect()
 }
 
 func evalPrefixExpression(operator string, right object.Object, code *ast.Code, env *object.Environment) object.Object {
@@ -1654,6 +1745,7 @@ func evalExpressionNode(node ast.Node, code *ast.Code, env *object.Environment) 
 	return rc
 }
 
+// apply either a user defined function or a builtin function
 func applyFunction(fn object.Object, args []object.Object, code *ast.Code, env *object.Environment) object.Object {
 
 	switch fn := fn.(type) {
@@ -1663,10 +1755,11 @@ func applyFunction(fn object.Object, args []object.Object, code *ast.Code, env *
 		return obj
 
 	case *object.Builtin:
-		return fn.Fn(env, fn, args...)
+		obj := fn.Fn(env, fn, args...)
+		return obj
 
 	default:
-		return newError(env, "not a function: %s", fn.Type())
+		return stdError(env, berrors.UndefinedFunction)
 
 	}
 }
@@ -1679,91 +1772,68 @@ func extendFunctionEnv(fn *object.Function, args []object.Object) *object.Enviro
 	return env
 }
 
+// check if the Identifier has a known value saved in the environment
 func evalIdentifier(node *ast.Identifier, code *ast.Code, env *object.Environment) object.Object {
 
-	label := node.Value
 	val := env.Get(node.Value)
-	if (val != nil) && (label[len(label)-1] != ']') {
+
+	// if it isn't an array, it is the value
+	if node.Value[len(node.Value)-1] != ']' {
 		return val
 	}
 
-	if builtin, ok := builtins.Builtins[node.Value]; ok {
-		return builtin
+	// if there is no index into the array, that's an error
+	if node.Index == nil {
+		return stdError(env, berrors.Syntax)
 	}
 
-	if (val != nil) && (label[len(label)-1] == ']') && (node.Index != nil) {
-		arrValue := evalIndexArray(node.Index, val, nil, code, env)
-
-		return arrValue
-	}
-
-	return stdError(env, berrors.Syntax)
+	// evaluate the index and return it
+	return evalIndexArray(node.Index, val, nil, code, env)
 }
 
+// evaluate the expression to index into array and save newVal
+// if the len(index) recurse down into array until you get to the last index value
+// once you find it, if newVal is nil return the current value
+// if newVal is not nil, push newVal into correct element and get out
+
+// original caller will save the whole mess back to the environment
 func evalIndexArray(index []*ast.IndexExpression, array, newVal object.Object, code *ast.Code, env *object.Environment) object.Object {
 
-	indVal := Eval(index[0].Index, code, env)
-	if isError(indVal) {
-		return indVal
+	// get the first index value
+	indObj := Eval(index[0].Index, code, env)
+	if isError(indObj) {
+		return indObj
 	}
 
-	var arrValue object.Object
-	if len(index) == 1 {
-		// if this array was multi-dimensional
-		// I've reached the end
-		arrValue = evalIndexExpression(array, indVal, newVal, env)
-	} else {
-		// not to the final object, don't send the new value
-		arrValue = evalIndexExpression(array, indVal, nil, env)
+	// coerce the index into an int 16
+	ind, err := coerceIndex(indObj, env)
+
+	if err != nil {
+		return stdError(env, berrors.Syntax)
 	}
 
-	_, ok := arrValue.(*object.Array)
+	// TODO array indices in BASIC can be based at zero as well!
+	ind -= 1
 
-	if (len(index) > 1) && ok {
-		arrValue = evalIndexArray(index[1:], arrValue, newVal, code, env)
+	vals, ok := array.(*object.Array)
+
+	if !ok {
+		return stdError(env, berrors.Syntax)
 	}
 
-	if (len(index) > 1) && !ok {
-		arrValue = newError(env, "Subscript out of range")
+	// check if their are more dimensions to the array
+	if len(index) > 1 {
+		return evalIndexArray(index[1:], vals.Elements[ind], newVal, code, env)
 	}
 
-	return arrValue
-}
-
-func evalIndexExpression(array, index, newVal object.Object, env *object.Environment) object.Object {
-	switch {
-	case array.Type() == object.ARRAY_OBJ && index.Type() == object.INTEGER_OBJ:
-		return evalArrayIndexExpression(array, index, newVal, env)
-	case array.Type() == object.ARRAY_OBJ && index.Type() != object.INTEGER_OBJ:
-		id, err := coerceIndex(index, env)
-
-		if err != nil {
-			return err
-		}
-		return evalArrayIndexExpression(array, &object.Integer{Value: id}, newVal, env)
-	default:
-		er := newError(env, "index operator not supported: %s", array.Type())
-		return er
-	}
-}
-
-func evalArrayIndexExpression(array, index, newVal object.Object, env *object.Environment) object.Object {
-	arrayObject := array.(*object.Array)
-	idx := index.(*object.Integer).Value
-	max := int16(len(arrayObject.Elements) - 1)
-
-	if idx < 0 || idx > max {
-		return newError(env, "Subscript out of range")
+	if (ind < 0) || (int(ind) >= len(vals.Elements)) {
+		return stdError(env, berrors.Syntax)
 	}
 
-	if arrayObject.Elements[idx] != nil {
-		if newVal != nil {
-			arrayObject.Elements[idx] = newVal
-		}
-		return arrayObject.Elements[idx]
+	if newVal != nil {
+		vals.Elements[ind] = newVal
 	}
-
-	return newError(env, "Subscript out of range")
+	return vals.Elements[ind]
 }
 
 // saveVariable into the environment
@@ -1778,66 +1848,26 @@ func saveVariable(code *ast.Code, env *object.Environment, name *ast.Identifier,
 
 	cv := env.Get(sname)
 
-	if cv == nil {
-		// variable doesn't exist, time to create
-		return saveNewVariable(code, env, name, val)
+	// if not dealing with an array, just save the new value
+	if !isarray {
+		env.Set(sname, val)
+		return nil
 	}
 
-	//typeid, isarray := parseVarName(sname)
+	cvarray, ok := cv.(*object.Array)
 
-	cvarray, cvisarray := cv.(*object.Array)
+	if ok && checkTypes(typeid, val) {
+		val := evalIndexArray(name.Index, cvarray, val, code, env)
 
-	if isarray && cvisarray && checkTypes(typeid, val) {
-		arrVar := evalIndexArray(name.Index, cvarray, val, code, env)
-		env.Set(sname, cvarray)
-		return arrVar
+		_, ok := val.(*object.Error)
+
+		if ok {
+			return val
+		}
 	}
 
-	tv := &object.TypedVar{Value: val, TypeID: typeid}
-	env.Set(sname, tv)
-	return tv
-}
-
-func saveNewVariable(code *ast.Code, env *object.Environment, name *ast.Identifier, val object.Object) object.Object {
-
-	sname := name.Value
-	typeid, isarray := parseVarName(sname)
-
-	// handle it if he is an array
-	if isarray {
-		var dim []*ast.IndexExpression
-		dim = append(dim, &ast.IndexExpression{Index: &ast.IntegerLiteral{Value: 10}})
-		arr := allocArray(typeid, dim, code, env).(*object.Array)
-		index := Eval(name.Index[0].Index, code, env)
-
-		if isError(index) {
-			return index
-		}
-
-		indValue, isInt := index.(*object.Integer)
-
-		if !isInt {
-			id, err := coerceIndex(index, env)
-
-			if err != nil {
-				return err
-			}
-			indValue = &object.Integer{Value: id}
-		}
-
-		if 10 > indValue.Value {
-			arr.Elements[indValue.Value] = val
-			env.Set(name.Value, arr)
-			return arr
-		}
-
-		return newError(env, "index out of range")
-	}
-
-	// just a typed variable
-	tv := &object.TypedVar{Value: val, TypeID: typeid}
-	env.Set(name.Token.Literal, tv)
-	return tv
+	env.Set(sname, cv)
+	return nil
 }
 
 // coerce a idx value into an int16 array index if you can

@@ -63,6 +63,7 @@ const (
 	ALL     = "ALL"
 	AUTO    = "AUTO"
 	BEEP    = "BEEP"
+	BUILTIN = "BUILTIN"
 	CHAIN   = "CHAIN"
 	CHDIR   = "CHDIR"
 	CLEAR   = "CLEAR"
@@ -120,6 +121,7 @@ var keywords = map[string]TokenType{
 	"all":     ALL,
 	"auto":    AUTO,
 	"beep":    BEEP,
+	"builtin": BUILTIN,
 	"chain":   CHAIN,
 	"chdir":   CHDIR,
 	"clear":   CLEAR,

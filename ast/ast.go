@@ -77,6 +77,30 @@ func (bp *BeepStatement) String() string {
 	return "BEEP"
 }
 
+// holds a call to builtin function
+type BuiltinExpression struct {
+	Token  token.Token  // literal will hold the function name
+	Params []Expression //
+}
+
+func (bi *BuiltinExpression) expressionNode()      {}
+func (bi *BuiltinExpression) TokenLiteral() string { return strings.ToUpper(bi.Token.Literal) }
+func (bi *BuiltinExpression) String() string {
+	var out bytes.Buffer
+
+	out.WriteString(bi.TokenLiteral() + "(")
+
+	for i, p := range bi.Params {
+		if i > 0 {
+			out.WriteString(",")
+		}
+		out.WriteString(p.String())
+	}
+
+	out.WriteString(")")
+	return out.String()
+}
+
 // CallExpression is used when calling built in functions
 type CallExpression struct {
 	Token     token.Token // The '(' token
@@ -353,7 +377,7 @@ func (fl *FunctionLiteral) String() string {
 	out.WriteString(fl.TokenLiteral())
 	out.WriteString("(")
 	out.WriteString(strings.Join(params, ", "))
-	out.WriteString(")")
+	out.WriteString(") = ")
 	if fl.Body != nil {
 		out.WriteString(fl.Body.String())
 	}
@@ -556,7 +580,10 @@ func (es *ExpressionStatement) TokenLiteral() string {
 func (es *ExpressionStatement) String() string {
 	var out bytes.Buffer
 
-	out.WriteString(es.Token.Literal + " = ")
+	if es.Token.Literal != "" {
+		out.WriteString(es.Token.Literal + " = ")
+	}
+
 	if es.Expression != nil {
 		out.WriteString(es.Expression.String())
 	}

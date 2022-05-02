@@ -29,6 +29,16 @@ func Test_BeepStatement(t *testing.T) {
 	assert.Equalf(t, "BEEP", beep.String(), "beep.String returned %s wanted %s", beep.String(), "BEEP")
 }
 
+func Test_BuiltinExpression(t *testing.T) {
+	builtin := BuiltinExpression{Token: token.Token{Type: token.BUILTIN, Literal: "INSTR"},
+		Params: []Expression{&StringLiteral{Value: "FooBar"}, &StringLiteral{Value: "Bar"}, &DblIntegerLiteral{Value: 3}}}
+
+	builtin.expressionNode()
+
+	assert.Equal(t, "INSTR", builtin.TokenLiteral())
+	assert.Equal(t, `INSTR("FooBar","Bar",3)`, builtin.String())
+}
+
 func Test_BlockStatement(t *testing.T) {
 	blk := BlockStatement{Token: token.Token{Type: token.LBRACE, Literal: "{"}}
 
