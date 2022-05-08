@@ -1487,12 +1487,25 @@ func evalPrintItems(node *ast.PrintStatement, code *ast.Code, env *object.Enviro
 // figure out what a print item is, and turn it into a string
 func evalPrintItemType(item ast.Expression, code *ast.Code, env *object.Environment) string {
 	switch node := item.(type) {
-	case *ast.StringLiteral:
-		return node.Value
+	/*case *ast.BuiltinExpression:
+	rc := evalBuiltinExpression(node, code, env)
+	return rc.Inspect()*/
+
+	case *ast.CallExpression:
+		rc := Eval(node, code, env)
+		return rc.Inspect()
+
 	case *ast.Identifier:
 		return evalPrintIdentifier(node, code, env)
+	case *ast.InfixExpression:
+		l := evalExpressionNode(node.Left, code, env)
+		r := evalExpressionNode(node.Right, code, env)
+		v := evalInfixExpression(node.Operator, l, r, env)
+		return v.Inspect()
+	case *ast.StringLiteral:
+		return node.Value
 	}
-	return ""
+	return item.String()
 }
 
 // print the specified variable

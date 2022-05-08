@@ -561,7 +561,16 @@ type NextStatement struct {
 
 func (nxt *NextStatement) statementNode()       {}
 func (nxt *NextStatement) TokenLiteral() string { return strings.ToUpper(nxt.Token.Literal) }
-func (nxt *NextStatement) String() string       { return nxt.Token.Literal + " " }
+func (nxt *NextStatement) String() string {
+	var out bytes.Buffer
+	out.WriteString(nxt.Token.Literal)
+
+	if len(nxt.Id.Token.Literal) > 0 {
+		out.WriteString(" " + nxt.Id.String())
+	}
+
+	return out.String()
+}
 
 // ExpressionStatement holds an expression
 type ExpressionStatement struct {

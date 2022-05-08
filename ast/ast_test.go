@@ -977,11 +977,20 @@ func Test_NewCommand(t *testing.T) {
 }
 
 func Test_NextStatement(t *testing.T) {
-	nxt := NextStatement{Token: token.Token{Type: token.NEXT, Literal: "NEXT"}}
+	tests := []struct {
+		nxt NextStatement
+		tok string
+		exp string
+	}{
+		//{nxt: NextStatement{Token: token.Token{Type: token.NEXT, Literal: "NEXT"}}, tok: "NEXT", exp: "NEXT"},
+		{nxt: NextStatement{Token: token.Token{Type: token.NEXT, Literal: "NEXT"}, Id: Identifier{Token: token.Token{Literal: "I"}, Value: "I"}}, tok: "NEXT", exp: "NEXT I"},
+	}
 
-	nxt.statementNode()
-	assert.Equal(t, "NEXT", nxt.TokenLiteral())
-	assert.Equal(t, "NEXT ", nxt.String())
+	for _, tt := range tests {
+		tt.nxt.statementNode()
+		assert.Equal(t, tt.tok, tt.nxt.TokenLiteral())
+		assert.Equal(t, tt.exp, tt.nxt.String())
+	}
 }
 
 func Test_PaletteStatement(t *testing.T) {

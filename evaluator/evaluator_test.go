@@ -345,8 +345,8 @@ func Test_ChDirStatement(t *testing.T) {
 		rc   int
 	}{
 		{},
-		{path: &ast.StringLiteral{Value: `"D:\"`}, exp: `http://localhost:8000/driveD/`, rc: 200},
-		{path: &ast.StringLiteral{Value: `"D:\"`}, exp: `http://localhost:8000/driveD/`, rc: 404},
+		{path: &ast.StringLiteral{Value: `D:\`}, exp: `http://localhost:8000/driveD/`, rc: 200},
+		{path: &ast.StringLiteral{Value: `D:\`}, exp: `http://localhost:8000/driveD/`, rc: 404},
 		{path: &ast.IntegerLiteral{Value: 6}},
 	}
 
@@ -367,7 +367,8 @@ func Test_ChDirStatement(t *testing.T) {
 		url := object.String{Value: ts.URL}
 		env.Set(object.SERVER_URL, &url)
 
-		evalChDirStatement(&cd, env.CmdLineIter(), env)
+		Eval(&cd, env.CmdLineIter(), env)
+		//evalChDirStatement(&cd, env.CmdLineIter(), env)
 
 	}
 }
@@ -708,9 +709,9 @@ func Test_ForStatement(t *testing.T) {
 		inp string
 		err bool
 	}{
-		//{inp: `10 FOR I = `, err: true},
-		//{inp: `10 FOR I = 5 TO 2 : PRINT I : NEXT I`},
-		//{inp: `10 FOR I = 1 TO 2 STEP 0.5 : PRINT I : NEXT I`},
+		{inp: `10 FOR I = `, err: true},
+		{inp: `10 FOR I = 5 TO 2 : PRINT I : NEXT I`},
+		{inp: `10 FOR I = 1 TO 2 STEP 0.5 : PRINT I : NEXT I`},
 		{inp: `10 FOR I = 1 TO 3 : PRINT I : NEXT I`},
 		{inp: `10 FOR I = 1 TO 3 : PRINT I : NEXT J`, err: true},
 		{inp: `10 FOR I = 1 TO 4 STEP 2 : PRINT I : NEXT I`},
@@ -1563,6 +1564,8 @@ func ExamplePrint() {
 		{`220 LET Y = 45.12 / 3.4 : PRINT Y`},
 		{`230 LET Y = 235.988E+2 + 1.354E+1 : PRINT Y`},
 		{`240 X = 5 : Y = 3.2 : PRINT X * Y`},
+		{`250 PRINT LEN("Hello")`},
+		{`260 PRINT 10`},
 	}
 
 	for _, tt := range tests {
@@ -1594,6 +1597,9 @@ func ExamplePrint() {
 	// 153.408
 	// 13.27059
 	// 2.361234E+04
+	// 16
+	// 5
+	// 10
 }
 
 func ExampleT_int() {
