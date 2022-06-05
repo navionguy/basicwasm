@@ -1195,6 +1195,50 @@ func TestTronTroffCommands(t *testing.T) {
 	}
 }
 
+func Test_UsingExpression(t *testing.T) {
+	tst := []struct {
+		inp string
+	}{
+		//{inp: `10 PRINT USING`},
+		//{inp: `10 PRINT USING "###.##"`},
+		//{inp: `10 PRINT USING "###.##";`},
+		{inp: `10 PRINT USING "###.##"; X; Y;`},
+	}
+
+	for _, tt := range tst {
+		l := lexer.New(tt.inp)
+		p := New(l)
+		env := object.NewTermEnvironment(mocks.MockTerm{})
+		p.ParseProgram(env)
+	}
+}
+
+func Test_UsingRunTime(t *testing.T) {
+	tst := []struct {
+		inp  string
+		exp  string
+		data float32
+		fmt  string
+	}{
+		{inp: `#####`, exp: `%5.f`, data: 328, fmt: "  328"},
+		{inp: `###.##`, exp: `%6.2f`, data: 123.456, fmt: "123.46"},
+		{inp: `###.##`, exp: `%6.2f`, data: -123.456, fmt: "-123.46"},
+		{inp: `+###.##`, exp: `%+6.2f`, data: 123.456, fmt: "+123.46"},
+		{inp: `+###.##`, exp: `%+6.2f`, data: -123.456, fmt: "-123.46"},
+	}
+
+	for _, tt := range tst {
+		l := lexer.New(tt.inp)
+		p := New(l)
+		//env := object.NewTermEnvironment(mocks.MockTerm{})
+		rc := p.ParseUsingRunTime()
+
+		assert.EqualValuesf(t, tt.exp, rc, "%s", tt.inp)
+		res := fmt.Sprintf(rc, tt.data)
+		assert.EqualValuesf(t, tt.fmt, res, "%s", tt.inp)
+	}
+}
+
 func TestIntegerLiteralExpression(t *testing.T) {
 	intTok := token.Token{Type: token.INT, Literal: "5"}
 	dblTok := token.Token{Type: token.INTD, Literal: "65999"}

@@ -2100,6 +2100,46 @@ func Test_BuiltinFunctionMissing(t *testing.T) {
 	}
 }
 
+func Test_UsingStatement(t *testing.T) {
+	tests := []struct {
+		inp string
+		err object.Object
+		exp []string
+	}{
+		{inp: `PRINT USING "###.##"; 23.45`, err: nil, exp: []string{" 23.45"}},
+		{inp: `PRINT "Totals:"; USING "###.##"; 23.45`, err: nil, exp: []string{"Totals:", " 23.45"}},
+	}
+
+	for _, tt := range tests {
+		l := lexer.New(tt.inp)
+		p := parser.New(l)
+		var mt mocks.MockTerm
+		initMockTerm(&mt)
+		if len(tt.exp) != 0 {
+			exp := &mocks.Expector{}
+			for _, e := range tt.exp {
+				exp.Exp = append(exp.Exp, e)
+			}
+			mt.ExpMsg = exp
+		}
+		env := object.NewTermEnvironment(mt)
+
+		p.ParseCmd(env)
+
+		rc := Eval(&ast.Program{}, env.CmdLineIter(), env)
+
+		if tt.err == nil {
+			assert.Nilf(t, rc, "%s returned %T", tt.inp, rc)
+		} else {
+			assert.Equalf(t, tt.err, rc, "%s returned %T", tt.inp, rc)
+		}
+
+		if len(tt.exp) != 0 {
+			assert.Falsef(t, mt.ExpMsg.Failed, "%s didn't get %s", tt.inp, tt.exp)
+		}
+	}
+}
+
 func Test_ViewPrintStatement(t *testing.T) {
 	tests := []struct {
 		inp string

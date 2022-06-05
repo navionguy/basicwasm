@@ -88,6 +88,7 @@ func New(l *lexer.Lexer) *Parser {
 	p.registerPrefix(token.LPAREN, p.parseGroupedExpression)
 	p.registerPrefix(token.MINUS, p.parsePrefixExpression)
 	p.registerPrefix(token.STRING, p.parseStringLiteral)
+	p.registerPrefix(token.USING, p.parseUsingExpression)
 
 	// and infix elements
 	p.infixParseFns = make(map[token.TokenType]infixParseFn)
@@ -146,10 +147,11 @@ func (p *Parser) ParseProgram(env *object.Environment) {
 }
 
 // ParseCmd is used to parse out a command entered directly
-//
 func (p *Parser) ParseCmd(env *object.Environment) {
 	defer untrace(trace("ParseCmd"))
 
+	// if the command line entered starts with a line number
+	// we add it to the current program
 	if p.peekTokenIs(token.LINENUM) {
 		p.ParseProgram(env)
 		return
@@ -157,6 +159,7 @@ func (p *Parser) ParseCmd(env *object.Environment) {
 
 	p.env = env
 
+	// command line has his own AST
 	p.cmdInput = true
 	for (!p.curTokenIs(token.EOF)) && (len(p.errors) == 0) {
 		stmt := p.parseStatement()
@@ -168,6 +171,26 @@ func (p *Parser) ParseCmd(env *object.Environment) {
 
 	env.CmdParsed()
 	return
+}
+
+// ParseUsingRunTime takes the using expression and parses it into
+// a format string for printing
+func (p *Parser) ParseUsingRunTime() string {
+	// skip over the newline the lexer inserts
+	p.nextToken()
+	rc := ""
+
+	switch p.curToken.Literal {
+	case token.HASHTAG:
+		rc = rc + p.parseUsingNumeric("")
+	case token.PLUS:
+		p.nextToken()
+		if p.curTokenIs(token.HASHTAG) {
+			rc = rc + p.parseUsingNumeric("+")
+		}
+	}
+
+	return rc
 }
 
 func (p *Parser) parseStatement() ast.Statement {
@@ -232,6 +255,8 @@ func (p *Parser) parseStatement() ast.Statement {
 		return p.parseNextStatement()
 	case token.PALETTE:
 		return p.parsePaletteStatement()
+	case token.PRINT:
+		return p.parsePrintStatement()
 	case token.READ:
 		return p.parseReadStatement()
 	case token.REM:
@@ -250,8 +275,6 @@ func (p *Parser) parseStatement() ast.Statement {
 		return p.parseTroffCommand()
 	case token.TRON:
 		return p.parseTronCommand()
-	case token.PRINT:
-		return p.parsePrintStatement()
 	case token.VIEW:
 		return p.parseViewStatement()
 	default:
@@ -895,11 +918,6 @@ func (p *Parser) parsePrintStatement() *ast.PrintStatement {
 
 	p.nextToken()
 	return stmt
-}
-
-// returns true if current token is the end of the statement
-func (p *Parser) chkOnEndOfStatement() bool {
-	return p.curTokenIs(token.COLON) || p.curTokenIs(token.LINENUM) || p.curTokenIs(token.EOF) || p.curTokenIs(token.EOL)
 }
 
 // returns true if the next token would put us at the end of a statement
@@ -1697,6 +1715,76 @@ func (p *Parser) parseTronCommand() *ast.TronCommand {
 	p.nextToken()
 
 	return stmt
+}
+
+// Using statement does formatted printing
+// full syntax: PRINT USING "format";list of expressions
+func (p *Parser) parseUsingExpression() ast.Expression {
+	stmt := &ast.UsingExpression{Token: p.curToken}
+
+	if p.chkEndOfStatement() {
+		return stmt
+	}
+
+	// pull out the format expression
+	p.nextToken()
+	stmt.Format = p.parseExpression(LOWEST)
+
+	/*	if p.chkEndOfStatement() {
+			return stmt
+		}
+
+		// save the "seperator", should be a ';', eval will check
+		p.nextToken()
+		stmt.Sep = p.curToken.Literal
+
+		if p.chkEndOfStatement() {
+			return stmt
+		}
+
+		// now get any items to be printed and the seperator between them
+		for done := false; !done; {
+			p.nextToken()
+			stmt.Items = append(stmt.Items, p.parseExpression(LOWEST))
+			if p.peekTokenIs(token.SEMICOLON) || p.peekTokenIs(token.COMMA) {
+				p.nextToken()
+				stmt.Seps = append(stmt.Seps, p.curToken.Literal)
+			}
+			done = p.chkEndOfStatement()
+		}*/
+
+	return stmt
+}
+
+// using statement includes a numeric field
+func (p *Parser) parseUsingNumeric(flag string) string {
+	// setup all my variables
+	width := 0
+	precision := 0
+	sawDecimal := false
+
+	// count the total field width and places after the decimal
+	for done := false; !done; p.nextToken() {
+		switch p.curToken.Literal {
+		case token.HASHTAG:
+			width++
+			if sawDecimal {
+				precision++
+			}
+		case token.PERIOD:
+			width++
+			sawDecimal = true
+		default:
+			// if I don't expect it, I'm done
+			done = true
+		}
+	}
+
+	if precision > 0 {
+		return fmt.Sprintf("%%%s%d.%df", flag, width, precision)
+	}
+
+	return fmt.Sprintf("%%%s%d.f", flag, width)
 }
 
 // Precedence of the peekToken

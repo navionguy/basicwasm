@@ -68,7 +68,7 @@ type BeepStatement struct {
 	Token token.Token
 }
 
-func (bp *BeepStatement) statementNode() {}
+func (bp *BeepStatement) statementNode() { return }
 
 // TokenLiteral returns my token literal
 func (bp *BeepStatement) TokenLiteral() string { return strings.ToUpper(bp.Token.Literal) }
@@ -83,7 +83,7 @@ type BuiltinExpression struct {
 	Params []Expression //
 }
 
-func (bi *BuiltinExpression) expressionNode()      {}
+func (bi *BuiltinExpression) expressionNode()      { return }
 func (bi *BuiltinExpression) TokenLiteral() string { return strings.ToUpper(bi.Token.Literal) }
 func (bi *BuiltinExpression) String() string {
 	var out bytes.Buffer
@@ -108,7 +108,7 @@ type CallExpression struct {
 	Arguments []Expression
 }
 
-func (ce *CallExpression) expressionNode() {}
+func (ce *CallExpression) expressionNode() { return }
 
 // TokenLiteral returns my token literal
 func (ce *CallExpression) TokenLiteral() string { return strings.ToUpper(ce.Token.Literal) }
@@ -139,7 +139,7 @@ type ChainStatement struct {
 	Merge  bool       // overlays current program with called progarm, files stay open
 }
 
-func (chn *ChainStatement) statementNode() {}
+func (chn *ChainStatement) statementNode() { return }
 
 // TokenLiteral returns my token literal
 func (chn *ChainStatement) TokenLiteral() string { return strings.ToUpper(chn.Token.Literal) }
@@ -170,7 +170,7 @@ type ChDirStatement struct {
 	Path  []Expression // should be the directory to change to
 }
 
-func (cd *ChDirStatement) statementNode()       {}
+func (cd *ChDirStatement) statementNode()       { return }
 func (cd *ChDirStatement) TokenLiteral() string { return strings.ToUpper(cd.Token.Literal) }
 func (cd *ChDirStatement) String() string {
 	var out bytes.Buffer
@@ -190,7 +190,7 @@ type ClearCommand struct {
 	Exp   [3]Expression // parameters I don't support
 }
 
-func (clr *ClearCommand) statementNode() {}
+func (clr *ClearCommand) statementNode() { return }
 
 func (clr *ClearCommand) TokenLiteral() string { return strings.ToUpper(clr.Token.Literal) }
 
@@ -218,7 +218,7 @@ type ClsStatement struct {
 	Param int
 }
 
-func (cls *ClsStatement) statementNode() {}
+func (cls *ClsStatement) statementNode() { return }
 
 // TokenLiteral returns my token literal
 func (cls *ClsStatement) TokenLiteral() string { return strings.ToUpper(cls.Token.Literal) }
@@ -237,7 +237,7 @@ type ColorStatement struct {
 	Parms []Expression // 1-3 parameter expressions
 }
 
-func (color *ColorStatement) statementNode()       {}
+func (color *ColorStatement) statementNode()       { return }
 func (color *ColorStatement) TokenLiteral() string { return strings.ToUpper(color.Token.Literal) }
 func (color *ColorStatement) String() string {
 	var out bytes.Buffer
@@ -263,7 +263,7 @@ type CommonStatement struct {
 	Vars  []*Identifier
 }
 
-func (cmn *CommonStatement) statementNode() {}
+func (cmn *CommonStatement) statementNode() { return }
 
 func (cmn *CommonStatement) TokenLiteral() string { return strings.ToUpper(cmn.Token.Literal) }
 
@@ -287,7 +287,7 @@ type ContCommand struct {
 	Token token.Token
 }
 
-func (cnt *ContCommand) statementNode()       {}
+func (cnt *ContCommand) statementNode()       { return }
 func (cnt *ContCommand) TokenLiteral() string { return strings.ToUpper(cnt.Token.Literal) }
 
 func (cnt *ContCommand) String() string { return "CONT" }
@@ -297,7 +297,7 @@ type Csrlin struct {
 	Token token.Token
 }
 
-func (csr *Csrlin) expressionNode()      {}
+func (csr *Csrlin) expressionNode()      { return }
 func (csr *Csrlin) TokenLiteral() string { return strings.ToUpper(csr.Token.Literal) }
 func (csr *Csrlin) String() string       { return csr.Token.Literal + " " }
 
@@ -305,7 +305,7 @@ type EOFExpression struct {
 	Token token.Token
 }
 
-func (eof *EOFExpression) expressionNode()      {}
+func (eof *EOFExpression) expressionNode()      { return }
 func (eof *EOFExpression) TokenLiteral() string { return strings.ToUpper(eof.Token.Literal) }
 func (eof *EOFExpression) String() string       { return "" }
 
@@ -315,7 +315,7 @@ type FilesCommand struct {
 	Path  string
 }
 
-func (fls *FilesCommand) statementNode() {}
+func (fls *FilesCommand) statementNode() { return }
 
 // TokenLiteral returns my token literal
 func (fls *FilesCommand) TokenLiteral() string { return strings.ToUpper(fls.Token.Literal) }
@@ -337,7 +337,7 @@ type ForStatment struct {
 	Step  []Expression  // value to increment /decrement
 }
 
-func (four *ForStatment) statementNode()       {}
+func (four *ForStatment) statementNode()       { return }
 func (four *ForStatment) TokenLiteral() string { return four.Token.Literal }
 func (four *ForStatment) String() string {
 	var out bytes.Buffer
@@ -361,7 +361,7 @@ type FunctionLiteral struct {
 	Body       *BlockStatement
 }
 
-func (fl *FunctionLiteral) expressionNode() {}
+func (fl *FunctionLiteral) expressionNode() { return }
 
 // TokenLiteral returns my literal
 func (fl *FunctionLiteral) TokenLiteral() string { return strings.ToUpper(fl.Token.Literal) }
@@ -400,7 +400,7 @@ type KeyStatement struct {
 	Data  []Expression // string to assign to key
 }
 
-func (key *KeyStatement) statementNode() {}
+func (key *KeyStatement) statementNode() { return }
 
 func (key *KeyStatement) TokenLiteral() string { return strings.ToUpper(key.Token.Literal) }
 
@@ -409,12 +409,10 @@ func (key *KeyStatement) String() string {
 
 	out.WriteString(key.TokenLiteral() + " ")
 	out.WriteString(key.Param.Literal)
-	for i, d := range key.Data {
-		if i > 0 {
-			out.WriteString(", ")
-		}
+	for _, d := range key.Data {
+		out.WriteString(", ")
 		if key.Data != nil {
-			out.WriteString(", " + d.String())
+			out.WriteString(d.String())
 		}
 	}
 
@@ -428,7 +426,7 @@ type LetStatement struct {
 	Value Expression
 }
 
-func (ls *LetStatement) statementNode() {}
+func (ls *LetStatement) statementNode() { return }
 
 // TokenLiteral returns literal value of the statement
 func (ls *LetStatement) TokenLiteral() string {
@@ -453,7 +451,7 @@ type LineNumStmt struct {
 	Value int32
 }
 
-func (lns *LineNumStmt) statementNode() {}
+func (lns *LineNumStmt) statementNode() { return }
 
 // TokenLiteral returns the literal value
 func (lns *LineNumStmt) TokenLiteral() string { return lns.Token.Literal }
@@ -469,7 +467,7 @@ type LoadCommand struct {
 	KeppOpen bool       // keep all open files open
 }
 
-func (ld *LoadCommand) statementNode() {}
+func (ld *LoadCommand) statementNode() { return }
 
 // TokenLiteral returns my token literal
 func (ld *LoadCommand) TokenLiteral() string { return strings.ToUpper(ld.Token.Literal) }
@@ -491,7 +489,7 @@ type LocateStatement struct {
 	Parms []Expression
 }
 
-func (lct *LocateStatement) statementNode() {}
+func (lct *LocateStatement) statementNode() { return }
 
 func (lct *LocateStatement) TokenLiteral() string { return strings.ToUpper(lct.Token.Literal) }
 
@@ -526,7 +524,7 @@ type PaletteStatement struct {
 	BasePalette ColorPalette // base mapping of basic colors to xterm colors
 }
 
-func (plt *PaletteStatement) statementNode()       {}
+func (plt *PaletteStatement) statementNode()       { return }
 func (plt *PaletteStatement) TokenLiteral() string { return strings.ToUpper(plt.Token.Literal) }
 func (plt *PaletteStatement) String() string {
 	var buf bytes.Buffer
@@ -549,7 +547,7 @@ type NewCommand struct {
 	Token token.Token // my Token
 }
 
-func (new *NewCommand) statementNode()       {}
+func (new *NewCommand) statementNode()       { return }
 func (new *NewCommand) TokenLiteral() string { return strings.ToUpper(new.Token.Literal) }
 func (new *NewCommand) String() string       { return new.Token.Literal + " " }
 
@@ -559,7 +557,7 @@ type NextStatement struct {
 	Id    Identifier // for loop iterator id, not required
 }
 
-func (nxt *NextStatement) statementNode()       {}
+func (nxt *NextStatement) statementNode()       { return }
 func (nxt *NextStatement) TokenLiteral() string { return strings.ToUpper(nxt.Token.Literal) }
 func (nxt *NextStatement) String() string {
 	var out bytes.Buffer
@@ -578,7 +576,7 @@ type ExpressionStatement struct {
 	Expression Expression
 }
 
-func (es *ExpressionStatement) statementNode() {}
+func (es *ExpressionStatement) statementNode() { return }
 
 // TokenLiteral returns my literal
 func (es *ExpressionStatement) TokenLiteral() string {
@@ -605,7 +603,7 @@ type DataStatement struct {
 	Consts []Expression
 }
 
-func (ds *DataStatement) statementNode()       {}
+func (ds *DataStatement) statementNode()       { return }
 func (ds *DataStatement) TokenLiteral() string { return ds.Token.Literal }
 
 // String sends my contents
@@ -713,7 +711,7 @@ type FixedLiteral struct {
 	Value decimal.Decimal
 }
 
-func (fl *FixedLiteral) expressionNode() {}
+func (fl *FixedLiteral) expressionNode() { return }
 
 // TokenLiteral returns literal value
 func (fl *FixedLiteral) TokenLiteral() string { return fl.Token.Literal }
@@ -727,7 +725,7 @@ type FloatSingleLiteral struct {
 	Value float32
 }
 
-func (fs *FloatSingleLiteral) expressionNode() {}
+func (fs *FloatSingleLiteral) expressionNode() { return }
 
 // TokenLiteral returns literal value
 func (fs *FloatSingleLiteral) TokenLiteral() string { return fs.Token.Literal }
@@ -741,7 +739,7 @@ type FloatDoubleLiteral struct {
 	Value float64
 }
 
-func (fd *FloatDoubleLiteral) expressionNode() {}
+func (fd *FloatDoubleLiteral) expressionNode() { return }
 
 // TokenLiteral returns literal value
 func (fd *FloatDoubleLiteral) TokenLiteral() string { return fd.Token.Literal }
@@ -755,7 +753,7 @@ type HexConstant struct {
 	Value string
 }
 
-func (hc *HexConstant) expressionNode() {}
+func (hc *HexConstant) expressionNode() { return }
 
 // TokenLiteral returns my literal
 func (hc *HexConstant) TokenLiteral() string { return hc.Token.Literal }
@@ -775,7 +773,7 @@ type OctalConstant struct {
 	Value string
 }
 
-func (oc *OctalConstant) expressionNode() {}
+func (oc *OctalConstant) expressionNode() { return }
 
 // TokenLiteral throws back my literal
 func (oc *OctalConstant) TokenLiteral() string { return oc.Token.Literal }
@@ -795,7 +793,7 @@ type ReadStatement struct {
 	Vars  []Expression
 }
 
-func (rd *ReadStatement) statementNode() {}
+func (rd *ReadStatement) statementNode() { return }
 
 // TokenLiteral returns my literal
 func (rd *ReadStatement) TokenLiteral() string { return rd.Token.Literal }
@@ -823,7 +821,7 @@ type RestoreStatement struct {
 	Line  int
 }
 
-func (rs *RestoreStatement) statementNode() {}
+func (rs *RestoreStatement) statementNode() { return }
 
 // TokenLiteral returns my literal
 func (rs *RestoreStatement) TokenLiteral() string { return rs.Token.Literal }
@@ -847,7 +845,7 @@ type ReturnStatement struct {
 	ReturnTo string      // in gwbasic, you can return to a line # rather thant the point of the GOSUB
 }
 
-func (rs *ReturnStatement) statementNode()       {}
+func (rs *ReturnStatement) statementNode()       { return }
 func (rs *ReturnStatement) TokenLiteral() string { return strings.ToUpper(rs.Token.Literal) }
 func (rs *ReturnStatement) String() string {
 	var out bytes.Buffer
@@ -867,7 +865,7 @@ type StringLiteral struct {
 	Value string
 }
 
-func (il *StringLiteral) expressionNode() {}
+func (il *StringLiteral) expressionNode() { return }
 
 // TokenLiteral returns literal value
 func (il *StringLiteral) TokenLiteral() string { return il.Token.Literal }
@@ -888,7 +886,7 @@ type IndexExpression struct {
 	Index Expression
 }
 
-func (ie *IndexExpression) expressionNode() {}
+func (ie *IndexExpression) expressionNode() { return }
 
 // TokenLiteral returns my literal
 func (ie *IndexExpression) TokenLiteral() string { return strings.ToUpper(ie.Token.Literal) }
@@ -905,7 +903,7 @@ type PrefixExpression struct {
 	Right    Expression
 }
 
-func (pe *PrefixExpression) expressionNode() {}
+func (pe *PrefixExpression) expressionNode() { return }
 
 //TokenLiteral returns read string of Token
 func (pe *PrefixExpression) TokenLiteral() string { return pe.Token.Literal }
@@ -924,7 +922,7 @@ type InfixExpression struct {
 	Right    Expression
 }
 
-func (ie *InfixExpression) expressionNode() {}
+func (ie *InfixExpression) expressionNode() { return }
 
 //TokenLiteral my token
 func (ie *InfixExpression) TokenLiteral() string {
@@ -952,7 +950,7 @@ type GroupedExpression struct {
 	Exp   Expression
 }
 
-func (ge *GroupedExpression) expressionNode() {}
+func (ge *GroupedExpression) expressionNode() { return }
 
 // TokenLiteral sends back my token
 func (ge *GroupedExpression) TokenLiteral() string {
@@ -979,7 +977,7 @@ type IfExpression struct {
 	Alternative Statement
 }
 
-func (ie *IfExpression) expressionNode() {}
+func (ie *IfExpression) expressionNode() { return }
 
 // TokenLiteral returns my literal
 func (ie *IfExpression) TokenLiteral() string { return strings.ToUpper(ie.Token.Literal) }
@@ -1012,7 +1010,7 @@ type BlockStatement struct {
 	Statements []Statement
 }
 
-func (bs *BlockStatement) statementNode()       {}
+func (bs *BlockStatement) statementNode()       { return }
 func (bs *BlockStatement) TokenLiteral() string { return strings.ToUpper(bs.Token.Literal) }
 func (bs *BlockStatement) String() string {
 	var out bytes.Buffer
@@ -1030,7 +1028,7 @@ type GosubStatement struct {
 	Gosub int
 }
 
-func (gsb *GosubStatement) statementNode() {}
+func (gsb *GosubStatement) statementNode() { return }
 
 // TokenLiteral should return GOTO
 func (gsb *GosubStatement) TokenLiteral() string { return strings.ToUpper(gsb.Token.Literal) }
@@ -1048,7 +1046,7 @@ type GotoStatement struct {
 	Goto  string
 }
 
-func (gt *GotoStatement) statementNode()       {}
+func (gt *GotoStatement) statementNode()       { return }
 func (gt *GotoStatement) TokenLiteral() string { return gt.Token.Literal }
 func (gt *GotoStatement) String() string {
 	var out bytes.Buffer
@@ -1063,7 +1061,7 @@ type EndStatement struct {
 	Token token.Token
 }
 
-func (end *EndStatement) statementNode() {}
+func (end *EndStatement) statementNode() { return }
 
 // TokenLiteral is END
 func (end *EndStatement) TokenLiteral() string { return strings.ToUpper(end.Token.Literal) }
@@ -1083,7 +1081,7 @@ type ListStatement struct {
 	Stop   string
 }
 
-func (lst *ListStatement) statementNode() {}
+func (lst *ListStatement) statementNode() { return }
 
 // TokenLiteral should return LIST
 func (lst *ListStatement) TokenLiteral() string { return strings.ToUpper(lst.Token.Literal) }
@@ -1100,7 +1098,7 @@ type PrintStatement struct {
 	Seperators []string
 }
 
-func (pe *PrintStatement) statementNode() {}
+func (pe *PrintStatement) statementNode() { return }
 
 // TokenLiteral returns my token literal
 func (pe *PrintStatement) TokenLiteral() string { return strings.ToUpper(pe.Token.Literal) }
@@ -1124,7 +1122,7 @@ type RemStatement struct {
 	Comment string
 }
 
-func (rem *RemStatement) statementNode() {}
+func (rem *RemStatement) statementNode() { return }
 
 // TokenLiteral should return REM
 func (rem *RemStatement) TokenLiteral() string { return strings.ToUpper(rem.Token.Literal) }
@@ -1142,7 +1140,7 @@ type RunCommand struct {
 	KeepOpen  bool
 }
 
-func (run *RunCommand) statementNode() {}
+func (run *RunCommand) statementNode() { return }
 
 // TokenLiteral should return RUN
 func (run *RunCommand) TokenLiteral() string { return strings.ToUpper(run.Token.Literal) }
@@ -1185,7 +1183,7 @@ type ScreenStatement struct {
 	Settings [4]int       // When executed, eval of expressions go here
 }
 
-func (scrn *ScreenStatement) statementNode()       {}
+func (scrn *ScreenStatement) statementNode()       { return }
 func (scrn *ScreenStatement) TokenLiteral() string { return strings.ToUpper(scrn.Token.Literal) }
 
 // String returns the statement and any parameters as a string
@@ -1217,7 +1215,7 @@ type StopStatement struct {
 	Token token.Token
 }
 
-func (stop *StopStatement) statementNode()       {}
+func (stop *StopStatement) statementNode()       { return }
 func (stop *StopStatement) TokenLiteral() string { return strings.ToUpper(stop.Token.Literal) }
 func (stop *StopStatement) String() string       { return strings.ToUpper(stop.Token.Literal) + " " }
 
@@ -1225,7 +1223,7 @@ type ToStatement struct {
 	Token token.Token
 }
 
-func (to *ToStatement) statementNode()       {}
+func (to *ToStatement) statementNode()       { return }
 func (to *ToStatement) TokenLiteral() string { return strings.ToUpper(to.Token.Literal) }
 func (to *ToStatement) String() string       { return " " + strings.ToUpper(to.Token.Literal) + " " }
 
@@ -1234,7 +1232,7 @@ type TroffCommand struct {
 	Token token.Token
 }
 
-func (tof *TroffCommand) statementNode() {}
+func (tof *TroffCommand) statementNode() { return }
 
 // TokenLiteral returns my token literal
 func (tof *TroffCommand) TokenLiteral() string { return strings.ToUpper(tof.Token.Literal) }
@@ -1246,12 +1244,56 @@ type TronCommand struct {
 	Token token.Token
 }
 
-func (ton *TronCommand) statementNode() {}
+func (ton *TronCommand) statementNode() { return }
 
 // TokenLiteral returns my token literal
 func (ton *TronCommand) TokenLiteral() string { return strings.ToUpper(ton.Token.Literal) }
 
 func (ton *TronCommand) String() string { return ton.TokenLiteral() }
+
+// Using Expression, part of the PRINT statement
+type UsingExpression struct {
+	Token  token.Token
+	Format Expression
+	Sep    string
+	Items  []Expression
+	Seps   []string
+}
+
+func (us *UsingExpression) expressionNode()      { return }
+func (us *UsingExpression) TokenLiteral() string { return strings.ToUpper(us.Token.Literal) }
+func (us *UsingExpression) String() string {
+	var out bytes.Buffer
+
+	out.WriteString(us.TokenLiteral() + " ")
+
+	// if I actually have a format, send it
+	if us.Format != nil {
+		out.WriteString(us.Format.String())
+	}
+
+	if len(us.Sep) != 0 {
+		out.WriteString(us.Sep)
+	}
+
+	for i, item := range us.Items {
+		if item != nil {
+			out.WriteString(item.String())
+		}
+		if len(us.Seps) > i {
+			out.WriteString(us.Seps[i])
+		}
+	}
+
+	// just print what I got, evaluator will decide if it is legal
+	if len(us.Seps) > len(us.Items) {
+		for i := len(us.Items); i < len(us.Seps); i++ {
+			out.WriteString(us.Seps[i])
+		}
+	}
+
+	return out.String()
+}
 
 // View Statement changes the viewport size for graphics
 type ViewStatement struct {
@@ -1259,7 +1301,7 @@ type ViewStatement struct {
 	Parms []Node
 }
 
-func (vw *ViewStatement) statementNode()       {}
+func (vw *ViewStatement) statementNode()       { return }
 func (vw *ViewStatement) TokenLiteral() string { return strings.ToUpper(vw.Token.Literal) }
 func (vw *ViewStatement) String() string {
 	var out bytes.Buffer
@@ -1278,7 +1320,7 @@ type ViewPrintStatement struct {
 	Parms []Node // top, "TO", bottom
 }
 
-func (vw *ViewPrintStatement) statementNode()       {}
+func (vw *ViewPrintStatement) statementNode()       { return }
 func (vw *ViewPrintStatement) TokenLiteral() string { return strings.ToUpper(vw.Token.Literal) }
 func (vw *ViewPrintStatement) String() string {
 	var out bytes.Buffer

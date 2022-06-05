@@ -14,7 +14,9 @@ import (
 	"github.com/navionguy/basicwasm/decimal"
 	"github.com/navionguy/basicwasm/filelist"
 	"github.com/navionguy/basicwasm/fileserv"
+	"github.com/navionguy/basicwasm/lexer"
 	"github.com/navionguy/basicwasm/object"
+	"github.com/navionguy/basicwasm/parser"
 	"github.com/navionguy/basicwasm/settings"
 	"github.com/navionguy/basicwasm/token"
 )
@@ -1458,54 +1460,127 @@ func evalPaletteDefault(scrmode int) *ast.PaletteStatement {
 }
 
 // Process parameters of a Print statement
-func evalPrintStatement(node *ast.PrintStatement, code *ast.Code, env *object.Environment) {
+func evalPrintStatement(node *ast.PrintStatement, code *ast.Code, env *object.Environment) object.Object {
+	var rc object.Object
 	// go print items, if there are any
 	if len(node.Items) > 0 {
-		evalPrintItems(node, code, env)
+		rc = evalPrintItems(node, code, env)
+	}
+
+	// if I got anything, it is an error
+	if rc != nil {
+		return rc
 	}
 
 	// if last seperator is ; no CR/LF
 	if (len(node.Seperators) > 0) && (node.Seperators[len(node.Seperators)-1] == ";") {
-		return
+		return nil
 	}
 
 	// end with a newline
 	env.Terminal().Println("")
+
+	return nil
 }
 
 // Print the individual items
-func evalPrintItems(node *ast.PrintStatement, code *ast.Code, env *object.Environment) {
-	for i, item := range node.Items {
-		env.Terminal().Print(evalPrintItemType(item, code, env))
+func evalPrintItems(node *ast.PrintStatement, code *ast.Code, env *object.Environment) object.Object {
+	var obj object.Object
+	fmt := ""
 
+	for i, item := range node.Items {
+		switch node := item.(type) {
+		/*case *ast.BuiltinExpression:
+		rc := evalBuiltinExpression(node, code, env)
+		return rc.Inspect()*/
+
+		case *ast.CallExpression:
+			obj = Eval(node, code, env)
+
+		case *ast.Identifier:
+			obj = &object.String{Value: evalPrintIdentifier(node, code, env)}
+		case *ast.InfixExpression:
+			l := evalExpressionNode(node.Left, code, env)
+			r := evalExpressionNode(node.Right, code, env)
+			obj = evalInfixExpression(node.Operator, l, r, env)
+		case *ast.StringLiteral:
+			obj = &object.String{Value: node.Value}
+		case *ast.IntegerLiteral:
+			obj = &object.Integer{Value: node.Value}
+		case *ast.DblIntegerLiteral:
+			obj = &object.IntDbl{Value: node.Value}
+		case *ast.FixedLiteral:
+			obj = &object.Fixed{Value: node.Value}
+		case *ast.UsingExpression:
+			obj = evalUsingExpression(node, code, env)
+			form, ok := obj.(*object.String)
+			if ok {
+				fmt = form.Value
+				continue // skip any printing
+			}
+		}
+		_, ok := obj.(*object.Error)
+
+		if ok {
+			return obj
+		}
+
+		if len(fmt) == 0 {
+			evalPrintItemValue(obj, env)
+		} else {
+			err := evalPrintItemUsing(fmt, obj, env)
+			if err != nil {
+				return err
+			}
+		}
+
+		// if seperated by a comma, that means tab
 		if node.Seperators[i] == "," {
 			env.Terminal().Print("\t")
 		}
 	}
+
+	return nil
+}
+
+// evalPrintItemUsing uses the suppllied format string to Sprintf the object into a string
+// and then prints it.
+// TODO support more than just numerics
+func evalPrintItemUsing(form string, item object.Object, env *object.Environment) object.Object {
+	out := fmt.Sprintf("fmt snap %T", item)
+	switch val := item.(type) {
+	case *object.Integer:
+		out = fmt.Sprintf(form, val.Value)
+	case *object.IntDbl:
+		out = fmt.Sprintf(form, val.Value)
+	case *object.Fixed:
+		v, _ := val.Value.Float64()
+		out = fmt.Sprintf(form, v)
+	case *object.FloatSgl:
+		out = fmt.Sprintf(form, val.Value)
+	case *object.FloatDbl:
+		out = fmt.Sprintf(form, val.Value)
+	}
+	env.Terminal().Print(out)
+	return nil
 }
 
 // figure out what a print item is, and turn it into a string
-func evalPrintItemType(item ast.Expression, code *ast.Code, env *object.Environment) string {
-	switch node := item.(type) {
-	/*case *ast.BuiltinExpression:
-	rc := evalBuiltinExpression(node, code, env)
-	return rc.Inspect()*/
-
-	case *ast.CallExpression:
-		rc := Eval(node, code, env)
-		return rc.Inspect()
-
-	case *ast.Identifier:
-		return evalPrintIdentifier(node, code, env)
-	case *ast.InfixExpression:
-		l := evalExpressionNode(node.Left, code, env)
-		r := evalExpressionNode(node.Right, code, env)
-		v := evalInfixExpression(node.Operator, l, r, env)
-		return v.Inspect()
-	case *ast.StringLiteral:
-		return node.Value
+func evalPrintItemValue(item object.Object, env *object.Environment) {
+	out := "oh snap"
+	switch val := item.(type) {
+	case *object.String:
+		out = val.Inspect()
+	case *object.FloatDbl:
+		out = val.Inspect()
+	case *object.FloatSgl:
+		out = val.Inspect()
+	case *object.Fixed:
+		out = val.Value.String()
+	case *object.Integer:
+		out = val.Inspect()
 	}
-	return item.String()
+	env.Terminal().Print(out)
 }
 
 // print the specified variable
@@ -2012,6 +2087,23 @@ func bool2int16(b bool) int16 {
 		i = 0
 	}
 	return i
+}
+
+// evalUsingExpression and return string object with format string
+func evalUsingExpression(stmt *ast.UsingExpression, code *ast.Code, env *object.Environment) object.Object {
+	frm := evalExpressionNode(stmt.Format, code, env)
+	inp := ""
+	switch obj := frm.(type) {
+	case *object.String:
+		inp = obj.Value
+	default:
+		return stdError(env, berrors.Syntax)
+	}
+	l := lexer.New(inp)
+	p := parser.New(l)
+	fmt := p.ParseUsingRunTime()
+
+	return &object.String{Value: fmt}
 }
 
 func evalViewPrintStatement(stmt *ast.ViewPrintStatement, code *ast.Code, env *object.Environment) object.Object {

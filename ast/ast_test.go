@@ -888,12 +888,13 @@ func Test_IntegerLiteral(t *testing.T) {
 }
 
 func Test_KeyStatement(t *testing.T) {
-	key := &KeyStatement{Token: token.Token{Type: token.KEY, Literal: "KEY"}, Param: token.Token{Type: token.INT, Literal: "1"}, Data: []Expression{&StringLiteral{Value: "FILES"}}}
+	key := &KeyStatement{Token: token.Token{Type: token.KEY, Literal: "KEY"}, Param: token.Token{Type: token.INT, Literal: "1"},
+		Data: []Expression{&StringLiteral{Value: "FILES"}, &StringLiteral{Value: "Syntax Error"}}}
 
 	key.statementNode()
 
 	assert.Equal(t, "KEY", key.TokenLiteral())
-	assert.Equal(t, `KEY 1, "FILES"`, key.String())
+	assert.Equal(t, `KEY 1, "FILES", "Syntax Error"`, key.String())
 }
 
 func Test_ListStatement(t *testing.T) {
@@ -1177,8 +1178,18 @@ func Test_TronTroffCommands(t *testing.T) {
 
 	cmd2.statementNode()
 
-	assert.Equal(t, "TRON", cmd2.TokenLiteral(), "TRON command has incorrect TokenLiteral")
+	assert.Equal(t, "TRON", cmd2.TokenLiteral(), "TRON command has incorrect token.Literal")
 	assert.Equal(t, cmd2.String(), "TRON", "TRON command didn't build string correctly")
+}
+
+func Test_UsingExpression(t *testing.T) {
+	use := UsingExpression{Token: token.Token{Type: token.USING, Literal: "USING"}, Format: &StringLiteral{Value: "###.##"}, Sep: ";",
+		Items: []Expression{&Identifier{Value: "X"}, &Identifier{Value: "Y"}},
+		Seps:  []string{";", ";", ","}}
+
+	use.expressionNode()
+	assert.Equal(t, "USING", use.TokenLiteral(), "USING statement has incorrect token.Literal")
+	assert.Equal(t, `USING "###.##";X;Y;,`, use.String(), "USING String() returned %s", use.String())
 }
 
 func Test_ViewStatement(t *testing.T) {

@@ -48,6 +48,7 @@ const (
 	SEMICOLON = ";"
 	COLON     = ":"
 	AMPERSAND = "&"
+	HASHTAG   = "#"
 
 	LPAREN   = "("
 	RPAREN   = ")"
