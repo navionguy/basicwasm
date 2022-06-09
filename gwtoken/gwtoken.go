@@ -92,6 +92,11 @@ func ParseFile(src *bufio.Reader, env *object.Environment) {
 	rdr.readProg(env)
 }
 
+// used for testing
+func ParseFileToText(src *bufio.Reader, dest *bufio.Writer) {
+	dest.WriteString("gwtoken.ParseFileToText")
+}
+
 // loop to read line header (line number & offset)
 // reads and de-tokens until the end of line
 // then does lexical processing and parsing of the line
@@ -165,6 +170,10 @@ func (rdr *progRdr) readToken() string {
 			return val
 		}
 		if pk[0] == else_TOK {
+			val = rdr.readToken()
+		}
+		if pk[0] == rem_TOK {
+			val = rdr.readToken()
 			val = rdr.readToken()
 		}
 	case '"':

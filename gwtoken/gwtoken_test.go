@@ -125,6 +125,33 @@ func Test_ReadProg(t *testing.T) {
 	}
 }
 
+func Test_RemStatementShortForm(t *testing.T) {
+	tests := []struct {
+		inp   []byte
+		stmts int
+	}{
+		{inp: []byte{0x7C, 0x12, 0x0A, 0x00, 0x3A, 0x8F, 0xD9, 0x20, 0x65, 0x6C,
+			0x6C, 0x6F, 0x22, 0x00, 0x87, 0x12, 0x14, 0x00, 0x59, 0x20, 0xE7,
+			0x20, 0x0F, 0x96, 0x00, 0x92, 0x12, 0x1E, 0x00, 0x5A, 0x20, 0xE7,
+			0x20, 0x0F, 0x30, 0x00, 0x00, 0x00, 0x1A}, stmts: 2},
+	}
+
+	for _, tt := range tests {
+		src := bufio.NewReader(bytes.NewReader(tt.inp))
+		rdr := progRdr{src: src}
+
+		var mt mocks.MockTerm
+		mocks.InitMockTerm(&mt)
+		env := object.NewTermEnvironment(mt)
+
+		rdr.readProg(env)
+		itr := env.StatementIter()
+
+		assert.Equal(t, tt.stmts, itr.Len(), "Test_readProg expected %d statements, got %d", tt.stmts, itr.Len())
+	}
+
+}
+
 func Test_ReadProtProg(t *testing.T) {
 	tests := []struct {
 		inp   []byte
