@@ -10,6 +10,10 @@ import (
 	"github.com/stretchr/testify/assert"
 )
 
+func Test_LiveFile(t *testing.T) {
+
+}
+
 func Test_ParseFile(t *testing.T) {
 	tests := []struct {
 		prg   []byte

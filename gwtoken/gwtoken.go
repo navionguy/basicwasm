@@ -95,6 +95,29 @@ func ParseFile(src *bufio.Reader, env *object.Environment) {
 // used for testing
 func ParseFileToText(src *bufio.Reader, dest *bufio.Writer) {
 	dest.WriteString("gwtoken.ParseFileToText")
+	bt := make([]byte, 1)
+	n, err := src.Read(bt)
+
+	if (err != nil) || (n != 1) {
+		dest.WriteString("File read error")
+		return
+	}
+
+	if bt[0] != TOKEN_FILE {
+		dest.WriteString("Can't parse non token file.")
+		return
+	}
+
+	rdr := progRdr{src: src}
+
+	for true {
+		rdr.readLineHeader()
+		if rdr.linenum == 0 {
+			return
+		}
+		rdr.readLine()
+		dest.WriteString(rdr.lineInp)
+	}
 }
 
 // loop to read line header (line number & offset)
