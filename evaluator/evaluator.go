@@ -234,6 +234,10 @@ func Eval(node ast.Node, code *ast.Code, env *object.Environment) object.Object 
 
 	case *ast.ViewStatement:
 		return evalViewStatement(node, code, env)
+	default:
+		msg := fmt.Sprintf("unsupported codepoint at line %d, %T", code.CurLine(), node)
+		env.Terminal().Println(msg)
+		return &object.HaltSignal{}
 	}
 
 	return nil
@@ -299,6 +303,12 @@ func evalBuiltinExpression(builtin *ast.BuiltinExpression, code *ast.Code, env *
 
 // tries to load a new program and start it's execution.
 func evalChainStatement(chain *ast.ChainStatement, code *ast.Code, env *object.Environment) object.Object {
+	// if no filename was given, report the error
+	if chain.Path == nil {
+		return stdError(env, berrors.Syntax)
+	}
+
+	// eval the path to get a string
 	res := Eval(chain.Path, code, env)
 
 	// make sure the result is a string

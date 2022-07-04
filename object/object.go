@@ -25,8 +25,8 @@ type Object interface {
 
 // some internal environment variables
 const (
-	SERVER_URL = "$$mom"
-	WORK_DRIVE = "$$path"
+	SERVER_URL = "mom"
+	WORK_DRIVE = "path"
 )
 
 const (

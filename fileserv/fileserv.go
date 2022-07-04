@@ -12,6 +12,7 @@ import (
 	"unicode"
 
 	"github.com/gorilla/mux"
+	"github.com/navionguy/basicwasm/ast"
 	"github.com/navionguy/basicwasm/filelist"
 	"github.com/navionguy/basicwasm/gwtoken"
 	"github.com/navionguy/basicwasm/lexer"
@@ -286,6 +287,10 @@ func (f dotFileHidingFile) Readdir(n int) (fis []os.FileInfo, err error) {
 // GetFile fetches
 func GetFile(file string, env *object.Environment) (*bufio.Reader, error) {
 	rq := buildRequestURL(file, env)
+	t := env.Terminal()
+	if t != nil {
+		t.Log(rq)
+	}
 	res, err := sendRequest(rq, env)
 
 	if err != nil {
@@ -324,12 +329,11 @@ func buildRequestURL(target string, env *object.Environment) string {
 // and main pushes it into the environment object store
 func getURL(env *object.Environment) string {
 
-	mom := env.Get(object.SERVER_URL)
-	_, ok := mom.(*object.String)
-	if (mom == nil) || !ok {
-		mom = &object.String{Value: "http://localhost:8080/"}
+	mom := env.GetSetting(object.SERVER_URL)
+	if mom == nil {
+		mom = &ast.StringLiteral{Value: "http://localhost:8080/"}
 	}
-	url := mom.Inspect()
+	url := mom.(*ast.StringLiteral).Value
 	if url[len(url)-1:] != "/" {
 		url = url + "/"
 	}
@@ -339,13 +343,12 @@ func getURL(env *object.Environment) string {
 
 // GetCWD returns the current working directory from the environment
 func GetCWD(env *object.Environment) string {
-	drv := env.Get(object.WORK_DRIVE)
-	_, ok := drv.(*object.String)
-	if (drv == nil) || !ok { // if he wasn't set, use a default
-		drv = &object.String{Value: `C:\`}
+	path := env.GetSetting(object.WORK_DRIVE)
+	if path == nil { // if he wasn't set, use a default
+		path = &ast.StringLiteral{Value: `C:\`}
 	}
 
-	return drv.Inspect()
+	return path.(*ast.StringLiteral).Value
 }
 
 // change to a new working directory
@@ -359,7 +362,7 @@ func SetCWD(path string, env *object.Environment) error {
 	}
 
 	// looks good, save the new working directory
-	env.Set(object.WORK_DRIVE, &object.String{Value: path})
+	env.SaveSetting(object.WORK_DRIVE, &ast.StringLiteral{Value: path})
 
 	return nil
 }

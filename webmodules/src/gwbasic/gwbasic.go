@@ -4,6 +4,7 @@ import (
 	"fmt"
 	"syscall/js"
 
+	"github.com/navionguy/basicwasm/ast"
 	"github.com/navionguy/basicwasm/cli"
 	"github.com/navionguy/basicwasm/keybuffer"
 	"github.com/navionguy/basicwasm/object"
@@ -20,8 +21,8 @@ func registerCallbacks() {
 	term := terminal.New(js.Global().Get("term"))
 
 	env := object.NewTermEnvironment(term)
-	env.Set(object.SERVER_URL, &object.String{Value: momma.String()})
-	env.Set(object.WORK_DRIVE, &object.String{Value: `C:\`})
+	env.SaveSetting(object.SERVER_URL, &ast.StringLiteral{Value: momma.String()})
+	env.SaveSetting(object.WORK_DRIVE, &ast.StringLiteral{Value: `C:\`})
 
 	cli.Start(env)
 	env.Terminal().Log("cli started")

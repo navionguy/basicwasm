@@ -11,6 +11,7 @@ import (
 	"testing"
 
 	"github.com/gorilla/mux"
+	"github.com/navionguy/basicwasm/ast"
 	"github.com/navionguy/basicwasm/gwtoken"
 	"github.com/navionguy/basicwasm/mocks"
 	"github.com/navionguy/basicwasm/object"
@@ -389,8 +390,7 @@ func Test_GetCWD(t *testing.T) {
 		env := object.NewTermEnvironment(trm)
 
 		if len(tt.cwd) > 0 {
-			drv := object.String{Value: tt.cwd}
-			env.Set(object.WORK_DRIVE, &drv)
+			env.SaveSetting(object.WORK_DRIVE, &ast.StringLiteral{Value: tt.cwd})
 		}
 
 		res := GetCWD(env)
@@ -437,8 +437,7 @@ func Test_GetURL(t *testing.T) {
 		env := object.NewTermEnvironment(trm)
 
 		if len(tt.url) > 0 {
-			url := object.String{Value: tt.url}
-			env.Set(object.SERVER_URL, &url)
+			env.SaveSetting(object.SERVER_URL, &ast.StringLiteral{Value: tt.url})
 		}
 
 		res := getURL(env)
@@ -463,13 +462,11 @@ func Test_BuildRequestURL(t *testing.T) {
 		env := object.NewTermEnvironment(trm)
 
 		if len(tt.url) > 0 {
-			url := object.String{Value: tt.url}
-			env.Set(object.SERVER_URL, &url)
+			env.SaveSetting(object.SERVER_URL, &ast.StringLiteral{Value: tt.url})
 		}
 
 		if len(tt.cwd) > 0 {
-			drv := object.String{Value: tt.cwd}
-			env.Set(object.WORK_DRIVE, &drv)
+			env.SaveSetting(object.WORK_DRIVE, &ast.StringLiteral{Value: tt.cwd})
 		}
 
 		res := buildRequestURL(tt.file, env)
@@ -502,15 +499,14 @@ func Test_GetFile(t *testing.T) {
 		}))
 		defer ts.Close()
 
-		url := object.String{Value: ts.URL}
+		url := ast.StringLiteral{Value: ts.URL}
 		if len(tt.url) > 0 {
-			url = object.String{Value: tt.url}
+			url = ast.StringLiteral{Value: tt.url}
 		}
-		env.Set(object.SERVER_URL, &url)
+		env.SaveSetting(object.SERVER_URL, &url)
 
 		if len(tt.cwd) > 0 {
-			drv := object.String{Value: tt.cwd}
-			env.Set(object.WORK_DRIVE, &drv)
+			env.SaveSetting(object.WORK_DRIVE, &ast.StringLiteral{Value: tt.cwd})
 		}
 
 		bt, err := GetFile(tt.file, env)

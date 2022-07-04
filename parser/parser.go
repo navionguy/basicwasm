@@ -368,6 +368,11 @@ func (p *Parser) parseBuiltinExpression() *ast.BuiltinExpression {
 func (p *Parser) parseChainStatement() *ast.ChainStatement {
 	chain := ast.ChainStatement{Token: p.curToken}
 
+	if p.chkEndOfStatement() {
+		p.nextToken()
+		return &chain
+	}
+
 	p.nextToken()
 
 	// check for merge option
@@ -518,14 +523,13 @@ func (p *Parser) parseContCommand() *ast.ContCommand {
 }
 
 func (p *Parser) parseCsrLinVar() ast.Expression {
-	defer untrace(trace("parseCsrLinVar()"))
 	csr := ast.Csrlin{Token: p.curToken}
 
 	return &csr
 }
 
+// parseDataStatement reads the list of data elements
 func (p *Parser) parseDataStatement() *ast.DataStatement {
-	defer untrace(trace("parseDataStatement"))
 	stmt := &ast.DataStatement{Token: p.curToken}
 
 	p.l.PassOn()
@@ -656,6 +660,8 @@ func (p *Parser) parseForStatement() *ast.ForStatment {
 		p.nextToken()
 		four.Step = append(four.Step, p.parseExpression(LOWEST))
 	}
+
+	p.nextToken()
 
 	return &four
 }
@@ -1328,6 +1334,10 @@ func (p *Parser) parseScreenCommandParameters(stmt ast.ScreenStatement) *ast.Scr
 func (p *Parser) parseStopStatement() *ast.StopStatement {
 	defer untrace(trace("parseStopStatement"))
 	stmt := ast.StopStatement{Token: p.curToken}
+
+	if p.peekTokenIs(token.COLON) {
+		p.nextToken()
+	}
 
 	return &stmt
 }

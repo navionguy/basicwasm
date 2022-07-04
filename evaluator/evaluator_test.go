@@ -277,8 +277,7 @@ func Test_ChainStatementCommandLine(t *testing.T) {
 			res.Write([]byte(tt.send))
 		}))
 		defer ts.Close()
-		url := object.String{Value: ts.URL}
-		env.Set(object.SERVER_URL, &url)
+		env.SaveSetting(object.SERVER_URL, &ast.StringLiteral{Value: ts.URL})
 
 		p.ParseCmd(env)
 
@@ -319,8 +318,7 @@ func Test_ChainStatementRunning(t *testing.T) {
 			res.Write([]byte(tt.send))
 		}))
 		defer ts.Close()
-		url := object.String{Value: ts.URL}
-		env.Set(object.SERVER_URL, &url)
+		env.SaveSetting(object.SERVER_URL, &ast.StringLiteral{Value: ts.URL})
 
 		p.ParseProgram(env)
 
@@ -364,8 +362,7 @@ func Test_ChDirStatement(t *testing.T) {
 		}))
 		defer ts.Close()
 
-		url := object.String{Value: ts.URL}
-		env.Set(object.SERVER_URL, &url)
+		env.SaveSetting(object.SERVER_URL, &ast.StringLiteral{Value: ts.URL})
 
 		Eval(&cd, env.CmdLineIter(), env)
 		//evalChDirStatement(&cd, env.CmdLineIter(), env)
@@ -656,12 +653,10 @@ func Test_FilesCommand(t *testing.T) {
 		}))
 		defer ts.Close()
 
-		url := object.String{Value: ts.URL}
-		env.Set(object.SERVER_URL, &url)
+		env.SaveSetting(object.SERVER_URL, &ast.StringLiteral{Value: ts.URL})
 
 		if len(tt.cwd) > 0 {
-			drv := object.String{Value: tt.cwd}
-			env.Set(object.WORK_DRIVE, &drv)
+			env.SaveSetting(object.WORK_DRIVE, &ast.StringLiteral{Value: tt.cwd})
 		}
 
 		p.ParseCmd(env)
@@ -695,7 +690,7 @@ func Test_CatchNotDir(t *testing.T) {
 		var rec string
 		mt.SawStr = &rec
 		env := object.NewTermEnvironment(mt)
-		env.Set(object.WORK_DRIVE, &object.String{Value: `C:\`})
+		env.SaveSetting(object.WORK_DRIVE, &ast.StringLiteral{Value: `C:\`})
 
 		catchNotDir(tt.path, errors.New(tt.send), env)
 		assert.Equal(t, tt.exp, rec, "Test_CatchNotDir got unexpected return")
@@ -1061,6 +1056,31 @@ func Test_LoadCommand(t *testing.T) {
 			t.Fatalf("%s should have errored, but didn't", tt.cmd)
 		}
 	}
+}
+
+func Test_LoadCommandWithLiveServer(t *testing.T) {
+	tests := []struct {
+		cmd string // the load command to
+	}{
+		{cmd: `LOAD "HCALC.txt"`},
+	}
+
+	for _, tt := range tests {
+		p := parser.New(lexer.New(tt.cmd))
+
+		errs := p.Errors()
+		for _, e := range errs {
+			t.Fatalf(e)
+		}
+		var mt mocks.MockTerm
+		initMockTerm(&mt)
+		env := object.NewTermEnvironment(mt)
+		p.ParseCmd(env)
+
+		Eval(&ast.Program{}, env.CmdLineIter(), env)
+
+	}
+
 }
 
 func Test_LocateStatement(t *testing.T) {
