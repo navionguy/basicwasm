@@ -10,6 +10,7 @@ import (
 	"github.com/navionguy/basicwasm/ast"
 	"github.com/navionguy/basicwasm/berrors"
 	"github.com/navionguy/basicwasm/decimal"
+	"github.com/navionguy/basicwasm/fileserv"
 	"github.com/navionguy/basicwasm/lexer"
 	"github.com/navionguy/basicwasm/mocks"
 	"github.com/navionguy/basicwasm/object"
@@ -338,14 +339,18 @@ func Test_ChainStatementRunning(t *testing.T) {
 
 func Test_ChDirStatement(t *testing.T) {
 	tests := []struct {
-		path ast.Expression
-		exp  string
-		rc   int
+		path  ast.Expression
+		exp   string // what the CWD should end up being
+		mkURL string // mock url for the mock server
+		rc    int    // return code for mock server
 	}{
-		{},
-		{path: &ast.StringLiteral{Value: `D:\`}, exp: `http://localhost:8000/driveD/`, rc: 200},
-		{path: &ast.StringLiteral{Value: `D:\`}, exp: `http://localhost:8000/driveD/`, rc: 404},
-		{path: &ast.IntegerLiteral{Value: 6}},
+		//{},
+		{path: &ast.StringLiteral{Value: `D:\`}, mkURL: `http://localhost:8000/driveD/`, exp: `D:\`, rc: 200},
+		{path: &ast.StringLiteral{Value: `D:\`}, mkURL: `http://localhost:8000/driveD/`, exp: `C:\`, rc: 404},
+		{path: &ast.StringLiteral{Value: `PROG`}, mkURL: `http://localhost:8000/driveC/prog/`, exp: `C:\PROG\`, rc: 200},
+		{path: &ast.StringLiteral{Value: `PROG`}, mkURL: `http://localhost:8000/driveC/prog/`, exp: `C:\`, rc: 404},
+		{path: &ast.IntegerLiteral{Value: 6}, exp: `C:\`},
+		{path: &ast.StringLiteral{Value: `\PROG`}, mkURL: `http://localhost:8000/driveC/prog/`, exp: `C:\PROG\`, rc: 200},
 	}
 
 	for _, tt := range tests {
@@ -365,6 +370,9 @@ func Test_ChDirStatement(t *testing.T) {
 		env.SaveSetting(object.SERVER_URL, &ast.StringLiteral{Value: ts.URL})
 
 		Eval(&cd, env.CmdLineIter(), env)
+
+		cwd := fileserv.GetCWD(env)
+		assert.Equal(t, tt.exp, cwd)
 		//evalChDirStatement(&cd, env.CmdLineIter(), env)
 
 	}
@@ -621,17 +629,47 @@ func Test_EvalExpressionNode(t *testing.T) {
 	}
 }
 
+func Test_EvalExpressionNodeTyped(t *testing.T) {
+	tests := []struct {
+		inp  ast.Node
+		want object.Object
+		err  bool
+		dsc  string
+	}{
+		{inp: &ast.StringLiteral{Value: "A test!"}, want: &object.String{}, err: false, dsc: "string to get string"},
+		{inp: &ast.StringLiteral{Value: "A test!"}, want: &object.Integer{}, err: true, dsc: "string to get integer"},
+		{inp: &ast.IntegerLiteral{Value: 12}, want: &object.Integer{}, err: false, dsc: "integer to get integer"},
+	}
+
+	for _, tt := range tests {
+
+		var mt mocks.MockTerm
+		initMockTerm(&mt)
+		env := object.NewTermEnvironment(mt)
+
+		rc := evalExpressionNodeTyped(tt.inp, nil, env, tt.want)
+
+		if !tt.err {
+			assert.NotNil(t, rc, tt.dsc)
+		} else {
+			assert.Nil(t, rc, tt.dsc)
+		}
+	}
+}
+
 func Test_FilesCommand(t *testing.T) {
 	tests := []struct {
-		param string
-		cwd   string
-		send  string
-		exp   string
-		rs    int
-		err   bool
+		param  string
+		expmsg string
+		cwd    string
+		send   string
+		exp    string
+		rs     int
+		err    bool
 	}{
-		{param: "", cwd: `C:\`, send: "10 PRINT \"Main Menu\"\n", exp: "10 PRINT \"Main Menu\"\n", rs: 404, err: false},
+		{param: "", expmsg: `driveC/`, cwd: `C:\`, send: "10 PRINT \"Main Menu\"\n", exp: "10 PRINT \"Main Menu\"\n", rs: 404, err: false},
 		{param: "", cwd: `C:\`, send: "10 PRINT \"Main Menu\"\n", exp: "10 PRINT \"Main Menu\"\n", rs: 200, err: false},
+		{param: "HamCalc", cwd: `C:\`, send: "10 PRINT \"Main Menu\"\n", exp: "10 PRINT \"Main Menu\"\n", rs: 200, err: false},
 		{param: "", cwd: `C:\`, send: `[{"name":"test.bas","isdir":false},{"name":"alongername.bas","isdir":true}]`, exp: `[{"name":"test.bas","isdir":false},{"name":"alongername.bas","isdir":true}]`, rs: 200, err: false},
 	}
 
@@ -648,10 +686,13 @@ func Test_FilesCommand(t *testing.T) {
 		initMockTerm(&mt)
 		env := object.NewTermEnvironment(mt)
 		ts := httptest.NewServer(http.HandlerFunc(func(res http.ResponseWriter, req *http.Request) {
+			env.Terminal().Log(req.RequestURI)
 			res.WriteHeader(tt.rs)
 			res.Write([]byte(tt.send))
 		}))
 		defer ts.Close()
+		//mexp := mocks.Expector{Exp: []string{ts.URL + tt.expmsg}}
+		//mt.ExpMsg = &mexp
 
 		env.SaveSetting(object.SERVER_URL, &ast.StringLiteral{Value: ts.URL})
 
@@ -671,6 +712,7 @@ func Test_FilesCommand(t *testing.T) {
 
 		Eval(&ast.Program{}, env.CmdLineIter(), env)
 
+		//assert.True(t, mt.ExpMsg.Failed, mt.SawStr)
 	}
 }
 
@@ -1363,7 +1405,7 @@ func Test_ReturnStatement(t *testing.T) {
 			initMockTerm(&mt)
 			env := object.NewTermEnvironment(mt)
 
-			exp := stdError(env, tt.err)
+			exp := object.StdError(env, tt.err)
 			exp.Message = exp.Message + " in 10"
 			assert.Equal(t, exp, res)
 		}

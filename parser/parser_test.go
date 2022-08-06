@@ -297,6 +297,7 @@ func Test_Commands(t *testing.T) {
 		{inp: "CLEAR ,32767", tk: token.CLEAR, lst: "CLEAR ,32767"},
 		{inp: "FILES", tk: token.FILES, lst: "FILES"},
 		{inp: `FILES "C:\MENU"`, tk: token.FILES, lst: `FILES "C:\MENU"`},
+		{inp: `FILES "C:\MENU", "AndSuch"`, tk: token.FILES, lst: `FILES "C:\MENU", "AndSuch"`},
 	}
 
 	for _, tt := range tests {

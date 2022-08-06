@@ -8,9 +8,10 @@ import (
 
 // mocks the parts of http.Client that I use
 type MockClient struct {
-	Contents string // file contents to send back
-	Url      string // Url to validate
-	Err      error  // Error to return on call
+	Contents   string // file contents to send back
+	Url        string // Url to validate
+	Err        error  // Error to return on call
+	StatusCode int    // Status code to return
 }
 
 func (mc *MockClient) Get(url string) (*http.Response, error) {
@@ -21,14 +22,17 @@ func (mc *MockClient) Get(url string) (*http.Response, error) {
 
 	// Do I need to validate the Url?
 	if (len(mc.Url) != 0) && (strings.Compare(mc.Url, url) != 0) {
-		rsp := http.Response{Status: "404 Not Found"}
+		rsp := http.Response{Status: "404 Not Found", StatusCode: mc.StatusCode}
 		return &rsp, errors.New("URL not found")
 	}
 
 	rdr := readCloser{}
 	rdr.rdr = strings.NewReader(mc.Contents)
-	rsp := http.Response{Status: "200 OK", StatusCode: 200, Body: &rdr}
-	return &rsp, nil
+	if mc.StatusCode == 0 {
+		mc.StatusCode = 200
+	}
+	rsp := http.Response{Status: "200 OK", StatusCode: mc.StatusCode, Body: &rdr}
+	return &rsp, mc.Err
 }
 
 // implement a io.ReadCloser

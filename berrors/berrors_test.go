@@ -21,9 +21,11 @@ func TestTextForError(t *testing.T) {
 		{inp: ReturnWoGosub, exp: "RETURN without GOSUB"},
 		{inp: Syntax, exp: "Syntax error"},
 		{inp: TypeMismatch, exp: "Type mismatch"},
+		{inp: UndefinedFunction, exp: "Undefined user function"},
 		{inp: UnDefinedLineNumber, exp: "Undefined line number"},
 		{inp: PathNotFound, exp: "Path not found"},
 		{inp: 100, exp: "Unprintable error"},
+		{inp: ServerError, exp: "Server error"},
 	}
 
 	for _, tt := range tests {

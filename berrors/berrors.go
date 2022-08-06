@@ -78,6 +78,7 @@ const (
 	_
 	_
 	PathNotFound
+	ServerError
 )
 
 // TextForError returns the error text based on error number
@@ -109,6 +110,8 @@ func TextForError(err int) string {
 		return "Undefined line number"
 	case PathNotFound:
 		return "Path not found"
+	case ServerError:
+		return "Server error"
 	}
 
 	return "Unprintable error"

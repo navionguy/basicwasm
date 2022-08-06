@@ -6,6 +6,7 @@ import (
 	"testing"
 
 	"github.com/navionguy/basicwasm/ast"
+	"github.com/navionguy/basicwasm/berrors"
 	"github.com/navionguy/basicwasm/decimal"
 	"github.com/navionguy/basicwasm/mocks"
 	"github.com/navionguy/basicwasm/settings"
@@ -355,6 +356,31 @@ func Test_Stack(t *testing.T) {
 		if nilSeen != tt.expNil {
 			assert.Equal(t, tt.expNil, nilSeen)
 		}
+	}
+}
+
+func Test_StdError(t *testing.T) {
+	tests := []struct {
+		errNum  int    // error I want to get to get back
+		expMsg  string // expected message string
+		running bool   // should running flag be set in environment
+	}{
+		{errNum: berrors.NextWithoutFor, expMsg: "NEXT without FOR"},
+		{errNum: berrors.Syntax, expMsg: "Syntax error in 10", running: true},
+		{errNum: berrors.PathNotFound, expMsg: "Path not found"},
+	}
+
+	for _, tt := range tests {
+		env := newEnvironment()
+		if tt.running {
+			ln := &IntDbl{Value: 10}
+			env.Set(token.LINENUM, ln)
+			env.run = true
+		}
+		err := StdError(env, tt.errNum)
+
+		assert.Equal(t, tt.errNum, err.Code)
+		assert.Equal(t, tt.expMsg, err.Message)
 	}
 }
 

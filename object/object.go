@@ -10,7 +10,9 @@ import (
 	"strings"
 
 	"github.com/navionguy/basicwasm/ast"
+	"github.com/navionguy/basicwasm/berrors"
 	"github.com/navionguy/basicwasm/decimal"
+	"github.com/navionguy/basicwasm/token"
 )
 
 // BuiltinFunction is a function defined by gwbasic
@@ -154,6 +156,22 @@ type Error struct {
 
 func (e *Error) Type() ObjectType { return ERROR_OBJ }
 func (e *Error) Inspect() string  { return e.Message }
+
+// StdError returns both the GWBASIC message, and error code for a basic error
+func StdError(env *Environment, err int) *Error {
+	// get the base error message
+	e := Error{Code: err, Message: berrors.TextForError(err)}
+
+	if env.ProgramRunning() {
+		tk := env.Get(token.LINENUM)
+
+		if tk != nil {
+			e.Message += fmt.Sprintf(" in %d", tk.(*IntDbl).Value)
+		}
+	}
+
+	return &e
+}
 
 type ForBlock struct {
 	Code ast.RetPoint     // the location in the AST of the FOR statement

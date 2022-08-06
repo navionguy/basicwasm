@@ -2,7 +2,6 @@ package fileserv
 
 import (
 	"bufio"
-	"errors"
 	"flag"
 	"fmt"
 	"net/http"
@@ -13,6 +12,7 @@ import (
 
 	"github.com/gorilla/mux"
 	"github.com/navionguy/basicwasm/ast"
+	"github.com/navionguy/basicwasm/berrors"
 	"github.com/navionguy/basicwasm/filelist"
 	"github.com/navionguy/basicwasm/gwtoken"
 	"github.com/navionguy/basicwasm/lexer"
@@ -285,7 +285,7 @@ func (f dotFileHidingFile) Readdir(n int) (fis []os.FileInfo, err error) {
 // and to work with the files to process them
 
 // GetFile fetches
-func GetFile(file string, env *object.Environment) (*bufio.Reader, error) {
+func GetFile(file string, env *object.Environment) (*bufio.Reader, object.Object) {
 	rq := buildRequestURL(file, env)
 	t := env.Terminal()
 	if t != nil {
@@ -297,22 +297,34 @@ func GetFile(file string, env *object.Environment) (*bufio.Reader, error) {
 		return nil, err
 	}
 
+	if res.StatusCode != 200 {
+		e := object.StdError(env, berrors.ServerError)
+		e.Message = e.Message + fmt.Sprintf(" %d", res.StatusCode)
+		return nil, e
+	}
+
 	rdr := bufio.NewReader(res.Body)
 
 	return rdr, nil
 }
 
-func sendRequest(rq string, env *object.Environment) (*http.Response, error) {
+// execute a get via the current HTTPClient
+func sendRequest(rq string, env *object.Environment) (*http.Response, object.Object) {
 	res, err := env.GetClient().Get(rq)
 
 	if err != nil {
-		return nil, err
-	}
+		if res == nil {
+			er := object.Error{Message: err.Error()}
+			return nil, &er
+		}
 
-	if res.StatusCode != 200 {
-		return nil, errors.New("File not found")
+		switch res.StatusCode {
+		case http.StatusNotFound:
+			return nil, object.StdError(env, berrors.FileNotFound)
+		default:
+			return nil, object.StdError(env, berrors.ServerError)
+		}
 	}
-
 	return res, nil
 }
 
@@ -341,6 +353,32 @@ func getURL(env *object.Environment) string {
 	return url
 }
 
+// BuildFullPath takes a filepath and builds into a full file specification
+// Decide what kind of path we are being given
+// 1. Change to directory on a different drive
+// 2. Change from the root of the current drive
+// 3. Change relative to the current directory
+func BuildFullPath(path string, env *object.Environment) string {
+	// make sure the path always ends in '\'
+	if !strings.EqualFold(path[len(path)-1:], `\`) {
+		path = path + `\`
+	}
+	// is it a full path specification, case 1
+	if strings.EqualFold(path[1:3], ":\\") {
+		return path
+	}
+
+	// does the path start from the root, case 2
+	if strings.EqualFold(path[0:1], "\\") {
+		// add path to CWD
+		return GetCWD(env)[0:2] + path
+	}
+
+	// is it directory off the current directory, case 3
+	// add path to CWD
+	return GetCWD(env) + path
+}
+
 // GetCWD returns the current working directory from the environment
 func GetCWD(env *object.Environment) string {
 	path := env.GetSetting(object.WORK_DRIVE)
@@ -352,7 +390,7 @@ func GetCWD(env *object.Environment) string {
 }
 
 // change to a new working directory
-func SetCWD(path string, env *object.Environment) error {
+func SetCWD(path string, env *object.Environment) object.Object {
 	// ask the server for contents of path
 	_, err := GetFile(path, env)
 

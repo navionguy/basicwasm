@@ -8,6 +8,7 @@ import (
 	"testing"
 
 	"github.com/navionguy/basicwasm/mocks"
+	"github.com/navionguy/basicwasm/object"
 	"github.com/stretchr/testify/assert"
 )
 
@@ -35,7 +36,10 @@ func Test_FilesJSON(t *testing.T) {
 	files = fl.JSON()
 	assert.EqualValuesf(t, string(files), marshaledFiles, "Test_FilesJSON unexpected results, got %s,\n wanted %s", string(files), marshaledFiles)
 
-	fl.Build(bufio.NewReader(bytes.NewReader([]byte(buildFiles))))
+	mt := &mocks.MockTerm{}
+	env := object.NewTermEnvironment(mt)
+
+	fl.Build(bufio.NewReader(bytes.NewReader([]byte(buildFiles))), env)
 	assert.Len(t, fl.Files, 2, "Test_FilesJSON Build sent back %d elements, expected 2", len(fl.Files))
 }
 

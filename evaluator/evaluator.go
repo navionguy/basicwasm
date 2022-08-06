@@ -49,7 +49,7 @@ func Eval(node ast.Node, code *ast.Code, env *object.Environment) object.Object 
 		return evalChainStatement(node, code, env)
 
 	case *ast.ChDirStatement:
-		evalChDirStatement(node, code, env)
+		return evalChDirStatement(node, code, env)
 
 	case *ast.ClearCommand:
 		evalClearCommand(node, code, env)
@@ -58,7 +58,7 @@ func Eval(node ast.Node, code *ast.Code, env *object.Environment) object.Object 
 		evalClsStatement(node, code, env)
 
 	case *ast.ColorStatement:
-		evalColorStatement(node, code, env)
+		return evalColorStatement(node, code, env)
 
 	case *ast.ContCommand:
 		return evalContCommand(node, code, env)
@@ -213,7 +213,7 @@ func Eval(node ast.Node, code *ast.Code, env *object.Environment) object.Object 
 		function := Eval(node.Function, code, env)
 		if isError(function) {
 			// looking up the function failed, must be undefined
-			return stdError(env, berrors.UndefinedFunction)
+			return object.StdError(env, berrors.UndefinedFunction)
 		}
 
 		args := evalExpressions(node.Arguments, code, env)
@@ -291,7 +291,7 @@ func evalBuiltinExpression(builtin *ast.BuiltinExpression, code *ast.Code, env *
 	blt, ok := builtins.Builtins[builtin.TokenLiteral()]
 
 	if !ok {
-		return stdError(env, berrors.Syntax)
+		return object.StdError(env, berrors.Syntax)
 	}
 
 	// evaluate all of his parameters
@@ -305,7 +305,7 @@ func evalBuiltinExpression(builtin *ast.BuiltinExpression, code *ast.Code, env *
 func evalChainStatement(chain *ast.ChainStatement, code *ast.Code, env *object.Environment) object.Object {
 	// if no filename was given, report the error
 	if chain.Path == nil {
-		return stdError(env, berrors.Syntax)
+		return object.StdError(env, berrors.Syntax)
 	}
 
 	// eval the path to get a string
@@ -315,7 +315,7 @@ func evalChainStatement(chain *ast.ChainStatement, code *ast.Code, env *object.E
 	fn, ok := res.(*object.String)
 
 	if !ok {
-		return stdError(env, berrors.TypeMismatch)
+		return object.StdError(env, berrors.TypeMismatch)
 	}
 	return evalChainLoad(fn.Value, code, chain, env)
 }
@@ -325,8 +325,7 @@ func evalChainLoad(file string, code *ast.Code, chain *ast.ChainStatement, env *
 	rdr, err := fileserv.GetFile(file, env)
 
 	if err != nil {
-		env.Terminal().Println(err.Error())
-		return nil
+		return err
 	}
 
 	return evalChainParse(rdr, code, chain, env)
@@ -366,30 +365,24 @@ func evalChainExecute(chain *ast.ChainStatement, env *object.Environment) object
 }
 
 // executing a directory change
-func evalChDirStatement(chdir *ast.ChDirStatement, code *ast.Code, env *object.Environment) {
+func evalChDirStatement(chdir *ast.ChDirStatement, code *ast.Code, env *object.Environment) object.Object {
 	// should be one, and only one, parameter
 	if len(chdir.Path) != 1 {
-		stdError(env, berrors.Syntax)
-		return
+		return object.StdError(env, berrors.Syntax)
 	}
 
 	// evaluate my path expression
-	rc := evalExpressionNode(chdir.Path[0], code, env)
+	rc := evalExpressionNodeTyped(chdir.Path[0], code, env, &object.String{})
 
 	// I should get a string value
 	path, ok := rc.(*object.String)
 	if !ok {
-		stdError(env, berrors.Syntax)
-		return
+		return object.StdError(env, berrors.Syntax)
 	}
 
-	// tell the server to switch to that path
-	err := fileserv.SetCWD(path.Value, env)
+	fp := fileserv.BuildFullPath(path.Value, env)
 
-	// if he can't find it, I can't use it
-	if err != nil {
-		stdError(env, berrors.PathNotFound)
-	}
+	return fileserv.SetCWD(fp, env)
 }
 
 // clear all variables and close all files
@@ -399,18 +392,24 @@ func evalClearCommand(clear *ast.ClearCommand, code *ast.Code, env *object.Envir
 	env.ClearCommon()
 }
 
+// just tell the termianl to clear the screen
+func evalClsStatement(cls *ast.ClsStatement, code *ast.Code, env *object.Environment) {
+	env.Terminal().Cls()
+}
+
 // change screen foreground/background color
-func evalColorStatement(color *ast.ColorStatement, code *ast.Code, env *object.Environment) {
+func evalColorStatement(color *ast.ColorStatement, code *ast.Code, env *object.Environment) object.Object {
 	// get the current screen mode
 	scr := evalColorMode(env)
 
 	plt := evalColorPalette(scr, env)
 
+	// TODO this will one day support more modes
 	switch scr.Settings[ast.ScrnMode] {
 	case ast.ScrnModeMDA, ast.ScrnModeCGA: // Text mode only
-		evalColorScreen0(color, plt.CurPalette, code, env)
+		return evalColorScreen0(color, plt.CurPalette, code, env)
 	default:
-		stdError(env, berrors.IllegalFuncCallErr)
+		return object.StdError(env, berrors.IllegalFuncCallErr)
 	}
 }
 
@@ -432,12 +431,11 @@ func evalColorMode(env *object.Environment) *ast.ScreenStatement {
 
 // for screen mode 0, the three parameters are foreground, background, border
 // ToDo: actually support border color if I ever see it used
-func evalColorScreen0(color *ast.ColorStatement, plt ast.ColorPalette, code *ast.Code, env *object.Environment) {
+func evalColorScreen0(color *ast.ColorStatement, plt ast.ColorPalette, code *ast.Code, env *object.Environment) object.Object {
 	for i, exp := range color.Parms {
 		// error on border for now
 		if i == 2 {
-			stdError(env, berrors.IllegalFuncCallErr)
-			return
+			return object.StdError(env, berrors.IllegalFuncCallErr)
 		}
 
 		// if there is a param, evaluate and action it
@@ -446,11 +444,13 @@ func evalColorScreen0(color *ast.ColorStatement, plt ast.ColorPalette, code *ast
 			ind, err := coerceIndex(val[0], env)
 
 			if err != nil {
-				return
+				return err
 			}
 			evalColorSet((ind & 0x0f), (i == 1), plt, env)
 		}
 	}
+
+	return nil
 }
 
 // use the map to calculate  final output
@@ -492,21 +492,21 @@ func evalCommonStatement(com *ast.CommonStatement, code *ast.Code, env *object.E
 func evalContCommand(cont *ast.ContCommand, code *ast.Code, env *object.Environment) object.Object {
 	// if a program is currently running, you can't use this command
 	if env.ProgramRunning() {
-		return stdError(env, berrors.CantContinue)
+		return object.StdError(env, berrors.CantContinue)
 	}
 
 	// see if there is a saved continuation point
 	np := env.GetSetting(settings.Restart)
 
 	if np == nil {
-		return stdError(env, berrors.CantContinue)
+		return object.StdError(env, berrors.CantContinue)
 	}
 
 	// recover the ast.Code object
 	cd := np.(*ast.Code)
 
 	if cd == nil {
-		return stdError(env, berrors.CantContinue)
+		return object.StdError(env, berrors.CantContinue)
 	}
 
 	// move the code iterator to the continuation point
@@ -600,7 +600,7 @@ func evalStatementResult(rc object.Object, code *ast.Code, env *object.Environme
 		rc = nil
 	default:
 		halt = true
-		rc = stdError(env, berrors.Syntax)
+		rc = object.StdError(env, berrors.Syntax)
 	}
 
 	return halt, code, rc
@@ -629,20 +629,20 @@ func evalReadStatement(rd *ast.ReadStatement, code *ast.Code, env *object.Enviro
 
 	// if no vars, that's a problem
 	if len(rd.Vars) == 0 {
-		return stdError(env, berrors.Syntax)
+		return object.StdError(env, berrors.Syntax)
 	}
 
 	for _, item := range rd.Vars {
 		name, ok := item.(*ast.Identifier)
 
 		if !ok {
-			return stdError(env, berrors.Syntax)
+			return object.StdError(env, berrors.Syntax)
 		}
 
 		cst := env.ConstData().Next()
 
 		if cst == nil {
-			return stdError(env, berrors.OutOfData)
+			return object.StdError(env, berrors.OutOfData)
 		}
 
 		switch val := (*cst).(type) {
@@ -698,7 +698,7 @@ func evalReturnStatement(ret *ast.ReturnStatement, code *ast.Code, env *object.E
 
 	// check for stack underflow
 	if rt == nil {
-		return stdError(env, berrors.ReturnWoGosub)
+		return object.StdError(env, berrors.ReturnWoGosub)
 	}
 
 	code.JumpToRetPoint(*rt)
@@ -723,7 +723,7 @@ func evalRunLoad(run *ast.RunCommand, code *ast.Code, env *object.Environment) o
 	fname, ok := val.(*object.String)
 
 	if !ok {
-		stdError(env, berrors.TypeMismatch)
+		object.StdError(env, berrors.TypeMismatch)
 	}
 
 	return evalRunFetch(fname.Value, run, env)
@@ -733,7 +733,7 @@ func evalRunFetch(file string, run *ast.RunCommand, env *object.Environment) obj
 	rdr, err := fileserv.GetFile(file, env)
 
 	if err != nil {
-		stdError(env, berrors.Syntax)
+		object.StdError(env, berrors.Syntax)
 		return nil
 	}
 	return evalRunParse(rdr, run, env)
@@ -762,7 +762,7 @@ func evalRunCheckStartLineNum(run *ast.RunCommand, env *object.Environment) obje
 		err := pcode.Jump(run.StartLine)
 
 		if len(err) > 0 {
-			return stdError(env, berrors.UnDefinedLineNumber)
+			return object.StdError(env, berrors.UnDefinedLineNumber)
 		}
 	}
 
@@ -796,7 +796,7 @@ func evalScreenStatement(scrn *ast.ScreenStatement, code *ast.Code, env *object.
 
 		// only valid values are 0,1,2,7,8,9,10
 		if (id < 0) || ((id > 2) && (id < 7)) || (id > 10) {
-			return stdError(env, berrors.IllegalFuncCallErr)
+			return object.StdError(env, berrors.IllegalFuncCallErr)
 		}
 
 		cur.Settings[i] = int(id)
@@ -844,10 +844,6 @@ func evalTroffCommand(env *object.Environment) {
 // turn on tracing
 func evalTronCommand(env *object.Environment) {
 	env.SetTrace(true)
-}
-
-func evalClsStatement(cls *ast.ClsStatement, code *ast.Code, env *object.Environment) {
-	env.Terminal().Cls()
 }
 
 func evalDimStatement(dim *ast.DimStatement, code *ast.Code, env *object.Environment) {
@@ -933,22 +929,45 @@ func evalEndStatement(end *ast.EndStatement, code *ast.Code, env *object.Environ
 
 // FILES instruct the system to list filenames for current directory
 // FILES "path" lists all files in the specified directory
-func evalFilesCommand(files *ast.FilesCommand, code *ast.Code, env *object.Environment) {
+func evalFilesCommand(files *ast.FilesCommand, code *ast.Code, env *object.Environment) object.Object {
+	// I should have at most one parameter
+	if len(files.Path) > 1 {
+		return object.StdError(env, berrors.Syntax)
+	}
 
-	dir, err := fileserv.GetFile(files.Path, env)
+	// assume no param, get the CWD
+	pth := fileserv.GetCWD(env)
+
+	// if there is a param, retrieve the value
+	if len(files.Path) > 0 {
+		// eval the expression expecting a string to come back
+		res := evalExpressionNodeTyped(files.Path[0], code, env, &object.String{})
+
+		// If I don't get a string, we have a syntax error
+		if res == nil {
+			return object.StdError(env, berrors.Syntax)
+		}
+
+		// use the parameter value instead of CWD
+		pth = fileserv.BuildFullPath(res.(*object.String).Value, env)
+	}
+
+	dir, err := fileserv.GetFile(pth, env)
 	if err != nil {
-		env.Terminal().Println(err.Error())
-		return
+		return err
 	}
 
 	list := filelist.NewFileList()
-	err = list.Build(dir)
+	err = list.Build(dir, env)
 	if err != nil {
-		catchNotDir(files.Path, err, env)
-		return
+		env.Terminal().Log("list build failed!")
+		//catchNotDir(files.Path, err, env)
+		return err
 	}
 
 	displayFiles(list, env)
+
+	return nil
 }
 
 func catchNotDir(path string, err error, env *object.Environment) {
@@ -988,14 +1007,14 @@ type forStmtParams struct {
 func evalForStatement(four *ast.ForStatment, code *ast.Code, env *object.Environment) object.Object {
 	// check for obvious problems
 	if (four.Init == nil) || (len(four.Final) == 0) {
-		return stdError(env, berrors.Syntax)
+		return object.StdError(env, berrors.Syntax)
 	}
 
 	// initialize my counter
 	rc := Eval(four.Init, code, env)
 
 	if rc != nil {
-		return stdError(env, berrors.Syntax)
+		return object.StdError(env, berrors.Syntax)
 	}
 
 	initial := env.Get(four.Init.Name.Value)
@@ -1063,24 +1082,24 @@ func evalForSkipLoop(four *ast.ForStatment, code *ast.Code, env *object.Environm
 			// found a NEXT, but do the variables match?
 			if (len(typ.Id.String()) != 0) && !strings.EqualFold(typ.Id.String(), four.Init.Name.Value) {
 				// nope, that's a problem
-				return stdError(env, berrors.NextWithoutFor)
+				return object.StdError(env, berrors.NextWithoutFor)
 			}
 			return nil
 		}
 		more = code.Next()
 	}
-	return stdError(env, berrors.ForWoNext)
+	return object.StdError(env, berrors.ForWoNext)
 }
 
 // push current code position then jump to new position
 func evalGosubStatement(gosub *ast.GosubStatement, code *ast.Code, env *object.Environment) object.Object {
 	// if 0, means no line number specified
 	if gosub.Gosub == 0 {
-		return stdError(env, berrors.Syntax)
+		return object.StdError(env, berrors.Syntax)
 	}
 	// check that the line exists
 	if !code.Exists(gosub.Gosub) {
-		return stdError(env, berrors.UnDefinedLineNumber)
+		return object.StdError(env, berrors.UnDefinedLineNumber)
 	}
 
 	// save the return address and jump to the sub-routine
@@ -1098,7 +1117,7 @@ func evalGotoStatement(jmp string, code *ast.Code, env *object.Environment) obje
 	line, err := strconv.Atoi(strings.Trim(jmp, " "))
 
 	if err != nil {
-		return stdError(env, berrors.Syntax)
+		return object.StdError(env, berrors.Syntax)
 	}
 
 	if env.ProgramRunning() {
@@ -1114,7 +1133,7 @@ func evalGotoJump(line int, code *ast.Code, env *object.Environment) object.Obje
 	msg := code.Jump(line)
 
 	if len(msg) > 0 {
-		return stdError(env, berrors.UnDefinedLineNumber)
+		return object.StdError(env, berrors.UnDefinedLineNumber)
 	}
 	if env.GetTrace() {
 		env.Terminal().Print(fmt.Sprintf("[%d]", line))
@@ -1130,7 +1149,7 @@ func evalGotoStart(line int, env *object.Environment) object.Object {
 
 	// if I get a msg, line wasn't found
 	if len(msg) > 0 {
-		return stdError(env, berrors.UnDefinedLineNumber)
+		return object.StdError(env, berrors.UnDefinedLineNumber)
 	}
 
 	// go run the program
@@ -1223,7 +1242,7 @@ func evalLoadCommand(stmt *ast.LoadCommand, code *ast.Code, env *object.Environm
 	str, ok := res.(*object.String)
 
 	if !ok {
-		return stdError(env, berrors.TypeMismatch)
+		return object.StdError(env, berrors.TypeMismatch)
 	}
 
 	return evalLoadGetFile(str.Value, stmt, code, env)
@@ -1235,7 +1254,7 @@ func evalLoadGetFile(file string, stmt *ast.LoadCommand, code *ast.Code, env *ob
 
 	if err != nil {
 		// server sent an error, get out
-		return &object.Error{Message: err.Error()}
+		return err
 	}
 
 	return evalLoadParse(rdr, stmt, code, env)
@@ -1260,7 +1279,7 @@ func evalLoadParse(rdr *bufio.Reader, stmt *ast.LoadCommand, code *ast.Code, env
 func evalLocateStatement(stmt *ast.LocateStatement, code *ast.Code, env *object.Environment) object.Object {
 	// check if I have too many parameters or not enough
 	if (len(stmt.Parms) > 5) || (len(stmt.Parms) == 0) {
-		return stdError(env, berrors.Syntax)
+		return object.StdError(env, berrors.Syntax)
 	}
 
 	// evaluate movement of cursor
@@ -1310,7 +1329,7 @@ func evalLocateCursorShow(stmt *ast.LocateStatement, code *ast.Code, env *object
 		return nil
 	}
 
-	return stdError(env, berrors.Syntax)
+	return object.StdError(env, berrors.Syntax)
 }
 
 // convert a string octal constant into an integer
@@ -1321,9 +1340,9 @@ func evalOctalConstant(stmt *ast.OctalConstant, env *object.Environment) object.
 	if err != nil {
 		st := err.Error()
 		if strings.Contains(st, "value out of range") {
-			return stdError(env, berrors.Overflow)
+			return object.StdError(env, berrors.Overflow)
 		}
-		return stdError(env, berrors.Syntax)
+		return object.StdError(env, berrors.Syntax)
 	}
 
 	return &object.Integer{Value: int16(dst)}
@@ -1344,7 +1363,7 @@ func evalNewCommand(cmd *ast.NewCommand, code *ast.Code, env *object.Environment
 func evalNextStatement(stmt *ast.NextStatement, code *ast.Code, env *object.Environment) object.Object {
 	// make sure we are actually in a FOR loop
 	if len(env.ForLoops) == 0 {
-		return stdError(env, berrors.NextWithoutFor)
+		return object.StdError(env, berrors.NextWithoutFor)
 	}
 
 	blk := env.ForLoops[len(env.ForLoops)-1:]
@@ -1353,7 +1372,7 @@ func evalNextStatement(stmt *ast.NextStatement, code *ast.Code, env *object.Envi
 	if stmt.Id.Token.Literal != "" {
 		// make sure they match
 		if !strings.EqualFold(stmt.Id.Token.Literal, blk[0].Four.Init.Name.Token.Literal) {
-			return stdError(env, berrors.NextWithoutFor)
+			return object.StdError(env, berrors.NextWithoutFor)
 		}
 	}
 
@@ -1367,7 +1386,7 @@ func evalNextStep(four object.ForBlock, code *ast.Code, env *object.Environment)
 
 	// counter for loop wasn't saved, how did that happen
 	if cntr == nil {
-		return stdError(env, berrors.InternalErr)
+		return object.StdError(env, berrors.InternalErr)
 	}
 
 	// get the step value or set it to one if nothing specified
@@ -1420,7 +1439,7 @@ func evalNextComplete(pos bool, cntr object.Object, four *ast.ForStatment, code 
 	fnl := evalExpressions(four.Final, code, env)
 
 	if len(fnl) == 0 {
-		return stdError(env, berrors.Syntax), false
+		return object.StdError(env, berrors.Syntax), false
 	}
 
 	_, ok := fnl[0].(*object.Error)
@@ -1621,7 +1640,7 @@ func evalMinusPrefixOperatorExpression(right object.Object, env *object.Environm
 	case *object.Fixed:
 		obj.Value = obj.Value.Neg()
 	default:
-		return stdError(env, berrors.Syntax)
+		return object.StdError(env, berrors.Syntax)
 	}
 
 	return right
@@ -1681,7 +1700,7 @@ func evalIntegerInfixExpression(operator string, leftVal, rightVal int, env *obj
 		return builtins.FixType(env, leftVal*rightVal)
 	case "/":
 		if rightVal == 0 {
-			return stdError(env, berrors.DivByZero)
+			return object.StdError(env, berrors.DivByZero)
 		}
 		return builtins.FixType(env, float64(leftVal)/float64(rightVal))
 	case "\\":
@@ -1719,7 +1738,7 @@ func evalFixedInfixExpression(operator string, left, right decimal.Decimal, env 
 		decimal.DivisionPrecision = 6
 		val, err := left.Div(right)
 		if err != 0 {
-			return stdError(env, err)
+			return object.StdError(env, err)
 		}
 		return &object.Fixed{Value: val}
 	case "<":
@@ -1750,7 +1769,7 @@ func evalFloatInfixExpression(operator string, leftVal, rightVal float32, env *o
 		return builtins.FixType(env, leftVal*rightVal)
 	case "/":
 		if rightVal == 0 {
-			return stdError(env, berrors.DivByZero)
+			return object.StdError(env, berrors.DivByZero)
 		}
 		return builtins.FixType(env, leftVal/rightVal)
 	case "<":
@@ -1781,7 +1800,7 @@ func evalFloatDblInfixExpression(operator string, leftVal, rightVal float64, env
 		return builtins.FixType(env, leftVal*rightVal)
 	case "/":
 		if rightVal == 0 {
-			return stdError(env, berrors.DivByZero)
+			return object.StdError(env, berrors.DivByZero)
 		}
 		return builtins.FixType(env, leftVal/rightVal)
 	case "<":
@@ -1828,16 +1847,28 @@ func evalExpressions(exps []ast.Expression, code *ast.Code, env *object.Environm
 	return result
 }
 
+// eval an expression looking for a specific type
+func evalExpressionNodeTyped(node ast.Node, code *ast.Code, env *object.Environment, want object.Object) object.Object {
+	val := evalExpressionNode(node, code, env)
+
+	// see if the type is right
+	if val.Type() != want.Type() {
+		return nil
+	}
+
+	return val
+}
+
 // evaluate a single node value
 func evalExpressionNode(node ast.Node, code *ast.Code, env *object.Environment) object.Object {
 	if node == nil {
-		return stdError(env, berrors.IllegalFuncCallErr)
+		return object.StdError(env, berrors.IllegalFuncCallErr)
 	}
 
 	rc := Eval(node, code, env)
 
 	if rc == nil {
-		return stdError(env, berrors.IllegalFuncCallErr)
+		return object.StdError(env, berrors.IllegalFuncCallErr)
 	}
 
 	return rc
@@ -1857,7 +1888,7 @@ func applyFunction(fn object.Object, args []object.Object, code *ast.Code, env *
 		return obj
 
 	default:
-		return stdError(env, berrors.UndefinedFunction)
+		return object.StdError(env, berrors.UndefinedFunction)
 
 	}
 }
@@ -1882,7 +1913,7 @@ func evalIdentifier(node *ast.Identifier, code *ast.Code, env *object.Environmen
 
 	// if there is no index into the array, that's an error
 	if node.Index == nil {
-		return stdError(env, berrors.Syntax)
+		return object.StdError(env, berrors.Syntax)
 	}
 
 	// evaluate the index and return it
@@ -1907,7 +1938,7 @@ func evalIndexArray(index []*ast.IndexExpression, array, newVal object.Object, c
 	ind, err := coerceIndex(indObj, env)
 
 	if err != nil {
-		return stdError(env, berrors.Syntax)
+		return object.StdError(env, berrors.Syntax)
 	}
 
 	// TODO array indices in BASIC can be based at zero as well!
@@ -1916,7 +1947,7 @@ func evalIndexArray(index []*ast.IndexExpression, array, newVal object.Object, c
 	vals, ok := array.(*object.Array)
 
 	if !ok {
-		return stdError(env, berrors.Syntax)
+		return object.StdError(env, berrors.Syntax)
 	}
 
 	// check if their are more dimensions to the array
@@ -1925,7 +1956,7 @@ func evalIndexArray(index []*ast.IndexExpression, array, newVal object.Object, c
 	}
 
 	if (ind < 0) || (int(ind) >= len(vals.Elements)) {
-		return stdError(env, berrors.Syntax)
+		return object.StdError(env, berrors.Syntax)
 	}
 
 	if newVal != nil {
@@ -1941,7 +1972,7 @@ func saveVariable(code *ast.Code, env *object.Environment, name *ast.Identifier,
 	typeid, isarray := parseVarName(sname)
 
 	if !checkTypes(typeid, val) {
-		return stdError(env, berrors.Syntax)
+		return object.StdError(env, berrors.Syntax)
 	}
 
 	cv := env.Get(sname)
@@ -1985,7 +2016,7 @@ func coerceIndex(idx object.Object, env *object.Environment) (int16, object.Obje
 		return int16(math.Round(fx.Value)), nil
 	}
 
-	return 0, stdError(env, berrors.Syntax)
+	return 0, object.StdError(env, berrors.Syntax)
 }
 
 func checkTypes(typeid string, val object.Object) bool {
@@ -2062,20 +2093,7 @@ func newError(env *object.Environment, format string, a ...interface{}) *object.
 	return &object.Error{Message: msg}
 }
 
-// output the passed error number as a message
-func stdError(env *object.Environment, berr int) *object.Error {
-	msg := berrors.TextForError(berr)
-
-	if env.ProgramRunning() {
-		tk := env.Get(token.LINENUM)
-
-		if tk != nil {
-			msg += fmt.Sprintf(" in %d", tk.(*object.IntDbl).Value)
-		}
-	}
-	return &object.Error{Message: msg, Code: berr}
-}
-
+// return true if object is of type want
 func checkType(obj object.Object, want object.ObjectType) bool {
 	if obj != nil {
 		return obj.Type() == want
@@ -2107,7 +2125,7 @@ func evalUsingExpression(stmt *ast.UsingExpression, code *ast.Code, env *object.
 	case *object.String:
 		inp = obj.Value
 	default:
-		return stdError(env, berrors.Syntax)
+		return object.StdError(env, berrors.Syntax)
 	}
 	l := lexer.New(inp)
 	p := parser.New(l)
@@ -2130,12 +2148,12 @@ func evalViewPrintStatement(stmt *ast.ViewPrintStatement, code *ast.Code, env *o
 		_, ok := stmt.Parms[1].(*ast.ToStatement)
 
 		if !ok {
-			return stdError(env, berrors.Syntax)
+			return object.StdError(env, berrors.Syntax)
 		}
 		return evalViewPrintOn(stmt, code, env)
 	}
 
-	return stdError(env, berrors.MissingOp)
+	return object.StdError(env, berrors.MissingOp)
 }
 
 // clears any output limits
@@ -2166,7 +2184,7 @@ func evalViewPrintOn(stmt *ast.ViewPrintStatement, code *ast.Code, env *object.E
 func evalViewPrintRange(low, high int16, env *object.Environment) object.Object {
 	// bounds check the values
 	if (low < 1) || (high < 1) || (low > 25) || (high > 25) || (low >= high) {
-		return stdError(env, berrors.Syntax)
+		return object.StdError(env, berrors.Syntax)
 	}
 
 	// were good, set the view port

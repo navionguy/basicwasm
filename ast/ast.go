@@ -312,7 +312,7 @@ func (eof *EOFExpression) String() string       { return "" }
 // FilesCommand gets list of files from basic server
 type FilesCommand struct {
 	Token token.Token
-	Path  string
+	Path  []Expression
 }
 
 func (fls *FilesCommand) statementNode() { return }
@@ -324,7 +324,12 @@ func (fls *FilesCommand) String() string {
 
 	fc := "FILES"
 	if len(fls.Path) > 0 {
-		fc = fc + ` "` + fls.Path + `"`
+		for i, fp := range fls.Path {
+			if i > 0 {
+				fc = fc + `,`
+			}
+			fc = fc + ` ` + fp.String()
+		}
 	}
 
 	return strings.Trim(fc, " ")

@@ -708,8 +708,8 @@ func Test_FilesCommand(t *testing.T) {
 		cmd FilesCommand
 		exp string
 	}{
-		{cmd: FilesCommand{Token: token.Token{Type: token.FILES, Literal: "FILES"}, Path: ""}, exp: `FILES`},
-		{cmd: FilesCommand{Token: token.Token{Type: token.FILES, Literal: "FILES"}, Path: `C:\MENU`}, exp: `FILES "C:\MENU"`},
+		{cmd: FilesCommand{Token: token.Token{Type: token.FILES, Literal: "FILES"}}, exp: `FILES`},
+		{cmd: FilesCommand{Token: token.Token{Type: token.FILES, Literal: "FILES"}, Path: []Expression{&StringLiteral{Value: `C:\MENU`}}}, exp: `FILES "C:\MENU"`},
 	}
 
 	for _, tt := range tests {

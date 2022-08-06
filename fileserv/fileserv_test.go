@@ -3,6 +3,7 @@ package fileserv
 import (
 	"bufio"
 	"bytes"
+	"errors"
 	"io"
 	"io/ioutil"
 	"net/http"
@@ -401,18 +402,24 @@ func Test_GetCWD(t *testing.T) {
 
 func Test_SetCWD(t *testing.T) {
 	tests := []struct {
-		inp string
-		url string
-		err bool
+		inp    string
+		url    string
+		scode  int
+		err    bool
+		errMsg string
 	}{
-		{inp: `C:\prog\start\`, url: `http://localhost:8080/driveC/prog/start`},
-		{inp: `D:\HamCalc`, url: `invalid`, err: true},
+		{inp: `C:\prog\start\`, url: `http://localhost:8080/driveC/prog/start`, scode: 200},
+		{inp: `C:\prog\start\`, url: `http://localhost:8080/driveC/prog/start`, scode: 404, err: true, errMsg: "File not found"},
+		{inp: `D:\HamCalc`, url: `invalid`, scode: 402, err: false},
 	}
 
 	for _, tt := range tests {
 		var trm object.Console
 		env := object.NewTermEnvironment(trm)
-		clnt := mocks.MockClient{Contents: "HELLO.BAS", Url: tt.url}
+		clnt := mocks.MockClient{Contents: "HELLO.BAS", Url: tt.url, StatusCode: tt.scode}
+		if len(tt.errMsg) > 0 {
+			clnt.Err = errors.New(tt.errMsg)
+		}
 		env.SetClient(&clnt)
 
 		fail := SetCWD(tt.inp, env)
@@ -485,8 +492,8 @@ func Test_GetFile(t *testing.T) {
 		rs   int
 		err  bool
 	}{
-		{``, `C:\`, `menu\menu1.bas`, "10 PRINT \"Main Menu\"\n", "10 PRINT \"Main Menu\"\n", 200, false},
-		{`http://localhost:4321`, `C:\`, `menu\menu1.bas`, "10 PRINT \"Main Menu\"\n", "", 200, true},
+		{url: ``, cwd: `C:\`, file: `menu\menu1.bas`, send: "10 PRINT \"Main Menu\"\n", exp: "10 PRINT \"Main Menu\"\n", rs: 200, err: false},
+		{url: `http://localhost:4321`, cwd: `C:\`, file: `menu\menu1.bas`, send: "10 PRINT \"Main Menu\"\n", exp: "", rs: 200, err: true},
 		{``, `C:\`, `menu\menu1.bas`, "", "", 404, true},
 	}
 
@@ -512,9 +519,7 @@ func Test_GetFile(t *testing.T) {
 		bt, err := GetFile(tt.file, env)
 
 		if !tt.err {
-			assert.NoError(t, err, "Test_GetFile failed with error")
-		} else {
-			assert.Error(t, err, "Test_GetFile succeeded will expecting error")
+			assert.Nil(t, err, "Test_GetFile failed with error ")
 		}
 
 		if len(tt.exp) > 0 {

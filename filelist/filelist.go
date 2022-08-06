@@ -3,11 +3,13 @@ package filelist
 import (
 	"bufio"
 	"encoding/json"
-	"errors"
 	"io/ioutil"
 	"os"
 	"sort"
 	"strings"
+
+	"github.com/navionguy/basicwasm/berrors"
+	"github.com/navionguy/basicwasm/object"
 )
 
 // dirEntry holds information about a directory entry from the file system
@@ -46,22 +48,22 @@ func (fl *FileList) AddFile(file os.FileInfo) {
 }
 
 // Build list takes the json form and builds a full FileList and sorts it
-func (fl *FileList) Build(dir *bufio.Reader) error {
+func (fl *FileList) Build(dir *bufio.Reader, env *object.Environment) object.Object {
 	fl.Files = fl.Files[:0]
 
 	jsn, err := ioutil.ReadAll(dir)
 
 	if err != nil {
-		return err
+		return object.StdError(env, berrors.InternalErr)
 	}
 
 	if !json.Valid(jsn) {
-		return errors.New("NotDir")
+		return object.StdError(env, berrors.DeviceFault)
 	}
 
 	err = json.Unmarshal(jsn, &fl.Files)
 	if err != nil {
-		return err
+		return object.StdError(env, berrors.DeviceTimeout)
 	}
 	fs := &fileSorter{list: fl}
 	sort.Sort(fs)

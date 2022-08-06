@@ -627,9 +627,14 @@ func (p *Parser) parseFilesCommand() *ast.FilesCommand {
 	defer untrace(trace("parseFilesCommand"))
 	cd := &ast.FilesCommand{Token: p.curToken}
 
-	if p.peekTokenIs(token.STRING) {
+	// if their is one or more string parameters, parse them in
+	for p.peekTokenIs(token.STRING) {
 		p.nextToken()
-		cd.Path = p.curToken.Literal
+		cd.Path = append(cd.Path, p.parseExpression(LOWEST))
+
+		if p.peekTokenIs(token.COMMA) {
+			p.nextToken()
+		}
 	}
 
 	return cd
