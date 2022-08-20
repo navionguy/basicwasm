@@ -22,11 +22,7 @@ import (
 )
 
 const syntaxErr = "Syntax error"
-const typeMismatchErr = "Type mismatch"
 const overflowErr = "Overflow"
-const illegalFuncCallErr = "Illegal function call"
-const illegalArgErr = "Illegal argument"
-const outOfDataErr = "Out of data"
 const unDefinedLineNumberErr = "Undefined line number"
 
 // Eval returns the object at a node
@@ -85,7 +81,7 @@ func Eval(node ast.Node, code *ast.Code, env *object.Environment) object.Object 
 		return Eval(node.Expression, code, env)
 
 	case *ast.FilesCommand:
-		evalFilesCommand(node, code, env)
+		return evalFilesCommand(node, code, env)
 
 	case *ast.ForStatment:
 		return evalForStatement(node, code, env)
@@ -140,7 +136,7 @@ func Eval(node ast.Node, code *ast.Code, env *object.Environment) object.Object 
 		return evalNewCommand(node, code, env)
 
 	case *ast.PrintStatement:
-		evalPrintStatement(node, code, env)
+		return evalPrintStatement(node, code, env)
 
 		// Expressions
 	case *ast.IntegerLiteral:
