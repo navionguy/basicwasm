@@ -33,10 +33,9 @@ type Expression interface {
 // AUTO [line number][,[increment]]
 // AUTO .[,[increment]] where the '.' indicates start at current line
 type AutoCommand struct {
-	Token     token.Token
-	Start     int  // starting line number
-	Increment int  // numbering increment
-	Curr      bool // start with current line?
+	Token  token.Token
+	Params []Expression
+	On     bool
 }
 
 func (ac *AutoCommand) statementNode() { return }
@@ -48,16 +47,11 @@ func (ac *AutoCommand) String() string {
 
 	out.WriteString("AUTO")
 
-	if ac.Start != -1 {
-		out.WriteString(fmt.Sprintf(" %d", ac.Start))
-	}
-
-	if ac.Curr {
-		out.WriteString(" .")
-	}
-
-	if ac.Increment != -1 {
-		out.WriteString(fmt.Sprintf(", %d", ac.Increment))
+	for i, p := range ac.Params {
+		if i > 0 {
+			out.WriteString(",")
+		}
+		out.WriteString(" " + p.String())
 	}
 
 	return out.String()

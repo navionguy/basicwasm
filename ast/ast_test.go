@@ -12,7 +12,7 @@ import (
 )
 
 func Test_AutoCommand(t *testing.T) {
-	auto := AutoCommand{Token: token.Token{Type: token.AUTO, Literal: "AUTO"}, Start: -1, Increment: -1, Curr: true}
+	auto := AutoCommand{Token: token.Token{Type: token.AUTO, Literal: "AUTO"}, Params: []Expression{&Identifier{Value: "."}}}
 
 	auto.statementNode()
 	assert.Equal(t, "AUTO", auto.TokenLiteral(), "AUTO gave wrong token literal")
@@ -607,10 +607,8 @@ func ExampleStatement() {
 		Value: 10,
 	})
 	program.AddStatement(&AutoCommand{
-		Token:     token.Token{Type: token.AUTO, Literal: "AUTO"},
-		Start:     10,
-		Increment: 10,
-		Curr:      false,
+		Token:  token.Token{Type: token.AUTO, Literal: "AUTO"},
+		Params: []Expression{&IntegerLiteral{Value: 10}, &IntegerLiteral{Value: 10}},
 	})
 	program.AddStatement(&ExpressionStatement{
 		Token: token.Token{Type: token.IDENT, Literal: "X"},

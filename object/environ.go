@@ -86,14 +86,12 @@ type Environment struct {
 	term     Console              // the terminal console object
 
 	// The following hold "state" information controlled by commands/statements
-	autoOn  *ast.AutoCommand // is auto line numbering turned on
-	cwd     string           // current working directory
-	rnd     *rand.Rand       // random number generator
-	rndVal  float32          // most recent generated value
-	traceOn bool             // is tracing turned on
-	client  HttpClient       // for making server requests
-	run     bool             // program is currently execute, if false, a command is executing
-	stack   []ast.RetPoint   // return addresses for GOSUB/RETURN
+	rnd     *rand.Rand     // random number generator
+	rndVal  float32        // most recent generated value
+	traceOn bool           // is tracing turned on
+	client  HttpClient     // for making server requests
+	run     bool           // program is currently execute, if false, a command is executing
+	stack   []ast.RetPoint // return addresses for GOSUB/RETURN
 }
 
 type variable struct {
@@ -122,7 +120,7 @@ func (e *Environment) Common(name string) {
 	//
 	if !ok {
 		e.Set(name, e.getDefaultValue(name))
-		v, _ = e.store[name]
+		v = e.store[name]
 	}
 
 	// save the variable into common map
@@ -281,16 +279,6 @@ func (e *Environment) SetTrace(on bool) {
 // GetTrace returns true if we are tracing
 func (e *Environment) GetTrace() bool {
 	return e.traceOn
-}
-
-// SetAuto saves the line numbering parameters
-func (e *Environment) SetAuto(auto *ast.AutoCommand) {
-	e.autoOn = auto
-}
-
-// GetAuto returns the line numbering parameters
-func (e *Environment) GetAuto() *ast.AutoCommand {
-	return e.autoOn
 }
 
 // GetClient returns my http client

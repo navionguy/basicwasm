@@ -11,25 +11,23 @@ import (
 	"github.com/navionguy/basicwasm/lexer"
 	"github.com/navionguy/basicwasm/mocks"
 	"github.com/navionguy/basicwasm/object"
+	"github.com/navionguy/basicwasm/settings"
 	"github.com/navionguy/basicwasm/token"
 	"github.com/stretchr/testify/assert"
 )
 
 func TestAutoCommand(t *testing.T) {
 	tests := []struct {
-		inp   string
-		start int
-		step  int
-		curr  bool
+		inp    string
+		params []ast.Expression
 	}{
-		{"AUTO", -1, 10, false},
-		{"AUTO 20", 20, 10, false},
-		{"AUTO , 20", -1, 20, false},
-		{"AUTO ., 20", -1, 20, true},
-		{"AUTO .", -1, 10, true},
+		{inp: "AUTO"},
+		{inp: "AUTO 20", params: []ast.Expression{&ast.IntegerLiteral{Token: token.Token{Type: token.INT, Literal: "20"}, Value: 20}}},
+		{inp: "AUTO , 20", params: []ast.Expression{nil, &ast.IntegerLiteral{Token: token.Token{Type: token.INT, Literal: "20"}, Value: 20}}},
+		{inp: "AUTO ., 20", params: []ast.Expression{&ast.Identifier{Value: "."}, &ast.IntegerLiteral{Token: token.Token{Type: token.INT, Literal: "20"}, Value: 20}}},
+		//{inp: "AUTO .", params: []ast.Expression{&ast.Identifier{Value: "."}}},
 	}
 
-	fmt.Println("TestAutoCommand Parsing")
 	for _, tt := range tests {
 		l := lexer.New(tt.inp)
 		p := New(l)
@@ -53,20 +51,12 @@ func TestAutoCommand(t *testing.T) {
 
 		atc := stmt.(*ast.AutoCommand)
 
-		if atc == nil {
-			t.Fatal("TestAutoCommand couldn't extract AutoCommand object")
-		}
+		assert.NotNil(t, atc, "couldn't extract AutoCommand object")
 
-		if atc.Start != tt.start {
-			t.Fatalf("TestAutoCommand got start = %d, expected %d", atc.Start, tt.start)
-		}
+		assert.EqualValues(t, len(tt.params), len(atc.Params), "incorrect number of params")
 
-		if atc.Increment != tt.step {
-			t.Fatalf("TestAutoCommand got increment = %d, expected %d", atc.Increment, tt.step)
-		}
-
-		if atc.Curr != tt.curr {
-			t.Fatalf("TestAutoCommand got curr = %t, expected %t", atc.Curr, tt.curr)
+		for i, p := range atc.Params {
+			assert.EqualValuesf(t, tt.params[i], p, "param %d didn't match expected", i)
 		}
 	}
 }
@@ -707,7 +697,7 @@ func TestLineNumbers(t *testing.T) {
 	l := lexer.New(input)
 	p := New(l)
 	env := object.NewTermEnvironment(mocks.MockTerm{})
-	env.SetAuto(&ast.AutoCommand{Token: tk, Start: 30, Increment: 10})
+	env.SaveSetting(settings.Auto, &ast.AutoCommand{Token: tk, Params: []ast.Expression{&ast.IntegerLiteral{Value: 30}, &ast.IntegerLiteral{Value: 10}}})
 	p.ParseProgram(env)
 
 	checkParserErrors(t, p)

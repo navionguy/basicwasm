@@ -1,7 +1,6 @@
 package object
 
 import (
-	"fmt"
 	"strings"
 	"testing"
 
@@ -24,6 +23,15 @@ func Test_Array(t *testing.T) {
 	arr.Elements = append(arr.Elements, &String{Value: "Last"})
 	tst := arr.Inspect()
 	assert.Equal(t, "First, Last", tst)
+}
+
+func Test_Auto(t *testing.T) {
+	at := Auto{Next: 100, Step: 10}
+
+	assert.EqualValues(t, "AUTO", at.Inspect(), "auto failed inspection")
+	assert.EqualValues(t, 100, at.Next, "auto next failed to set")
+	assert.EqualValues(t, 10, at.Step, "auto step failed to set")
+	assert.EqualValues(t, AUTO_OBJ, at.Type(), "auto type is wrong")
 }
 
 func Test_BStr(t *testing.T) {
@@ -208,34 +216,16 @@ func Test_TermEnvironment(t *testing.T) {
 		t.Fatalf("Terminal failed to set!")
 	}
 
-	if env.GetTrace() || (env.GetAuto() != nil) || env.ProgramRunning() {
-		t.Fatalf("env defaults not false, %t, %t, %t", env.GetTrace(), (env.autoOn != nil), env.ProgramRunning())
+	if env.GetTrace() || env.ProgramRunning() {
+		t.Fatalf("env defaults not false, %t, %t", env.GetTrace(), env.ProgramRunning())
 	}
 
 	env.SetTrace(true)
-	env.SetAuto(&ast.AutoCommand{})
 	env.SetRun(true)
 
-	if !env.GetTrace() || (env.GetAuto() == nil) || !env.ProgramRunning() || (env.GetClient() == nil) {
-		t.Fatalf("env defaults not changed, %t, %t, %t, %t", env.GetTrace(), (env.GetAuto() == nil), env.ProgramRunning(), (env.GetClient() == nil))
+	if !env.GetTrace() || !env.ProgramRunning() || (env.GetClient() == nil) {
+		t.Fatalf("env defaults not changed, %t, %t, %t", env.GetTrace(), env.ProgramRunning(), (env.GetClient() == nil))
 	}
-}
-
-func testEnvGet(t *testing.T, env Environment, item string, exp Object) bool {
-	obj := env.Get(item)
-
-	if (obj == nil) && (exp != nil) {
-		t.Errorf("testIntEnvGet got nothing, but I should have %s", exp.Inspect())
-		return false
-	}
-	if (obj != nil) && (exp == nil) {
-		t.Errorf("testIntEnvGet got something, wasn't expecting anything")
-		return false
-	}
-
-	assert.Equal(t, fmt.Sprintf("%T", exp), fmt.Sprintf("%T", obj), "%s got unexpected type %T", item, obj)
-
-	return strings.EqualFold(obj.Inspect(), exp.Inspect())
 }
 
 func TestRandom(t *testing.T) {

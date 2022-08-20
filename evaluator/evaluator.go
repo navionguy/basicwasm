@@ -37,7 +37,7 @@ func Eval(node ast.Node, code *ast.Code, env *object.Environment) object.Object 
 		return evalStatements(code, env)
 
 	case *ast.AutoCommand:
-		evalAutoCommand(node, code, env)
+		return evalAutoCommand(node, code, env)
 
 	case *ast.BeepStatement:
 		evalBeepStatement(node, code, env)
@@ -245,21 +245,104 @@ func Eval(node ast.Node, code *ast.Code, env *object.Environment) object.Object 
 
 // evaluate the parameters to the auto command and determine the starting
 // line number.  Once it is ready, save it into the environment for operating
-func evalAutoCommand(cmd *ast.AutoCommand, code *ast.Code, env *object.Environment) {
-
-	// if no start specified, assume 10 for now
-	if cmd.Start == -1 {
-		cmd.Start = 10
+func evalAutoCommand(cmd *ast.AutoCommand, code *ast.Code, env *object.Environment) object.Object {
+	// if I have too many params, that's an error
+	if len(cmd.Params) > 2 {
+		return object.StdError(env, berrors.Syntax)
 	}
 
-	// does he want to start with the current line #, and do I have one?
-	cl := code.CurLine()
-	if cmd.Curr && (cl != 0) {
-		cmd.Start = cl
+	// If I have params, use them
+	if len(cmd.Params) > 0 {
+		return evalAutoCommandParams(cmd, code, env)
 	}
 
-	// we just poke him into the environment
-	env.SetAuto(cmd)
+	// just start a default auto mode
+	def := ast.AutoCommand{Params: []ast.Expression{&ast.DblIntegerLiteral{Value: 10}, &ast.DblIntegerLiteral{Value: 10}}, On: true}
+
+	env.SaveSetting(settings.Auto, &def)
+
+	return nil
+}
+
+// evaluate and use params to auto command
+func evalAutoCommandParams(cmd *ast.AutoCommand, code *ast.Code, env *object.Environment) object.Object {
+	auto := ast.AutoCommand{}
+
+	// if no starting value, assume default
+	if cmd.Params[0] == nil {
+		auto.Params = append(auto.Params, &ast.DblIntegerLiteral{Value: 10})
+	} else {
+		// go figure out the first parameter
+		rc := evalAutoCommandParam1(&auto, cmd, code, env)
+
+		// if he got an error, time to leave
+		if rc != nil {
+			return rc
+		}
+	}
+
+	if len(cmd.Params) == 2 {
+		return evalAutoCommandParam2(&auto, cmd, code, env)
+	}
+
+	// use the default step
+	auto.Params = append(auto.Params, &ast.DblIntegerLiteral{Value: 10})
+
+	// save to the settings
+	env.SaveSetting(settings.Auto, &auto)
+
+	return nil
+}
+
+// evalute the first parameter of the Auto Command
+func evalAutoCommandParam1(auto, cmd *ast.AutoCommand, code *ast.Code, env *object.Environment) object.Object {
+	// if the first param is '.', then we use current line number
+
+	cl, ok := cmd.Params[0].(*ast.Identifier)
+
+	if ok && (cl.Value == ".") {
+		// valid "start with current line number"
+		line := env.Get(token.LINENUM)
+
+		val := line.(*object.IntDbl).Value
+		if val > 0 {
+			auto.Params = append(auto.Params, &ast.DblIntegerLiteral{Value: val})
+		} else {
+			auto.Params = append(auto.Params, &ast.DblIntegerLiteral{Value: 10})
+		}
+		return nil
+	}
+
+	// there is an expression, go evaluate it
+	val := evalExpressionNode(cmd.Params[0], code, env)
+	l, err := coerceDblInteger(val, env)
+
+	if err != nil {
+		return err
+	}
+
+	auto.Params = append(auto.Params, &ast.DblIntegerLiteral{Value: l})
+	return nil
+}
+
+// evaluate the second parameter of the Auto Command
+func evalAutoCommandParam2(auto, cmd *ast.AutoCommand, code *ast.Code, env *object.Environment) object.Object {
+	// eval the second parameter
+	val := evalExpressionNode(cmd.Params[1], code, env)
+
+	switch prm := val.(type) {
+	case *object.Integer:
+		auto.Params = append(auto.Params, &ast.DblIntegerLiteral{Value: int32(prm.Value)})
+	case *object.IntDbl:
+		auto.Params = append(auto.Params, &ast.DblIntegerLiteral{Value: prm.Value})
+
+	default:
+		return object.StdError(env, berrors.Syntax)
+	}
+
+	// save the final values
+	env.SaveSetting(settings.Auto, auto)
+	return nil
 }
 
 // just sound the bell
@@ -1608,6 +1691,8 @@ func evalPrintItemValue(item object.Object, env *object.Environment) {
 		out = val.Value.String()
 	case *object.Integer:
 		out = val.Inspect()
+	case *object.IntDbl:
+		out = val.Inspect()
 	}
 	env.Terminal().Print(out)
 }
@@ -2014,6 +2099,24 @@ func coerceIndex(idx object.Object, env *object.Environment) (int16, object.Obje
 		return int16(math.Round(float64(fx.Value))), nil
 	case *object.FloatDbl:
 		return int16(math.Round(fx.Value)), nil
+	}
+
+	return 0, object.StdError(env, berrors.Syntax)
+}
+
+// coerce a numeric value into an int32 DblInteger value
+func coerceDblInteger(idx object.Object, env *object.Environment) (int32, object.Object) {
+	switch fx := idx.(type) {
+	case *object.Integer:
+		return int32(fx.Value), nil
+	case *object.Fixed:
+		fx2 := fx.Value.Round(0)
+		ti := fx2.IntPart()
+		return int32(ti), nil
+	case *object.FloatSgl:
+		return int32(math.Round(float64(fx.Value))), nil
+	case *object.FloatDbl:
+		return int32(math.Round(fx.Value)), nil
 	}
 
 	return 0, object.StdError(env, berrors.Syntax)

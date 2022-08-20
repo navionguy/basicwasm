@@ -154,14 +154,18 @@ func TestApplyFuncion(t *testing.T) {
 func TestAutoCommand(t *testing.T) {
 	tests := []struct {
 		inp  string
-		strt int
-		step int
-		curr bool
+		strt ast.DblIntegerLiteral
+		step ast.DblIntegerLiteral
+		err  bool
 	}{
-		{inp: "AUTO", strt: 10, step: 10, curr: false},
-		{inp: "AUTO 500", strt: 500, step: 10, curr: false},
-		{inp: "AUTO 500, 50", strt: 500, step: 50, curr: false},
-		{inp: "AUTO ., 50", strt: 10, step: 50, curr: true},
+		//{inp: "AUTO 10,10,10", err: true},
+		{inp: "AUTO", strt: ast.DblIntegerLiteral{Value: 10}, step: ast.DblIntegerLiteral{Value: 10}},
+		{inp: "AUTO 500", strt: ast.DblIntegerLiteral{Value: 500}, step: ast.DblIntegerLiteral{Value: 10}},
+		{inp: "AUTO 500, 50", strt: ast.DblIntegerLiteral{Value: 500}, step: ast.DblIntegerLiteral{Value: 50}},
+		{inp: "AUTO , 20", strt: ast.DblIntegerLiteral{Value: 10}, step: ast.DblIntegerLiteral{Value: 20}},
+		{inp: "AUTO ., 20", strt: ast.DblIntegerLiteral{Value: 10}, step: ast.DblIntegerLiteral{Value: 20}},
+		{inp: "AUTO 10, 20, 50", err: true},
+		{inp: "AUTO 10.5, 20", strt: ast.DblIntegerLiteral{Value: 11}, step: ast.DblIntegerLiteral{Value: 20}},
 	}
 
 	for _, tt := range tests {
@@ -173,25 +177,23 @@ func TestAutoCommand(t *testing.T) {
 		p := parser.New(l)
 		p.ParseCmd(env)
 
-		Eval(&ast.Program{}, env.CmdLineIter(), env)
+		rc := Eval(&ast.Program{}, env.CmdLineIter(), env)
 
-		aut := env.GetAuto()
-
-		if aut == nil {
-			t.Fatalf("TestAutoCommand environment doesn't have an auto struct")
+		if tt.err {
+			assert.NotNilf(t, rc, "%s failed to produce error", tt.inp)
+			continue
 		}
+		aut := env.GetSetting(settings.Auto)
 
-		if tt.strt != aut.Start {
-			t.Fatalf("TestAutoCommand expected start = %d, got %d", tt.strt, aut.Start)
-		}
+		assert.NotNilf(t, aut, "%s failed to save an auto setting", tt.inp)
 
-		if tt.step != aut.Increment {
-			t.Fatalf("TestAutoCommand expected step = %d, got %d", tt.step, aut.Increment)
-		}
+		ato, ok := aut.(*ast.AutoCommand)
 
-		if tt.curr != aut.Curr {
-			t.Fatalf("TestAutoCommand expected curr = %t, got %t", tt.curr, aut.Curr)
-		}
+		assert.True(t, ok, "saved auto command wrong type")
+
+		assert.EqualValues(t, &tt.strt, ato.Params[0].(*ast.DblIntegerLiteral))
+		assert.EqualValues(t, &tt.step, ato.Params[1].(*ast.DblIntegerLiteral))
+
 	}
 }
 
@@ -341,16 +343,15 @@ func Test_ChDirStatement(t *testing.T) {
 	tests := []struct {
 		path  ast.Expression
 		exp   string // what the CWD should end up being
-		mkURL string // mock url for the mock server
+		rpath string // request path the server should see
 		rc    int    // return code for mock server
 	}{
-		//{},
-		{path: &ast.StringLiteral{Value: `D:\`}, mkURL: `http://localhost:8000/driveD/`, exp: `D:\`, rc: 200},
-		{path: &ast.StringLiteral{Value: `D:\`}, mkURL: `http://localhost:8000/driveD/`, exp: `C:\`, rc: 404},
-		{path: &ast.StringLiteral{Value: `PROG`}, mkURL: `http://localhost:8000/driveC/prog/`, exp: `C:\PROG\`, rc: 200},
-		{path: &ast.StringLiteral{Value: `PROG`}, mkURL: `http://localhost:8000/driveC/prog/`, exp: `C:\`, rc: 404},
+		{path: &ast.StringLiteral{Value: `D:\`}, rpath: `/driveD`, exp: `D:\`, rc: 200},
+		{path: &ast.StringLiteral{Value: `D:\`}, rpath: `/driveD`, exp: `C:\`, rc: 404},
+		{path: &ast.StringLiteral{Value: `PROG`}, rpath: `/driveC/PROG`, exp: `C:\PROG\`, rc: 200},
+		{path: &ast.StringLiteral{Value: `PROG`}, rpath: `/driveC/PROG`, exp: `C:\`, rc: 404},
 		{path: &ast.IntegerLiteral{Value: 6}, exp: `C:\`},
-		{path: &ast.StringLiteral{Value: `\PROG`}, mkURL: `http://localhost:8000/driveC/prog/`, exp: `C:\PROG\`, rc: 200},
+		{path: &ast.StringLiteral{Value: `\prog`}, rpath: `/driveC/prog`, exp: `C:\prog\`, rc: 200},
 	}
 
 	for _, tt := range tests {
@@ -361,20 +362,21 @@ func Test_ChDirStatement(t *testing.T) {
 		var mt mocks.MockTerm
 		initMockTerm(&mt)
 		env := object.NewTermEnvironment(mt)
-		ts := httptest.NewServer(http.HandlerFunc(func(res http.ResponseWriter, req *http.Request) {
-			res.WriteHeader(tt.rc)
-			res.Write([]byte(tt.exp))
-		}))
+		ts := mocks.NewMockServer(tt.rc, []byte("Body text"))
 		defer ts.Close()
 
-		env.SaveSetting(object.SERVER_URL, &ast.StringLiteral{Value: ts.URL})
+		env.SaveSetting(object.SERVER_URL, &ast.StringLiteral{Value: ts.ExpURL})
 
 		Eval(&cd, env.CmdLineIter(), env)
 
+		// make sure current working directory is what I expect
 		cwd := fileserv.GetCWD(env)
 		assert.Equal(t, tt.exp, cwd)
-		//evalChDirStatement(&cd, env.CmdLineIter(), env)
 
+		// make sure request looked correct
+		if len(tt.rpath) > 0 {
+			assert.EqualValues(t, tt.rpath, ts.Requests[0], "Server request badly formed!")
+		}
 	}
 }
 
@@ -659,25 +661,25 @@ func Test_EvalExpressionNodeTyped(t *testing.T) {
 
 func Test_FilesCommand(t *testing.T) {
 	tests := []struct {
-		param  string
-		expmsg string
+		param  string // parameter to the files command
+		expURL string // the URL I expect him to ask for
 		cwd    string
 		send   string
 		exp    string
 		rs     int
 		err    bool
 	}{
-		{param: "", expmsg: `driveC/`, cwd: `C:\`, send: "10 PRINT \"Main Menu\"\n", exp: "10 PRINT \"Main Menu\"\n", rs: 404, err: false},
-		{param: "", cwd: `C:\`, send: "10 PRINT \"Main Menu\"\n", exp: "10 PRINT \"Main Menu\"\n", rs: 200, err: false},
-		{param: "HamCalc", cwd: `C:\`, send: "10 PRINT \"Main Menu\"\n", exp: "10 PRINT \"Main Menu\"\n", rs: 200, err: false},
-		{param: "", cwd: `C:\`, send: `[{"name":"test.bas","isdir":false},{"name":"alongername.bas","isdir":true}]`, exp: `[{"name":"test.bas","isdir":false},{"name":"alongername.bas","isdir":true}]`, rs: 200, err: false},
+		{param: "", expURL: `/driveC`, cwd: `C:\`, send: "10 PRINT \"Main Menu\"\n", exp: "10 PRINT \"Main Menu\"\n", rs: 404, err: false},
+		{param: "", expURL: `/driveC`, cwd: `C:\`, send: "10 PRINT \"Main Menu\"\n", exp: "10 PRINT \"Main Menu\"\n", rs: 200, err: false},
+		{param: "HamCalc", expURL: `/driveC/HamCalc`, cwd: `C:\`, send: "10 PRINT \"Main Menu\"\n", exp: "10 PRINT \"Main Menu\"\n", rs: 200, err: false},
+		{param: "", expURL: `/driveC`, cwd: `C:\`, send: `[{"name":"test.bas","isdir":false},{"name":"alongername.bas","isdir":true}]`, exp: `[{"name":"test.bas","isdir":false},{"name":"alongername.bas","isdir":true}]`, rs: 200, err: false},
 	}
 
 	for _, tt := range tests {
 		cmd := "FILES"
 
 		if len(tt.param) > 0 {
-			cmd = cmd + tt.param
+			cmd = cmd + ` "` + tt.param + `"`
 		}
 
 		l := lexer.New(cmd)
@@ -685,16 +687,11 @@ func Test_FilesCommand(t *testing.T) {
 		var mt mocks.MockTerm
 		initMockTerm(&mt)
 		env := object.NewTermEnvironment(mt)
-		ts := httptest.NewServer(http.HandlerFunc(func(res http.ResponseWriter, req *http.Request) {
-			env.Terminal().Log(req.RequestURI)
-			res.WriteHeader(tt.rs)
-			res.Write([]byte(tt.send))
-		}))
-		defer ts.Close()
-		//mexp := mocks.Expector{Exp: []string{ts.URL + tt.expmsg}}
-		//mt.ExpMsg = &mexp
 
-		env.SaveSetting(object.SERVER_URL, &ast.StringLiteral{Value: ts.URL})
+		ts := mocks.NewMockServer(tt.rs, []byte(tt.send))
+		defer ts.Close()
+
+		env.SaveSetting(object.SERVER_URL, &ast.StringLiteral{Value: ts.ExpURL})
 
 		if len(tt.cwd) > 0 {
 			env.SaveSetting(object.WORK_DRIVE, &ast.StringLiteral{Value: tt.cwd})
@@ -712,7 +709,10 @@ func Test_FilesCommand(t *testing.T) {
 
 		Eval(&ast.Program{}, env.CmdLineIter(), env)
 
-		//assert.True(t, mt.ExpMsg.Failed, mt.SawStr)
+		// did he request the URL I expected
+		if len(tt.expURL) > 0 {
+			assert.EqualValues(t, tt.expURL, ts.Requests[0], "FILES asked for wrong URL")
+		}
 	}
 }
 

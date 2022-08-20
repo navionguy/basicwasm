@@ -12,6 +12,7 @@ import (
 	"github.com/navionguy/basicwasm/decimal"
 	"github.com/navionguy/basicwasm/lexer"
 	"github.com/navionguy/basicwasm/object"
+	"github.com/navionguy/basicwasm/settings"
 	"github.com/navionguy/basicwasm/token"
 )
 
@@ -170,7 +171,6 @@ func (p *Parser) ParseCmd(env *object.Environment) {
 	}
 
 	env.CmdParsed()
-	return
 }
 
 // ParseUsingRunTime takes the using expression and parses it into
@@ -302,28 +302,34 @@ func (p *Parser) parseStatement() ast.Statement {
 }
 
 func (p *Parser) parseAutoCommand() *ast.AutoCommand {
-	auto := &ast.AutoCommand{Token: p.curToken, Start: -1, Increment: 10, Curr: false}
+	// create an AUTO node
+	auto := &ast.AutoCommand{Token: p.curToken}
 
-	// check for the starting line number
-	if p.peekTokenIs(token.INT) {
-		p.nextToken()
-		auto.Start, _ = strconv.Atoi(p.curToken.Literal)
-	}
+	// read in any parameters listed
+	for !p.chkEndOfStatement() {
 
-	// check for '.' to start with the current line number
-	if p.peekTokenIs(token.PERIOD) {
-		p.nextToken()
-		auto.Curr = true
-	}
-
-	// did he specify an increment value?
-	if p.peekTokenIs(token.COMMA) {
-		p.nextToken()
-		if p.peekTokenIs(token.INT) {
+		if p.peekTokenIs(token.COMMA) {
+			// add a nil parameter for starting line
+			auto.Params = append(auto.Params, nil)
 			p.nextToken()
-			auto.Increment, _ = strconv.Atoi(p.curToken.Literal)
+			continue
+		}
+
+		p.nextToken()
+		if p.curTokenIs(token.PERIOD) {
+			auto.Params = append(auto.Params, &ast.Identifier{Value: "."})
+		} else {
+			// it should be an expression of some sort
+			auto.Params = append(auto.Params, p.parseExpression(LOWEST))
+		}
+
+		// is there a comma seperating the next param?
+		if p.peekTokenIs(token.COMMA) {
+			p.nextToken()
 		}
 	}
+
+	// move past the end of the statement
 	p.nextToken()
 
 	return auto
@@ -421,7 +427,6 @@ func (p *Parser) parseChainParameter(param int, chain *ast.ChainStatement) {
 		p.nextToken()
 		chain.Range = p.parseExpression(LOWEST)
 	}
-	return
 }
 
 // ChDir should have one expression that evaluates to a string
@@ -862,7 +867,7 @@ func (p *Parser) parseLineNumber() *ast.LineNumStmt {
 	// user has decided to overwrite an existing line
 	// I should consume and ignore the asterisk
 
-	if p.peekTokenIs(token.ASTERISK) && (p.env.GetAuto() != nil) {
+	if p.peekTokenIs(token.ASTERISK) && (p.env.GetSetting(settings.Auto) != nil) {
 		p.nextToken()
 
 		if p.peekTokenIs(token.EOL) || p.peekTokenIs(token.EOF) {
@@ -1510,7 +1515,7 @@ func (p *Parser) parseFunctionLiteral() ast.Expression {
 		return nil
 	}
 
-	if "FN" != strings.ToUpper(p.curToken.Literal[0:2]) {
+	if strings.ToUpper(p.curToken.Literal[0:2]) != "FN" {
 		p.generalError("function names must be in the form FNname")
 		return nil
 	}
@@ -1577,11 +1582,7 @@ func (p *Parser) checkForFuncCall() bool {
 	// not user defined, check for builtin
 	_, ok := builtins.Builtins[p.curToken.Literal]
 
-	if ok {
-		return true
-	}
-
-	return false
+	return ok
 }
 
 func (p *Parser) parseCallExpression(function ast.Expression) ast.Expression {
@@ -1634,31 +1635,6 @@ func (p *Parser) innerParseIndexExpression(left ast.Expression) *ast.IndexExpres
 	exp.Index = p.parseExpression(LOWEST)
 	return exp
 
-}
-
-func (p *Parser) parseExpressionList(end token.TokenType) []ast.Expression {
-	defer untrace(trace("parseExpressionList"))
-	list := []ast.Expression{}
-
-	if p.peekTokenIs(end) {
-		p.nextToken()
-		return list
-	}
-
-	p.nextToken()
-	list = append(list, p.parseExpression(LOWEST))
-
-	for p.peekTokenIs(token.COMMA) {
-		p.nextToken()
-		p.nextToken()
-		list = append(list, p.parseExpression(LOWEST))
-	}
-
-	if !p.peekTokenIs(end) {
-		return nil
-	}
-
-	return list
 }
 
 func (p *Parser) parseExpressionStatement() *ast.ExpressionStatement {

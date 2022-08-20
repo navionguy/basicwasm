@@ -8,6 +8,7 @@ import (
 	"github.com/navionguy/basicwasm/lexer"
 	"github.com/navionguy/basicwasm/object"
 	"github.com/navionguy/basicwasm/parser"
+	"github.com/navionguy/basicwasm/settings"
 )
 
 //Start begins interacting with the user
@@ -45,8 +46,9 @@ func evalKeyCodes(keys []byte, env *object.Environment) {
 	//env.Terminal().Print("\b\a")
 	case 0x03: // ctrl-c
 		env.Terminal().Println("")
-		if env.GetAuto() != nil {
-			env.SetAuto(nil)
+		if env.GetSetting(settings.Auto) != nil {
+			env.SaveSetting(settings.Auto, nil)
+			env.Terminal().BreakCheck()
 			prompt(env)
 		}
 	default:
@@ -78,7 +80,7 @@ func execCommand(input string, env *object.Environment) {
 	// if command line is empty, nothing to execute
 	if iter.Len() == 0 {
 		// if auto is turned on, prompt next line number
-		if env.GetAuto() != nil {
+		if env.GetSetting(settings.Auto) != nil {
 			prompt(env)
 		}
 		return
@@ -127,12 +129,12 @@ func parseCmdExecute(iter *ast.Code, env *object.Environment) {
 
 // some special objects that can come back from command execution
 func handleExitMsgs(rc object.Object, env *object.Environment) bool {
-	switch rc.(type) {
+	switch msg := rc.(type) {
 	case *object.Error:
-		env.Terminal().Println(rc.(*object.Error).Message)
+		env.Terminal().Println(msg.Message)
 	case *object.HaltSignal:
 		if len(rc.(*object.HaltSignal).Msg) > 0 {
-			env.Terminal().Println(rc.(*object.HaltSignal).Msg)
+			env.Terminal().Println(msg.Msg)
 		}
 	default:
 		return false
@@ -144,21 +146,28 @@ func handleExitMsgs(rc object.Object, env *object.Environment) bool {
 }
 
 func prompt(env *object.Environment) {
-	auto := env.GetAuto()
+	// get the auto settings if they exist
+	a := env.GetSetting(settings.Auto)
 
-	if auto == nil {
+	if a == nil {
 		env.Terminal().Println("OK")
 		return
 	}
 
+	// unpack the auto settings
+	auto := a.(*ast.AutoCommand)
+	line := auto.Params[0].(*ast.DblIntegerLiteral).Value
+	inc := auto.Params[1].(*ast.DblIntegerLiteral).Value
 	fill := " "
-	if env.StatementIter().Exists(auto.Start) {
+
+	if env.StatementIter().Exists(int(line)) {
 		fill = "*"
 	}
 
-	env.Terminal().Print(fmt.Sprintf("%d%s", auto.Start, fill))
-	auto.Start += auto.Increment
-	env.SetAuto(auto)
+	env.Terminal().Print(fmt.Sprintf("%d%s", line, fill))
+	line += inc
+	auto.Params[0].(*ast.DblIntegerLiteral).Value = line
+	env.SaveSetting(settings.Auto, auto)
 }
 
 // just display the error and then the prompt
@@ -166,5 +175,4 @@ func giveError(err string, env *object.Environment) {
 	env.Terminal().Println(err)
 	env.Terminal().Println("OK")
 	env.CmdComplete()
-	return
 }

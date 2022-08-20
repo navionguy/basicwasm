@@ -33,6 +33,7 @@ const (
 
 const (
 	ARRAY_OBJ      = "ARRAY"
+	AUTO_OBJ       = "AUTO"
 	BSTR_OBJ       = "BSTR"
 	BUILTIN_OBJ    = "BUILTIN"
 	FIXED_OBJ      = "FIXED"
@@ -212,6 +213,15 @@ func (bs *BStr) Inspect() string {
 	}
 	return out.String()
 }
+
+// When auto is on, this holds the current state
+type Auto struct {
+	Next int // the next line number to use
+	Step int // the step to add to next each time
+}
+
+func (a *Auto) Type() ObjectType { return AUTO_OBJ }
+func (a *Auto) Inspect() string  { return "AUTO" }
 
 type Builtin struct {
 	Fn BuiltinFunction

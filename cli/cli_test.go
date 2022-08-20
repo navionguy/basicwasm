@@ -7,6 +7,7 @@ import (
 	"github.com/navionguy/basicwasm/ast"
 	"github.com/navionguy/basicwasm/mocks"
 	"github.com/navionguy/basicwasm/object"
+	"github.com/navionguy/basicwasm/settings"
 )
 
 func Test_EvalKeyCodes(t *testing.T) {
@@ -35,8 +36,8 @@ func Test_EvalKeyCodes(t *testing.T) {
 		}
 		env := object.NewTermEnvironment(trm)
 		if tt.auto {
-			ato := ast.AutoCommand{Start: 10, Increment: 10, Curr: true}
-			env.SetAuto(&ato)
+			ato := ast.AutoCommand{Params: []ast.Expression{&ast.DblIntegerLiteral{Value: int32(10)}, &ast.DblIntegerLiteral{Value: int32(10)}}}
+			env.SaveSetting(settings.Auto, &ato)
 		}
 		evalKeyCodes(tt.key, env)
 		if len(tt.exp) > 0 {
