@@ -277,7 +277,7 @@ func (cd *Code) Len() int {
 	return i
 }
 
-// Exists just tell you if I could find it
+// returns true if line number exists
 func (cd *Code) Exists(target int) bool {
 	_, ok := cd.findLine(target)
 

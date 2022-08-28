@@ -272,8 +272,7 @@ func (cmn *CommonStatement) String() string {
 	out.WriteString("COMMON ")
 	out.WriteString(strings.Join(params, ", "))
 
-	tmp := out.String()
-	return tmp
+	return out.String()
 }
 
 // Cont command means restarting a stopped program
@@ -281,7 +280,7 @@ type ContCommand struct {
 	Token token.Token
 }
 
-func (cnt *ContCommand) statementNode()       { return }
+func (cnt *ContCommand) statementNode()       {}
 func (cnt *ContCommand) TokenLiteral() string { return strings.ToUpper(cnt.Token.Literal) }
 
 func (cnt *ContCommand) String() string { return "CONT" }
@@ -291,17 +290,34 @@ type Csrlin struct {
 	Token token.Token
 }
 
-func (csr *Csrlin) expressionNode()      { return }
+func (csr *Csrlin) expressionNode()      {}
 func (csr *Csrlin) TokenLiteral() string { return strings.ToUpper(csr.Token.Literal) }
 func (csr *Csrlin) String() string       { return csr.Token.Literal + " " }
 
+// the end of the program file
 type EOFExpression struct {
 	Token token.Token
 }
 
-func (eof *EOFExpression) expressionNode()      { return }
+func (eof *EOFExpression) expressionNode()      {}
 func (eof *EOFExpression) TokenLiteral() string { return strings.ToUpper(eof.Token.Literal) }
 func (eof *EOFExpression) String() string       { return "" }
+
+// signal that an error has occurred
+type ErrorStatement struct {
+	Token  token.Token
+	ErrNum Expression // should evaluate to an integer value
+}
+
+func (err *ErrorStatement) statementNode()       {}
+func (err *ErrorStatement) TokenLiteral() string { return strings.ToUpper(err.Token.Literal) }
+func (err *ErrorStatement) String() string {
+	var out bytes.Buffer
+
+	out.WriteString(err.TokenLiteral() + " " + err.ErrNum.String())
+
+	return out.String()
+}
 
 // FilesCommand gets list of files from basic server
 type FilesCommand struct {
@@ -309,7 +325,7 @@ type FilesCommand struct {
 	Path  []Expression
 }
 
-func (fls *FilesCommand) statementNode() { return }
+func (fls *FilesCommand) statementNode() {}
 
 // TokenLiteral returns my token literal
 func (fls *FilesCommand) TokenLiteral() string { return strings.ToUpper(fls.Token.Literal) }
@@ -336,7 +352,7 @@ type ForStatment struct {
 	Step  []Expression  // value to increment /decrement
 }
 
-func (four *ForStatment) statementNode()       { return }
+func (four *ForStatment) statementNode()       {}
 func (four *ForStatment) TokenLiteral() string { return four.Token.Literal }
 func (four *ForStatment) String() string {
 	var out bytes.Buffer
@@ -523,7 +539,7 @@ type PaletteStatement struct {
 	BasePalette ColorPalette // base mapping of basic colors to xterm colors
 }
 
-func (plt *PaletteStatement) statementNode()       { return }
+func (plt *PaletteStatement) statementNode()       {}
 func (plt *PaletteStatement) TokenLiteral() string { return strings.ToUpper(plt.Token.Literal) }
 func (plt *PaletteStatement) String() string {
 	var buf bytes.Buffer
@@ -546,7 +562,7 @@ type NewCommand struct {
 	Token token.Token // my Token
 }
 
-func (new *NewCommand) statementNode()       { return }
+func (new *NewCommand) statementNode()       {}
 func (new *NewCommand) TokenLiteral() string { return strings.ToUpper(new.Token.Literal) }
 func (new *NewCommand) String() string       { return new.Token.Literal + " " }
 
@@ -556,7 +572,7 @@ type NextStatement struct {
 	Id    Identifier // for loop iterator id, not required
 }
 
-func (nxt *NextStatement) statementNode()       { return }
+func (nxt *NextStatement) statementNode()       {}
 func (nxt *NextStatement) TokenLiteral() string { return strings.ToUpper(nxt.Token.Literal) }
 func (nxt *NextStatement) String() string {
 	var out bytes.Buffer
@@ -569,13 +585,59 @@ func (nxt *NextStatement) String() string {
 	return out.String()
 }
 
+// OnErrorGoto statement transfers execution when an error occurs
+type OnErrorGoto struct {
+	Token token.Token // "ON ERROR GOTO"
+	Jump  int         // line number to continue from
+}
+
+func (oer *OnErrorGoto) statementNode()       {}
+func (oer *OnErrorGoto) TokenLiteral() string { return oer.Token.Literal }
+
+// serialize into a string
+func (oer *OnErrorGoto) String() string {
+	var out bytes.Buffer
+	out.WriteString(oer.Token.Literal)
+	if oer.Jump > 0 {
+		out.WriteString(fmt.Sprintf(" %d", oer.Jump))
+	}
+
+	return out.String()
+}
+
+// OnGoStatement handles both GOSUB and GOSUB
+type OnGoStatement struct {
+	Token  token.Token // should be the "GO"
+	Exp    Expression  // expression to evaluate
+	MidTok token.Token // could be "GOSUB" or "GOTO"
+	Jumps  []Expression
+}
+
+func (og *OnGoStatement) statementNode()       {}
+func (og *OnGoStatement) TokenLiteral() string { return og.Token.Literal }
+
+// serialize into a string
+func (og *OnGoStatement) String() string {
+	var out bytes.Buffer
+	out.WriteString(og.TokenLiteral() + " ")
+	out.WriteString(og.Exp.String() + " ")
+	out.WriteString(og.MidTok.Literal + " ")
+	for i, j := range og.Jumps {
+		if i > 0 {
+			out.WriteString(", ")
+		}
+		out.WriteString(fmt.Sprint(j))
+	}
+	return out.String()
+}
+
 // ExpressionStatement holds an expression
 type ExpressionStatement struct {
 	Token      token.Token // the first token of the expression
 	Expression Expression
 }
 
-func (es *ExpressionStatement) statementNode() { return }
+func (es *ExpressionStatement) statementNode() {}
 
 // TokenLiteral returns my literal
 func (es *ExpressionStatement) TokenLiteral() string {

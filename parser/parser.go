@@ -227,6 +227,8 @@ func (p *Parser) parseStatement() ast.Statement {
 			return stmt
 		}
 		return nil
+	case token.ERROR:
+		return p.parseErrorStatement()
 	case token.FILES:
 		return p.parseFilesCommand()
 	case token.FOR:
@@ -253,6 +255,8 @@ func (p *Parser) parseStatement() ast.Statement {
 		return p.parseNewCommand()
 	case token.NEXT:
 		return p.parseNextStatement()
+	case token.ON:
+		return p.parseOnStatement()
 	case token.PALETTE:
 		return p.parsePaletteStatement()
 	case token.PRINT:
@@ -620,11 +624,23 @@ func (p *Parser) parseDimStatement() *ast.DimStatement {
 	return exp
 }
 
+// pretty simple, stop running
 func (p *Parser) parseEndStatement() *ast.EndStatement {
 	defer untrace(trace("parseEndStatement"))
 	stmt := &ast.EndStatement{Token: p.curToken}
 
 	return stmt
+}
+
+// user wants to trigger an error condition
+func (p *Parser) parseErrorStatement() *ast.ErrorStatement {
+	err := ast.ErrorStatement{Token: p.curToken}
+
+	// go get the expression
+	p.nextToken()
+	err.ErrNum = p.parseExpression(LOWEST)
+
+	return &err
 }
 
 // parse in a FILES command
@@ -862,7 +878,7 @@ func (p *Parser) parseLineNumber() *ast.LineNumStmt {
 	// little detour here, if I see linenum*EOL AND auto is on
 	// user has decided *not* to overwrite an existing line
 	// I should return nil
-	//
+	// TODO: the above case doesn't work
 	// if I see linenum*statement AND auto is on
 	// user has decided to overwrite an existing line
 	// I should consume and ignore the asterisk
@@ -939,6 +955,17 @@ func (p *Parser) parsePrintStatement() *ast.PrintStatement {
 // returns true if the next token would put us at the end of a statement
 func (p *Parser) chkEndOfStatement() bool {
 	return p.peekTokenIs(token.COLON) || p.peekTokenIs(token.LINENUM) || p.peekTokenIs(token.EOF) || p.peekTokenIs(token.EOL)
+}
+
+// parsing isn't making sense, just hoover up the rest of the statement
+func (p *Parser) skipRestOfStatement() string {
+	lit := ""
+	for !p.chkEndOfStatement() {
+		p.nextToken()
+		lit += " " + p.curToken.Literal
+	}
+
+	return lit
 }
 
 // gosub - uncondition transfer to subroutine
@@ -1130,9 +1157,82 @@ func (p *Parser) parseNextStatement() *ast.NextStatement {
 	return &nxt
 }
 
+// parse a "ONsomething" statement
+func (p *Parser) parseOnStatement() ast.Statement {
+	// try and figure out which flavor of ON statement I've got
+	switch p.peekToken.Type {
+	case token.ERROR:
+		return p.parseOnErrorStatement()
+	}
+
+	// should be an expression followed by GOTO/GOSUB
+	return p.parseOnExpressionStatement()
+}
+
+// parse the ON ERROR GOTO statement
+func (p *Parser) parseOnErrorStatement() ast.Statement {
+	oer := &ast.OnErrorGoto{Token: p.curToken}
+	// add ERROR to oer's literal
+	p.nextToken()
+	oer.Token.Literal += " " + p.curToken.Literal
+	// make sure there is more to the statement
+	if p.chkEndOfStatement() {
+		return oer
+	}
+	// move to the GOTO keyword
+	p.nextToken()
+	oer.Token.Literal += " " + p.curToken.Literal
+
+	if !p.curTokenIs(token.GOTO) {
+		oer.Token.Literal += p.skipRestOfStatement()
+		return oer
+	}
+
+	// make sure I got a line number
+	if !p.peekTokenIs(token.INT) {
+		oer.Token.Literal += p.skipRestOfStatement()
+		return oer
+	}
+
+	// get the jump line number
+	var err error
+	p.nextToken()
+	oer.Jump, err = strconv.Atoi(p.curToken.Literal)
+
+	if err != nil {
+		oer.Jump = 0
+	}
+	return oer
+}
+
+// could be either ON exp GOTO, or ON exp GOSUB
+func (p *Parser) parseOnExpressionStatement() ast.Statement {
+	// create the statment and start building the parameters
+	stmt := ast.OnGoStatement{Token: token.Token{Type: token.ON, Literal: p.curToken.Literal}}
+
+	// go get the expression that drives the jump
+	p.nextToken()
+	stmt.Exp = p.parseExpression(LOWEST)
+	// NOTE, if the expression fails to parse, the nil will be caught during evaluation
+
+	p.nextToken()
+	// should be either GOTO or GOSUB
+	stmt.MidTok = p.curToken
+	p.nextToken()
+
+	// now collect all the line numbers
+	for p.peekTokenIs(token.COMMA) {
+		stmt.Jumps = append(stmt.Jumps, p.parseExpression(LOWEST))
+		p.nextToken()
+		p.nextToken()
+	}
+	// get the last one
+	stmt.Jumps = append(stmt.Jumps, p.parseExpression(LOWEST))
+	return &stmt
+}
+
 // adjust the screen color palette as directed
 func (p *Parser) parsePaletteStatement() *ast.PaletteStatement {
-	defer untrace(trace("parsePaletteStatement"))
 	stmt := &ast.PaletteStatement{Token: p.curToken}
 	p.nextToken()
 
@@ -1170,7 +1270,6 @@ func (p *Parser) parsePaletteUsingStatement(stmt *ast.PaletteStatement) *ast.Pal
 
 // read constant data from DATA statements
 func (p *Parser) parseReadStatement() *ast.ReadStatement {
-	defer untrace(trace("parseReadStatement"))
 	stmt := &ast.ReadStatement{Token: p.curToken}
 
 	for !p.peekTokenIs(token.LINENUM) && !p.peekTokenIs(token.EOF) && !p.peekTokenIs(token.EOL) && !p.peekTokenIs(token.COLON) {
@@ -1637,6 +1736,7 @@ func (p *Parser) innerParseIndexExpression(left ast.Expression) *ast.IndexExpres
 
 }
 
+// parse an expression statement, returns nil if it isn't parsable
 func (p *Parser) parseExpressionStatement() *ast.ExpressionStatement {
 	defer untrace(trace("parseExpressionStatement"))
 	stmt := &ast.ExpressionStatement{Token: p.curToken}
@@ -1644,6 +1744,7 @@ func (p *Parser) parseExpressionStatement() *ast.ExpressionStatement {
 	return stmt
 }
 
+// parse an expression, returns nil if it isn't parsable
 func (p *Parser) parseExpression(precedence int) ast.Expression {
 	defer untrace(trace("parseExpression"))
 	prefix := p.prefixParseFns[p.curToken.Type]

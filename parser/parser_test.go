@@ -526,6 +526,36 @@ func TestDimStatement(t *testing.T) {
 	}
 }
 
+func Test_ErrorStatement(t *testing.T) {
+	tests := []struct {
+		inp string
+		exp int
+	}{
+		{inp: `10 ERROR 31`, exp: 31},
+	}
+
+	for _, tt := range tests {
+		l := lexer.New(tt.inp)
+		p := New(l)
+		env := object.NewTermEnvironment(mocks.MockTerm{})
+		p.ParseProgram(env)
+
+		checkParserErrors(t, p)
+		itr := env.StatementIter()
+		itr.Next() // skip the line number
+		val := itr.Value()
+
+		ers, ok := val.(*ast.ErrorStatement)
+
+		assert.True(t, ok, "Failed to get an ErrorStatement")
+
+		err, ok := ers.ErrNum.(*ast.IntegerLiteral)
+
+		assert.True(t, ok, "ErrorStatement didn't have IntegerLiteral")
+		assert.EqualValues(t, tt.exp, err.Value)
+	}
+}
+
 func Test_KeyStatement(t *testing.T) {
 	tests := []struct {
 		inp string
@@ -897,6 +927,43 @@ func Test_NextCommand(t *testing.T) {
 
 		if !tt.err {
 			checkParserErrors(t, p)
+		}
+	}
+}
+
+func Test_OnStatement(t *testing.T) {
+	// Currently support
+	// ON ERROR GOTO
+	// ON exp GOTO
+	// ON exp GOSUB
+	tests := []struct {
+		inp string
+		exp string
+		jmp int
+		tpe int
+	}{
+		{inp: "10 ON ERROR GOTO 100", exp: "ON ERROR GOTO 100", jmp: 100},
+		{inp: "10 ON ERROR GOTO END", exp: "ON ERROR GOTO END"},
+		{inp: "10 ON ERROR", exp: "ON ERROR"},
+		{inp: "10 ON ERROR GOSUB 100", exp: "ON ERROR GOSUB 100"},
+		{inp: "10 ON ERROR GOTO 10000000000000000000", exp: "ON ERROR GOTO", jmp: 0},
+		{inp: "10 ON X GOTO 100, 200, 300", exp: "ON X GOTO 100, 200, 300"},
+		{inp: "10 ON X GOSUB 100, 200, 300", exp: "ON X GOSUB 100, 200, 300"},
+	}
+
+	for _, tt := range tests {
+		l := lexer.New(tt.inp)
+		p := New(l)
+		env := object.NewTermEnvironment(mocks.MockTerm{})
+		p.ParseProgram(env)
+		itr := env.StatementIter()
+		itr.Next()
+
+		switch stmt := itr.Value().(type) {
+		case *ast.OnErrorGoto:
+			assert.EqualValues(t, tt.exp, stmt.String(), "ON ERROR parse fail")
+			assert.EqualValues(t, tt.jmp, stmt.Jump, "got the wrong line")
+
 		}
 	}
 }

@@ -600,6 +600,37 @@ func Test_CsrLinExpression(t *testing.T) {
 	assert.Equal(t, row+1, int(newRow.Value), "CSRLIN returned %d, expected %d", newRow.Value, row+1)
 }
 
+func Test_ErrorStatement(t *testing.T) {
+	tests := []struct {
+		inp string
+		err int
+	}{
+		{inp: `10 ERROR 200`, err: 200},
+		{inp: `10 ERROR @`, err: berrors.IllegalFuncCallErr},
+		{inp: `10 ERROR 300`, err: berrors.Syntax},
+		{inp: `10 ERROR "300"`, err: berrors.Syntax},
+	}
+
+	for _, tt := range tests {
+		l := lexer.New(tt.inp)
+		p := parser.New(l)
+		var mt mocks.MockTerm
+		initMockTerm(&mt)
+		row := 5
+		mt.Row = &row
+		env := object.NewTermEnvironment(mt)
+		p.ParseProgram(env)
+
+		rc := Eval(&ast.Program{}, env.StatementIter(), env)
+
+		assert.NotNil(t, rc, "ErrorStatement didn't produce an error")
+
+		err, ok := rc.(*object.Error)
+		assert.True(t, ok, "ErrorStatement didn't return an error")
+		assert.Equalf(t, tt.err, err.Code, "ErrorStatement expected %d, got %d", tt.err, err.Code)
+	}
+}
+
 func Test_EvalExpressionNode(t *testing.T) {
 	tests := []struct {
 		nd  ast.Node
@@ -1183,6 +1214,104 @@ func Test_NewCommand(t *testing.T) {
 	_, ok := rc.(*object.HaltSignal)
 
 	assert.True(t, ok, "New command failed to send halt!")
+}
+
+func Test_OnErrorGotoStatement(t *testing.T) {
+	tests := []struct {
+		inp string
+		jmp int
+		err bool
+		msg string
+	}{
+		{inp: `10 ON ERROR GOTO 100
+		100 END`, jmp: 100},
+		{inp: `10 ON ERROR GOTO 100`, err: true, msg: "Undefined line number in 10"},
+		{inp: `10 ON ERROR GOTO -5`, err: true, msg: "Syntax error in 10"},
+	}
+
+	for _, tt := range tests {
+		l := lexer.New(tt.inp)
+		p := parser.New(l)
+		var mt mocks.MockTerm
+		initMockTerm(&mt)
+		env := object.NewTermEnvironment(mt)
+		p.ParseProgram(env)
+		code := env.StatementIter()
+		env.SetRun(true)
+		rc := Eval(&ast.Program{}, code, env)
+		env.SetRun(false)
+
+		if rc != nil {
+			// should be the expected error
+			err, ok := rc.(*object.Error)
+
+			assert.True(t, ok, "didn't get the expected error")
+			assert.EqualValues(t, tt.msg, err.Message, "didn't get the expected error")
+		} else {
+			// check the setting
+			set := env.GetSetting(settings.OnError)
+			oeg, ok := set.(*ast.OnErrorGoto)
+
+			assert.True(t, ok, "failed to get OnErrorGoto node")
+			assert.EqualValues(t, tt.jmp, oeg.Jump)
+		}
+	}
+}
+
+func Test_OnGoStatement(t *testing.T) {
+	tests := []struct {
+		inp string
+		jmp int
+		err bool
+		msg string
+	}{
+		{inp: `10 X = 1 : ON X GOTO 100, 200
+		100 END
+		200 END`, jmp: 100},
+		{inp: `10 X = 2 : ON X GOSUB 100, 200
+		100 END
+		200 END`, jmp: 200},
+		{inp: `10 X = 0 : ON X GOSUB 100, 200
+		20 END
+		100 END
+		200 END`, jmp: 20},
+		{inp: `10 X = 3 : ON X GOSUB 100, 200
+		20 END
+		100 END
+		200 END`, jmp: 20},
+		{inp: `10 X = 2 : ON X JUMP 100, 200
+		100 END
+		200 END`, err: true, msg: "Syntax error in 10"},
+		{inp: `10 X = 2 : ON X JUMP 100, 200`, err: true, msg: "Undefined line number in 10"},
+		{inp: `10 ON GOTO 100, 200`, err: true, msg: "Syntax error in 10"},
+		{inp: `10 ON ! GOTO 100, 200`, err: true, msg: "Syntax error in 10"},
+		{inp: `10 ON ERROR GOTO 100`, err: true, msg: "Undefined line number in 10"},
+		{inp: `10 ON ERROR GOTO -5`, err: true, msg: "Syntax error in 10"},
+	}
+
+	for _, tt := range tests {
+		l := lexer.New(tt.inp)
+		p := parser.New(l)
+		var mt mocks.MockTerm
+		initMockTerm(&mt)
+		env := object.NewTermEnvironment(mt)
+		p.ParseProgram(env)
+		code := env.StatementIter()
+		env.SetRun(true)
+		rc := Eval(&ast.Program{}, code, env)
+		env.SetRun(false)
+
+		if rc != nil {
+			// should be the expected error
+			err, ok := rc.(*object.Error)
+
+			assert.True(t, ok, "didn't get the expected error")
+			assert.EqualValues(t, tt.msg, err.Message, "didn't get the expected error")
+		} else {
+			// check the setting
+			assert.Equal(t, tt.jmp, code.CurLine(), "Jumped to wrong line")
+		}
+	}
 }
 
 func TestDim_Statements(t *testing.T) {

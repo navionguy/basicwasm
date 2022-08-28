@@ -78,6 +78,7 @@ const (
 	DIM     = "DIM"
 	ELSE    = "ELSE"
 	END     = "END"
+	ERROR   = "ERROR"
 	FALSE   = "FALSE"
 	FILES   = "FILES"
 	FOR     = "FOR"
@@ -136,6 +137,7 @@ var keywords = map[string]TokenType{
 	"dim":     DIM,
 	"else":    ELSE,
 	"end":     END,
+	"error":   ERROR,
 	"false":   FALSE,
 	"files":   FILES,
 	"for":     FOR,

@@ -77,6 +77,9 @@ func Eval(node ast.Node, code *ast.Code, env *object.Environment) object.Object 
 	case *ast.EndStatement:
 		return evalEndStatement(node, code, env)
 
+	case *ast.ErrorStatement:
+		return evalErrorStatement(node, code, env)
+
 	case *ast.ExpressionStatement:
 		return Eval(node.Expression, code, env)
 
@@ -129,11 +132,17 @@ func Eval(node ast.Node, code *ast.Code, env *object.Environment) object.Object 
 	case *ast.NextStatement:
 		return evalNextStatement(node, code, env)
 
+	case *ast.NewCommand:
+		return evalNewCommand(node, code, env)
+
 	case *ast.OctalConstant:
 		return evalOctalConstant(node, env)
 
-	case *ast.NewCommand:
-		return evalNewCommand(node, code, env)
+	case *ast.OnErrorGoto:
+		return evalOnErrorStatement(node, code, env)
+
+	case *ast.OnGoStatement:
+		return evalOnGoStatement(node, code, env)
 
 	case *ast.PrintStatement:
 		return evalPrintStatement(node, code, env)
@@ -1006,6 +1015,35 @@ func evalEndStatement(end *ast.EndStatement, code *ast.Code, env *object.Environ
 	return &object.HaltSignal{}
 }
 
+// ERROR statement, user wants to signal an error has occurred
+func evalErrorStatement(ers *ast.ErrorStatement, code *ast.Code, env *object.Environment) object.Object {
+	rc := evalExpressionNode(ers.ErrNum, code, env)
+
+	// got to catch any potential errors from evaluating the expression
+	switch val := rc.(type) {
+	case *object.Error:
+		return val
+	default:
+		errnum, err := coerceDblInteger(val, env)
+
+		if err != nil {
+			return err
+		}
+
+		return evalErrorStatementNumber(errnum, env)
+	}
+}
+
+// decide if I got valid error number
+func evalErrorStatementNumber(errnum int32, env *object.Environment) object.Object {
+	// first check the range
+	if (errnum < 0) || (errnum > 255) {
+		return object.StdError(env, berrors.Syntax)
+	}
+
+	return object.StdError(env, int(errnum))
+}
+
 // FILES instruct the system to list filenames for current directory
 // FILES "path" lists all files in the specified directory
 func evalFilesCommand(files *ast.FilesCommand, code *ast.Code, env *object.Environment) object.Object {
@@ -1535,6 +1573,80 @@ func evalNextComplete(pos bool, cntr object.Object, four *ast.ForStatment, code 
 	}
 
 	return nil, !res
+}
+
+// make sure the line is valid and then save it in the settings
+func evalOnErrorStatement(node *ast.OnErrorGoto, code *ast.Code, env *object.Environment) object.Object {
+	// make sure the statment is complete
+	if (!strings.EqualFold(node.Token.Literal, "ON ERROR GOTO")) || (node.Jump < 0) {
+		return object.StdError(env, berrors.Syntax)
+	}
+
+	// make sure the error handler actually exists
+	if !code.Exists(node.Jump) {
+		return object.StdError(env, berrors.UnDefinedLineNumber)
+	}
+
+	// save the node to the settings
+	env.SaveSetting(settings.OnError, node)
+	return nil
+}
+
+// evalOnGoStatement, can be ON x GOTO or ON x GOSUB
+func evalOnGoStatement(node *ast.OnGoStatement, code *ast.Code, env *object.Environment) object.Object {
+	// make sure I have an expression
+	if node.Exp == nil {
+		return object.StdError(env, berrors.Syntax)
+	}
+
+	// figure out the index
+	rc := evalExpressionNode(node.Exp, code, env)
+
+	// did I get an error?
+	_, ok := rc.(*object.Error)
+	if ok {
+		return rc
+	}
+
+	// Get the result as an index
+	ind, rc := coerceDblInteger(rc, env)
+
+	// if rc is not nil, it is an error
+	if rc != nil {
+		return rc
+	}
+
+	return evalOnGoJump(ind, node, code, env)
+}
+
+// figure out where to jump, how to jump then jump
+func evalOnGoJump(ind int32, node *ast.OnGoStatement, code *ast.Code, env *object.Environment) object.Object {
+	// if index to small/large, just continue
+	if (ind <= 0) || (int(ind) > len(node.Jumps)) {
+		return nil
+	}
+
+	// pull the destination expression
+	jmpto := evalExpressionNode(node.Jumps[ind-1], code, env)
+
+	// extract out the line number
+	jmp, rc := coerceDblInteger(jmpto, env)
+
+	if rc != nil {
+		return rc
+	}
+
+	if !code.Exists(int(jmp)) {
+		return object.StdError(env, berrors.UnDefinedLineNumber)
+	}
+
+	switch node.MidTok.Literal {
+	case "GOTO":
+		return Eval(&ast.GotoStatement{Goto: strconv.Itoa(int(jmp))}, code, env)
+	case "GOSUB":
+		return Eval(&ast.GosubStatement{Gosub: int(jmp)}, code, env)
+	}
+	return object.StdError(env, berrors.Syntax)
 }
 
 // Build the default Palette struct

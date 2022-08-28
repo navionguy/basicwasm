@@ -700,6 +700,14 @@ func Test_ExpressionStatement(t *testing.T) {
 	assert.Equal(t, "X = X * Y", exp.String())
 }
 
+func Test_ErrorStatment(t *testing.T) {
+	err := ErrorStatement{Token: token.Token{Type: token.ERROR, Literal: "ERROR"}, ErrNum: &IntegerLiteral{Value: 31}}
+
+	err.statementNode()
+	assert.Equal(t, "ERROR", err.TokenLiteral())
+	assert.Equal(t, "ERROR 31", err.String())
+}
+
 func Test_FilesCommand(t *testing.T) {
 
 	tests := []struct {
@@ -957,15 +965,6 @@ func Test_LoadCommand(t *testing.T) {
 	}
 }
 
-func Test_OctalConstant(t *testing.T) {
-	oct := OctalConstant{Token: token.Token{Type: token.OCTAL, Literal: "&"}, Value: "37"}
-
-	oct.expressionNode()
-
-	assert.Equal(t, "&", oct.TokenLiteral())
-	assert.Equal(t, "&37", oct.String())
-}
-
 func Test_NewCommand(t *testing.T) {
 	cmd := NewCommand{Token: token.Token{Type: token.NEW, Literal: "NEW"}}
 
@@ -989,6 +988,48 @@ func Test_NextStatement(t *testing.T) {
 		tt.nxt.statementNode()
 		assert.Equal(t, tt.tok, tt.nxt.TokenLiteral())
 		assert.Equal(t, tt.exp, tt.nxt.String())
+	}
+}
+
+func Test_OctalConstant(t *testing.T) {
+	oct := OctalConstant{Token: token.Token{Type: token.OCTAL, Literal: "&"}, Value: "37"}
+
+	oct.expressionNode()
+
+	assert.Equal(t, "&", oct.TokenLiteral())
+	assert.Equal(t, "&37", oct.String())
+}
+
+func Test_OnErrorGoto(t *testing.T) {
+	tests := []struct {
+		oer OnErrorGoto
+		dsp string
+	}{
+		{oer: OnErrorGoto{Token: token.Token{Type: token.ON, Literal: "ON ERROR GOTO"}, Jump: 1000}, dsp: "ON ERROR GOTO 1000"},
+	}
+	for _, tt := range tests {
+		tt.oer.statementNode()
+
+		assert.EqualValues(t, tt.oer.Token.Literal, tt.oer.TokenLiteral(), tt.dsp)
+		assert.EqualValues(t, tt.dsp, tt.oer.String(), tt.dsp)
+	}
+}
+
+func Test_OnGoStatement(t *testing.T) {
+	tests := []struct {
+		og  OnGoStatement
+		dsp string
+	}{
+		{og: OnGoStatement{Token: token.Token{Type: token.ON, Literal: "ON"},
+			Exp:    &Identifier{Value: "X"},
+			MidTok: token.Token{Type: token.GOTO, Literal: "GOTO"}, Jumps: []Expression{&IntegerLiteral{Value: 100}, &IntegerLiteral{Value: 200}, &IntegerLiteral{Value: 300}}},
+			dsp: "ON X GOTO 100, 200, 300"},
+	}
+	for _, tt := range tests {
+		tt.og.statementNode()
+
+		assert.EqualValues(t, tt.og.Token.Literal, tt.og.TokenLiteral(), tt.dsp)
+		assert.EqualValues(t, tt.dsp, tt.og.String(), tt.dsp)
 	}
 }
 
