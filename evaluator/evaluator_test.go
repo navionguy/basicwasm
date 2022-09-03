@@ -1518,6 +1518,71 @@ func Test_RestoreStatement(t *testing.T) {
 	}
 }
 
+func Test_ResumeStatement(t *testing.T) {
+	tests := []struct {
+		inp string
+		err bool
+	}{
+		{inp: `10 ON ERROR GOTO 100
+		20 ERROR 17 : PRINT "Test"
+		30 PRINT "I'm back!"
+		40 END
+		100 PRINT ERR, ERL
+		110 RESUME NEXT`},
+		{inp: `10 ON ERROR GOTO 100
+		20 ERROR 17 : REM syntax error
+		30 PRINT "I'm back!"
+		40 END
+		100 PRINT ERR, ERL
+		110 RESUME 40`},
+		{inp: `10 ON ERROR GOTO 100
+		20 ERROR 17 : REM syntax error
+		30 PRINT "I'm back!"
+		40 END
+		100 PRINT ERR, ERL
+		110 RESUME 400`, err: true},
+		{inp: `10 ON ERROR GOTO 100
+		20 ERROR 17 : REM syntax error
+		30 PRINT "I'm back!"
+		40 END
+		100 PRINT ERR, ERL
+		110 RESUME FRED`, err: true},
+		{inp: `10 ON ERROR GOTO 100
+		20 ERROR 17 : REM syntax error
+		30 PRINT "I'm back!"
+		40 END
+		100 PRINT ERR, ERL
+		110 RESUME NEXT FRED`, err: true},
+		// last test blows through the switch, just 4 fun
+		{inp: `10 ON ERROR GOTO 100
+		20 ERROR 17 : REM syntax error
+		30 PRINT "I'm back!"
+		40 END
+		100 PRINT ERR, ERL
+		110 RESUME PRINT`, err: true},
+	}
+
+	for _, tt := range tests {
+		l := lexer.New(tt.inp)
+		p := parser.New(l)
+		var mt mocks.MockTerm
+		initMockTerm(&mt)
+		env := object.NewTermEnvironment(mt)
+
+		p.ParseProgram(env)
+
+		env.SetRun(true)
+		rc := Eval(&ast.Program{}, env.StatementIter(), env)
+		env.SetRun(false)
+
+		if tt.err {
+			assert.NotNil(t, rc, "%s expected error, didn't get one", tt.inp)
+		} else {
+			assert.Nil(t, rc, "got an unexpected error %T", rc)
+		}
+	}
+}
+
 func Test_ReturnStatement(t *testing.T) {
 	tests := []struct {
 		src string

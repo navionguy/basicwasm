@@ -285,17 +285,17 @@ func (cd *Code) Exists(target int) bool {
 }
 
 // Jump to the target line in the AST
-func (cd *Code) Jump(target int) string {
+func (cd *Code) Jump(target int) int {
 	i, ok := cd.findLine(target)
 
 	if ok {
 		cd.currIndex = i
-		return ""
+		return 0
 	}
 	// stop execution
 	cd.currIndex = cd.Len()
 
-	return berrors.TextForError(berrors.UnDefinedLineNumber)
+	return berrors.UnDefinedLineNumber
 }
 
 // GetReturnPoint sends back the current position in the code
@@ -308,6 +308,29 @@ func (cd *Code) JumpToRetPoint(rp RetPoint) {
 	cd.currIndex = rp.currIndex
 	cd.currLine = cd.lines[cd.currIndex].lineNum
 	cd.lines[cd.currIndex].curStmt = rp.currStmt
+}
+
+// Need to jump to the instruction prior to the target
+func (cd *Code) JumpBeforeRetPoint(rp RetPoint) {
+	// first move to the return point
+	cd.JumpToRetPoint(rp)
+
+	// now back up one statement
+	if rp.currStmt > 0 {
+		// easy peasy, just decrement it to prior statement
+		cd.lines[cd.currIndex].curStmt = rp.currStmt - 1
+		return
+	}
+
+	// have to move to the previous line
+	if cd.currIndex == 0 {
+		// not possible, don't know how this could happen but.....
+		return
+	}
+
+	// last statement of previous line
+	cd.currIndex--
+	cd.lines[cd.currIndex].curStmt = len(cd.lines[cd.currIndex].stmts) - 1
 }
 
 // Next returns the next constant data item

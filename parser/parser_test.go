@@ -1126,6 +1126,25 @@ func TestRestore(t *testing.T) {
 	}
 }
 
+func Test_ResumeStatement(t *testing.T) {
+	tests := []struct {
+		inp string
+	}{
+		{inp: `100 RESUME`},
+		{inp: `100 RESUME NEXT`},
+		{inp: `100 RESUME 0`},
+		{inp: `100 RESUME 100`},
+		{inp: `100 RESUME FRED`},
+	}
+
+	for _, tt := range tests {
+		l := lexer.New(tt.inp)
+		p := New(l)
+		env := object.NewTermEnvironment(mocks.MockTerm{})
+		p.ParseProgram(env)
+	}
+}
+
 func Test_ScreenStatement(t *testing.T) {
 	tests := []struct {
 		inp string

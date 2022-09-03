@@ -81,6 +81,9 @@ func Eval(node ast.Node, code *ast.Code, env *object.Environment) object.Object 
 		return evalErrorStatement(node, code, env)
 
 	case *ast.ExpressionStatement:
+		if node.Token.Literal == ":" {
+			return nil
+		}
 		return Eval(node.Expression, code, env)
 
 	case *ast.FilesCommand:
@@ -198,6 +201,9 @@ func Eval(node ast.Node, code *ast.Code, env *object.Environment) object.Object 
 
 	case *ast.RestoreStatement:
 		return evalRestoreStatement(node, code, env)
+
+	case *ast.ResumeStatement:
+		return evalResumeStatement(node, code, env)
 
 	case *ast.RemStatement:
 		return nil // nothing to be done
@@ -681,7 +687,8 @@ func evalStatementResult(rc object.Object, code *ast.Code, env *object.Environme
 		code = env.StatementIter()
 		halt = (code.Len() == 0)
 	case object.ObjectType("ERROR"):
-		halt = true
+		// but wait!  Is there an ON ERROR rule in place
+		halt = evalErrorHandler(code, env)
 	case object.ObjectType("HALT"):
 		halt = true
 		env.SaveSetting(settings.Restart, code)
@@ -692,6 +699,24 @@ func evalStatementResult(rc object.Object, code *ast.Code, env *object.Environme
 	}
 
 	return halt, code, rc
+}
+
+// got an error, is an ON ERROR rule in place
+func evalErrorHandler(code *ast.Code, env *object.Environment) bool {
+	// if the setting doesn't exist, he returns a turned off value (zero)
+	oer, _ := env.GetSetting(settings.OnError).(*ast.OnErrorGoto)
+
+	if (oer == nil) || (oer.Jump == 0) {
+		// no rule in place
+		return true
+	}
+
+	// save a resume point
+	env.SaveSetting(settings.Restart, &ast.ResumeStatement{ResmPt: code.GetReturnPoint()})
+	// jump to the defined error handler
+	code.Jump(oer.Jump)
+
+	return false
 }
 
 // check for a user break - Ctrl-C, returns a halt if it was seen
@@ -778,6 +803,62 @@ func evalRestoreStatement(rst *ast.RestoreStatement, code *ast.Code, env *object
 	return nil
 }
 
+// user wants to resume after an ON ERROR routine
+func evalResumeStatement(res *ast.ResumeStatement, code *ast.Code, env *object.Environment) object.Object {
+	if len(res.ResmDir) > 1 {
+		// too many directives, error
+		return evalResumeError(berrors.Syntax, env)
+	}
+
+	// get the restart setting
+	oe := env.GetSetting(settings.Restart)
+	oer, _ := oe.(*ast.ResumeStatement)
+	rtp := oer.ResmPt
+
+	// if no direction given, go back to statement that caused the error and hope
+	// some day I should figure out how to unit test this
+	if len(res.ResmDir) == 0 {
+		code.JumpBeforeRetPoint(rtp)
+		return nil
+	}
+
+	// There is some kind of directive telling me where to resume, figure it out
+	switch dir := res.ResmDir[0].(type) {
+	case *ast.Identifier:
+		if strings.EqualFold(dir.Value, "NEXT") {
+			code.JumpToRetPoint(rtp)
+			return nil
+		} else {
+			return evalResumeError(berrors.Syntax, env)
+		}
+	case *ast.DblIntegerLiteral:
+		if dir.Value == 0 {
+			code.JumpBeforeRetPoint(rtp)
+			return nil
+		}
+		if dir.Value > 0 {
+			if code.Exists(int(dir.Value)) {
+				code.Jump(int(dir.Value))
+				return nil
+			} else {
+				return evalResumeError(berrors.UnDefinedLineNumber, env)
+			}
+		}
+
+	}
+
+	// if I fall out of the switch, I didn't recognize the directive
+	return evalResumeError(berrors.Syntax, env)
+}
+
+// got an error in the error handler
+func evalResumeError(err int, env *object.Environment) object.Object {
+	// have to turn off error handle or I will spin forever
+	env.ClrSetting(settings.OnError)
+
+	return object.StdError(env, err)
+}
+
 // evalReturnStatement gets you back to where the sub-routine was called
 // alternatively, allows you to recover from an event trap <- ToDo
 func evalReturnStatement(ret *ast.ReturnStatement, code *ast.Code, env *object.Environment) object.Object {
@@ -849,8 +930,8 @@ func evalRunCheckStartLineNum(run *ast.RunCommand, env *object.Environment) obje
 	if run.StartLine > 0 {
 		err := pcode.Jump(run.StartLine)
 
-		if len(err) > 0 {
-			return object.StdError(env, berrors.UnDefinedLineNumber)
+		if err > 0 {
+			return object.StdError(env, err)
 		}
 	}
 
@@ -1247,10 +1328,10 @@ func evalGotoStatement(jmp string, code *ast.Code, env *object.Environment) obje
 // we are running, jump to new line
 func evalGotoJump(line int, code *ast.Code, env *object.Environment) object.Object {
 
-	msg := code.Jump(line)
+	err := code.Jump(line)
 
-	if len(msg) > 0 {
-		return object.StdError(env, berrors.UnDefinedLineNumber)
+	if err > 0 {
+		return object.StdError(env, err)
 	}
 	if env.GetTrace() {
 		env.Terminal().Print(fmt.Sprintf("[%d]", line))
@@ -1262,11 +1343,11 @@ func evalGotoJump(line int, code *ast.Code, env *object.Environment) object.Obje
 // 'GOTO' entered from command line, start running at target line
 func evalGotoStart(line int, env *object.Environment) object.Object {
 	code := env.StatementIter()
-	msg := code.Jump(line)
+	err := code.Jump(line)
 
 	// if I get a msg, line wasn't found
-	if len(msg) > 0 {
-		return object.StdError(env, berrors.UnDefinedLineNumber)
+	if err > 0 {
+		return object.StdError(env, err)
 	}
 
 	// go run the program

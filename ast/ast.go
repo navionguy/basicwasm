@@ -164,7 +164,7 @@ type ChDirStatement struct {
 	Path  []Expression // should be the directory to change to
 }
 
-func (cd *ChDirStatement) statementNode()       { return }
+func (cd *ChDirStatement) statementNode()       {}
 func (cd *ChDirStatement) TokenLiteral() string { return strings.ToUpper(cd.Token.Literal) }
 func (cd *ChDirStatement) String() string {
 	var out bytes.Buffer
@@ -184,7 +184,7 @@ type ClearCommand struct {
 	Exp   [3]Expression // parameters I don't support
 }
 
-func (clr *ClearCommand) statementNode() { return }
+func (clr *ClearCommand) statementNode() {}
 
 func (clr *ClearCommand) TokenLiteral() string { return strings.ToUpper(clr.Token.Literal) }
 
@@ -212,7 +212,7 @@ type ClsStatement struct {
 	Param int
 }
 
-func (cls *ClsStatement) statementNode() { return }
+func (cls *ClsStatement) statementNode() {}
 
 // TokenLiteral returns my token literal
 func (cls *ClsStatement) TokenLiteral() string { return strings.ToUpper(cls.Token.Literal) }
@@ -307,6 +307,7 @@ func (eof *EOFExpression) String() string       { return "" }
 type ErrorStatement struct {
 	Token  token.Token
 	ErrNum Expression // should evaluate to an integer value
+	Resume RetPoint   // set by OnError, where to resume at after handling the error
 }
 
 func (err *ErrorStatement) statementNode()       {}
@@ -1183,13 +1184,34 @@ type RemStatement struct {
 	Comment string
 }
 
-func (rem *RemStatement) statementNode() { return }
+func (rem *RemStatement) statementNode() {}
 
 // TokenLiteral should return REM
 func (rem *RemStatement) TokenLiteral() string { return strings.ToUpper(rem.Token.Literal) }
 
 func (rem *RemStatement) String() string {
 	return strings.ToUpper(rem.Token.Literal) + " " + strings.TrimRight(rem.Comment, " ")
+}
+
+// Resume execution after recovering from an error
+type ResumeStatement struct {
+	Token   token.Token  // "RESUME"
+	ResmDir []Expression // 0, NEXT or line ##### from source
+	ResmPt  RetPoint     // location that caused the error
+}
+
+func (resm *ResumeStatement) statementNode()       {}
+func (resm *ResumeStatement) TokenLiteral() string { return strings.ToUpper(resm.Token.Literal) }
+func (resm *ResumeStatement) String() string {
+	var out bytes.Buffer
+
+	out.WriteString(resm.TokenLiteral())
+
+	for _, rd := range resm.ResmDir {
+		out.WriteString(" " + rd.String())
+	}
+
+	return out.String()
 }
 
 // RunCommand clears all variables and starts execution
@@ -1201,7 +1223,7 @@ type RunCommand struct {
 	KeepOpen  bool
 }
 
-func (run *RunCommand) statementNode() { return }
+func (run *RunCommand) statementNode() {}
 
 // TokenLiteral should return RUN
 func (run *RunCommand) TokenLiteral() string { return strings.ToUpper(run.Token.Literal) }

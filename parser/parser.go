@@ -267,6 +267,8 @@ func (p *Parser) parseStatement() ast.Statement {
 		return p.parseRemStatement()
 	case token.RESTORE:
 		return p.parseRestoreStatement()
+	case token.RESUME:
+		return p.parseResumeStatement()
 	case token.RETURN:
 		return p.parseReturnStatement()
 	case token.RUN:
@@ -1298,9 +1300,7 @@ func (p *Parser) parseReadStatement() *ast.ReadStatement {
 
 // not a hard one to parse
 func (p *Parser) parseRemStatement() *ast.RemStatement {
-	defer untrace(trace("parseRemStatement"))
-	stmt := &ast.RemStatement{Token: p.curToken}
-	//stmt := &ast.RemStatement{Token: p.curToken, Comment: strings.ToUpper(p.curToken.Literal) + " "}
+	stmt := ast.RemStatement{Token: p.curToken}
 
 	p.l.PassOn()
 	for !p.peekTokenIs(token.LINENUM) && !p.peekTokenIs(token.EOF) && !p.peekTokenIs(token.EOL) {
@@ -1308,14 +1308,13 @@ func (p *Parser) parseRemStatement() *ast.RemStatement {
 		stmt.Comment += p.curToken.Literal
 	}
 	p.l.PassOff()
-	return stmt
+	return &stmt
 }
 
 // RESTORE resets to read from the beginning of const DATA
 // it can optionally take a line number to restore to
 func (p *Parser) parseRestoreStatement() *ast.RestoreStatement {
-	defer untrace(trace("parseRestoreStatement"))
-	stmt := &ast.RestoreStatement{Token: p.curToken, Line: -1}
+	stmt := ast.RestoreStatement{Token: p.curToken, Line: -1}
 
 	if !p.peekTokenIs(token.LINENUM) && !p.peekTokenIs(token.EOF) && !p.peekTokenIs(token.EOL) && !p.peekTokenIs(token.COLON) {
 		p.nextToken()
@@ -1334,12 +1333,37 @@ func (p *Parser) parseRestoreStatement() *ast.RestoreStatement {
 		p.nextToken()
 	}
 
-	return stmt
+	return &stmt
+}
+
+// user wishes to resume excution
+func (p *Parser) parseResumeStatement() *ast.ResumeStatement {
+	stmt := ast.ResumeStatement{Token: p.curToken}
+
+	// hoover up any and all parameters
+	for !p.chkEndOfStatement() {
+		p.nextToken()
+
+		switch p.curToken.Type {
+		case token.NEXT:
+			stmt.ResmDir = append(stmt.ResmDir, &ast.Identifier{Value: "NEXT"})
+		case token.INT, token.INTD:
+			v, err := strconv.Atoi(p.curToken.Literal)
+			if err != nil {
+				stmt.ResmDir = append(stmt.ResmDir, &ast.StringLiteral{Value: p.curToken.Literal})
+			} else {
+				stmt.ResmDir = append(stmt.ResmDir, &ast.DblIntegerLiteral{Value: int32(v)})
+			}
+		default:
+			stmt.ResmDir = append(stmt.ResmDir, p.parseExpression(LOWEST))
+		}
+	}
+
+	return &stmt
 }
 
 // returns are much simpler in gwbasic
 func (p *Parser) parseReturnStatement() *ast.ReturnStatement {
-	defer untrace(trace("parseReturnStatement"))
 	stmt := &ast.ReturnStatement{Token: p.curToken, ReturnTo: ""}
 
 	if p.peekToken.Literal == token.EOF {

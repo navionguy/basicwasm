@@ -221,6 +221,11 @@ func (e *Environment) Set(name string, val Object) {
 	e.store[name] = v
 }
 
+// clear a setting
+func (e *Environment) ClrSetting(name string) {
+	e.settings[name] = nil
+}
+
 // Fetch a runtime setting
 func (e *Environment) GetSetting(name string) ast.Node {
 	return e.settings[name]

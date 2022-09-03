@@ -12,6 +12,7 @@ import (
 	"github.com/navionguy/basicwasm/ast"
 	"github.com/navionguy/basicwasm/berrors"
 	"github.com/navionguy/basicwasm/decimal"
+	"github.com/navionguy/basicwasm/settings"
 	"github.com/navionguy/basicwasm/token"
 )
 
@@ -162,14 +163,24 @@ func (e *Error) Inspect() string  { return e.Message }
 func StdError(env *Environment, err int) *Error {
 	// get the base error message
 	e := Error{Code: err, Message: berrors.TextForError(err)}
+	env.SaveSetting(settings.ERR, &ast.DblIntegerLiteral{Value: int32(err)})
 
+	erl := 0
 	if env.ProgramRunning() {
 		tk := env.Get(token.LINENUM)
 
 		if tk != nil {
-			e.Message += fmt.Sprintf(" in %d", tk.(*IntDbl).Value)
+			erl = int(tk.(*IntDbl).Value)
+			e.Message += fmt.Sprintf(" in %d", erl)
+
+			// and save the variable
+			env.SaveSetting(settings.ERL, &ast.DblIntegerLiteral{Value: int32(erl)})
 		}
 	}
+
+	// create or update the ERL & ERR variables
+	env.Set(strings.ToUpper(settings.ERL), &Integer{Value: int16(erl)})
+	env.Set(strings.ToUpper(settings.ERR), &Integer{Value: int16(err)})
 
 	return &e
 }

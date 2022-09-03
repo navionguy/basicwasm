@@ -101,6 +101,7 @@ const (
 	READ    = "READ"
 	REM     = "REM"
 	RESTORE = "RESTORE"
+	RESUME  = "RESUME"
 	RETURN  = "RETURN"
 	RUN     = "RUN"
 	SCREEN  = "SCREEN"
@@ -160,6 +161,7 @@ var keywords = map[string]TokenType{
 	"read":    READ,
 	"rem":     REM,
 	"restore": RESTORE,
+	"resume":  RESUME,
 	"return":  RETURN,
 	"run":     RUN,
 	"screen":  SCREEN,

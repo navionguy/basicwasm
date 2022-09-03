@@ -244,13 +244,13 @@ func TestCodeMultiLines(t *testing.T) {
 
 	err := program.code.Jump(10)
 
-	if len(err) > 0 {
-		t.Fatalf("code.Jump to line 10 failed with %s!", err)
+	if err > 0 {
+		t.Fatalf("code.Jump to line 10 failed with %d!", err)
 	}
 
 	err = program.code.Jump(400)
 
-	if len(err) == 0 {
+	if err == 0 {
 		t.Fatal("code.Jump to non-existant line succeeded!")
 	}
 }
@@ -322,6 +322,29 @@ func Test_CodeRetPoint(t *testing.T) {
 	assert.Equal(t, 5, rp.currStmt, "GetReturnPointgave stmt %d, expected 5", rp.currStmt)
 
 	code.JumpToRetPoint(rp)
+}
+
+func Test_CodeJumpB4RC(t *testing.T) {
+	tests := []struct {
+		cd   Code
+		idx  int
+		stmt int
+	}{
+		{cd: Code{currIndex: 1, currLine: 100, lines: []codeLine{{}, {lineNum: 10, curStmt: 5}}}, idx: 1, stmt: 4},
+		{cd: Code{currIndex: 1, currLine: 100, lines: []codeLine{{lineNum: 5, curStmt: 0, stmts: []Statement{&LineNumStmt{}}}, {lineNum: 10, curStmt: 0}}}, idx: 0, stmt: 0},
+	}
+
+	for _, tt := range tests {
+		code := tt.cd
+
+		rp := code.GetReturnPoint()
+
+		code.JumpBeforeRetPoint(rp)
+
+		assert.Equal(t, tt.idx, code.currIndex, "JumpBeforeRetPoint gave index %d, expected %d", code.currIndex, tt.idx)
+		assert.Equal(t, tt.stmt, code.lines[code.currIndex].curStmt, "JumpBeforeRetPoint gave stmt %d, expected %d", rp.currStmt, tt.stmt)
+	}
+
 }
 
 func Test_ColorStatement(t *testing.T) {
@@ -1112,6 +1135,15 @@ func Test_RestoreStatement(t *testing.T) {
 
 	assert.Equal(t, "RESTORE", rstr.TokenLiteral())
 	assert.Equal(t, "RESTORE 200", rstr.String())
+}
+
+func Test_ResumeStatement(t *testing.T) {
+	resm := &ResumeStatement{Token: token.Token{Type: token.RESUME, Literal: "RESUME"}, ResmDir: []Expression{&Identifier{Value: "NEXT"}}}
+
+	resm.statementNode()
+
+	assert.Equal(t, "RESUME", resm.TokenLiteral())
+	assert.Equal(t, "RESUME NEXT", resm.String())
 }
 
 func Test_ReturnStatement(t *testing.T) {

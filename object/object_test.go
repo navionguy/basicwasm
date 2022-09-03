@@ -314,6 +314,21 @@ func Test_RestartSignal(t *testing.T) {
 	assert.Equal(t, "RESTART", rs.Inspect(), "Restart Inspect() returned %s", rs.Inspect())
 }
 
+func Test_Settings(t *testing.T) {
+	name := "test"
+	env := newEnvironment()
+
+	env.SaveSetting(name, &ast.StringLiteral{Value: name})
+	tst := env.GetSetting(name)
+
+	assert.NotNil(t, tst, "setting didn't save")
+
+	env.ClrSetting(name)
+	tst = env.GetSetting(name)
+
+	assert.Nil(t, tst, "setting didn't clear")
+}
+
 func Test_Stack(t *testing.T) {
 	tests := []struct {
 		pushCount int
