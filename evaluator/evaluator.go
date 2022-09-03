@@ -1663,6 +1663,12 @@ func evalOnErrorStatement(node *ast.OnErrorGoto, code *ast.Code, env *object.Env
 		return object.StdError(env, berrors.Syntax)
 	}
 
+	// if the jump to line is zero, he is turning off the error trap
+	if node.Jump == 0 {
+		env.ClrSetting(settings.OnError)
+		return nil
+	}
+
 	// make sure the error handler actually exists
 	if !code.Exists(node.Jump) {
 		return object.StdError(env, berrors.UnDefinedLineNumber)

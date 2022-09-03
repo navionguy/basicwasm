@@ -968,22 +968,6 @@ func testEval(input string, vbl string) object.Object {
 	return env.Get(vbl)
 }
 
-func testEvalWithTerm(input string, keys string) object.Object {
-	l := lexer.New(input)
-	p := parser.New(l)
-	var mt mocks.MockTerm
-	initMockTerm(&mt)
-	mt.StrVal = &keys
-	env := object.NewTermEnvironment(mt)
-	p.ParseProgram(env)
-
-	if len(p.Errors()) > 0 {
-		return nil
-	}
-
-	return Eval(&ast.Program{}, env.StatementIter(), env)
-}
-
 func testEvalWithClient(input string, file string, err *error) object.Object {
 	l := lexer.New(input)
 	p := parser.New(l)
@@ -1009,19 +993,6 @@ func testIntegerObject(t *testing.T, obj object.Object, expected int16) bool {
 	result, ok := obj.(*object.Integer)
 	if !ok {
 		t.Errorf("object is not Integer. got=%T (%+v)", obj, obj)
-		return false
-	}
-	if result.Value != expected {
-		t.Errorf("object has wrong value. got=%d, want=%d", result.Value, expected)
-		return false
-	}
-	return true
-}
-
-func testIntDblObject(t *testing.T, obj object.Object, expected int32) bool {
-	result, ok := obj.(*object.IntDbl)
-	if !ok {
-		t.Errorf("object is not IntDbl. got=%T (%+v)", obj, obj)
 		return false
 	}
 	if result.Value != expected {
@@ -1225,6 +1196,7 @@ func Test_OnErrorGotoStatement(t *testing.T) {
 	}{
 		{inp: `10 ON ERROR GOTO 100
 		100 END`, jmp: 100},
+		{inp: `10 ON ERROR GOTO 0`, jmp: 0},
 		{inp: `10 ON ERROR GOTO 100`, err: true, msg: "Undefined line number in 10"},
 		{inp: `10 ON ERROR GOTO -5`, err: true, msg: "Syntax error in 10"},
 	}
@@ -1247,13 +1219,17 @@ func Test_OnErrorGotoStatement(t *testing.T) {
 
 			assert.True(t, ok, "didn't get the expected error")
 			assert.EqualValues(t, tt.msg, err.Message, "didn't get the expected error")
-		} else {
+		} else if tt.jmp > 0 {
 			// check the setting
 			set := env.GetSetting(settings.OnError)
 			oeg, ok := set.(*ast.OnErrorGoto)
 
 			assert.True(t, ok, "failed to get OnErrorGoto node")
 			assert.EqualValues(t, tt.jmp, oeg.Jump)
+		} else {
+			set := env.GetSetting(settings.OnError)
+
+			assert.Nil(t, set, "OnError failed to clear")
 		}
 	}
 }
@@ -1312,6 +1288,10 @@ func Test_OnGoStatement(t *testing.T) {
 			assert.Equal(t, tt.jmp, code.CurLine(), "Jumped to wrong line")
 		}
 	}
+}
+
+func Test_PrintStatement(t *testing.T) {
+
 }
 
 func TestDim_Statements(t *testing.T) {
