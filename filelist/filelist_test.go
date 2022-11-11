@@ -25,6 +25,15 @@ const marshaledFiles = `[{"name":"short.bas","isdir":false},{"name":"test.bas","
 
 const buildFiles = `[{"name":"test.bas","isdir":false},{"name":"alongername.bas","isdir":true}]`
 
+func Test_Build(t *testing.T) {
+	fl := NewFileList()
+
+	mt := &mocks.MockTerm{}
+	env := object.NewTermEnvironment(mt)
+
+	fl.Build(bufio.NewReader(bytes.NewReader(nil)), env)
+}
+
 func Test_FilesJSON(t *testing.T) {
 	fl := NewFileList()
 	assert.NotNil(t, fl, "Test_FilesJSON fl was nil")

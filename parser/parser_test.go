@@ -168,6 +168,33 @@ func Test_ChainStatement(t *testing.T) {
 	}
 }
 
+func Test_ChrS(t *testing.T) {
+	tests := []struct {
+		inp string
+	}{
+		{inp: `X$ = CHR$(20)`},
+	}
+
+	for _, tt := range tests {
+		l := lexer.New(tt.inp)
+		p := New(l)
+		env := object.NewTermEnvironment(mocks.MockTerm{})
+		p.ParseCmd(env)
+		checkParserErrors(t, p)
+
+		if env.CmdLineIter().Len() != 1 {
+			t.Fatalf("program.Statements does not contain single command")
+		}
+
+		iter := env.CmdLineIter()
+		stmt := iter.Value()
+		_, ok := stmt.(*ast.LetStatement)
+
+		assert.True(t, ok, "fail")
+
+	}
+}
+
 func Test_ChDir(t *testing.T) {
 	tests := []struct {
 		inp string
@@ -558,11 +585,15 @@ func Test_ErrorStatement(t *testing.T) {
 
 func Test_KeyStatement(t *testing.T) {
 	tests := []struct {
-		inp string
+		inp  string
+		parm ast.Expression
 	}{
 		{inp: `10 KEY`},
-		{inp: `20 KEY OFF`},
-		{inp: `30 KEY 1,"FILES"`},
+		{inp: `20 KEY OFF`, parm: &ast.OffExpression{}},
+		{inp: `30 KEY 1,"FILES"`, parm: &ast.IntegerLiteral{Token: token.Token{Type: "INT", Literal: "1"}, Value: 1}},
+		{inp: `40 KEY ON`, parm: &ast.OnExpression{}},
+		{inp: `50 KEY LIST`, parm: &ast.ListExpression{Token: token.Token{Type: "LIST", Literal: "LIST"}}},
+		{inp: `60 KEY 1, CHR$(03)+CHR$(25)`, parm: &ast.IntegerLiteral{Token: token.Token{Type: "INT", Literal: "1"}, Value: 1}},
 	}
 
 	for _, tt := range tests {
@@ -572,6 +603,19 @@ func Test_KeyStatement(t *testing.T) {
 		p.ParseProgram(env)
 
 		checkParserErrors(t, p)
+
+		assert.True(t, p.curTokenIs(token.EOF), "didn't parse to EOF")
+
+		itr := env.StatementIter()
+		itr.Next()
+		k := itr.Value()
+
+		assert.NotNil(t, k, "failed to get a KeyStatement")
+		key, ok := k.(*ast.KeyStatement)
+
+		assert.True(t, ok, "statement was not a KeyStatement")
+		assert.NotNil(t, key, "*KeyStatement was nil")
+		assert.Equal(t, tt.parm, key.Param)
 	}
 }
 
@@ -1922,9 +1966,9 @@ func TestFunctionApplication(t *testing.T) {
 		input    string
 		errCount int
 	}{
-		{"10 DEF FNID(x) = x : FNID(5)", 0},
-		{"20 DEF FNMUL(x,y) = x*y : FNMUL(2,3)", 0},
-		{"30 DEF FNSKIP(x)= (x + 2): FNSKIP(3)", 0},
+		{"10 DEF FNID(x) = x : PRINT FNID(5)", 0},
+		{"20 DEF FNMUL(x,y) = x*y : PRINT FNMUL(2,3)", 0},
+		{"30 DEF FNSKIP(x)= (x + 2): PRINT FNSKIP(3)", 0},
 		{"40 DEF FN(z) = z + 2", 1},
 		{"50 DEF AFUNC(t) = t * 5", 1},
 		{"60 DEF FNMUL(x,y)", 1},

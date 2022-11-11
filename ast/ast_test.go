@@ -739,6 +739,7 @@ func Test_FilesCommand(t *testing.T) {
 	}{
 		{cmd: FilesCommand{Token: token.Token{Type: token.FILES, Literal: "FILES"}}, exp: `FILES`},
 		{cmd: FilesCommand{Token: token.Token{Type: token.FILES, Literal: "FILES"}, Path: []Expression{&StringLiteral{Value: `C:\MENU`}}}, exp: `FILES "C:\MENU"`},
+		{cmd: FilesCommand{Token: token.Token{Type: token.FILES, Literal: "FILES"}, Path: []Expression{&StringLiteral{Value: `C:\MENU`}, &StringLiteral{Value: `D:\DATA`}}}, exp: `FILES "C:\MENU", "D:\DATA"`},
 	}
 
 	for _, tt := range tests {
@@ -916,14 +917,32 @@ func Test_IntegerLiteral(t *testing.T) {
 	assert.Equal(t, "13", il.String())
 }
 
+func Test_KeySettings(t *testing.T) {
+	keys := &KeySettings{}
+
+	keys.statementNode()
+
+	assert.Equal(t, "KEYS", keys.TokenLiteral(), "KeySettings literal wasn't KEYS")
+	assert.Equal(t, "F1 \r\nF2 \r\nF3 \r\nF4 \r\nF5 \r\nF6 \r\nF7 \r\nF8 \r\nF9 \r\nF10 \r\n", keys.String(), "didn't get key mappings from keys.String()")
+}
+
 func Test_KeyStatement(t *testing.T) {
-	key := &KeyStatement{Token: token.Token{Type: token.KEY, Literal: "KEY"}, Param: token.Token{Type: token.INT, Literal: "1"},
+	key := &KeyStatement{Token: token.Token{Type: token.KEY, Literal: "KEY"}, Param: &IntegerLiteral{Value: 1},
 		Data: []Expression{&StringLiteral{Value: "FILES"}, &StringLiteral{Value: "Syntax Error"}}}
 
 	key.statementNode()
 
 	assert.Equal(t, "KEY", key.TokenLiteral())
 	assert.Equal(t, `KEY 1, "FILES", "Syntax Error"`, key.String())
+}
+
+func Test_ListExpression(t *testing.T) {
+	list := ListExpression{Token: token.Token{Literal: "LIST"}}
+
+	list.expressionNode()
+
+	assert.Equal(t, "LIST", list.TokenLiteral())
+	assert.Equal(t, "LIST", list.String())
 }
 
 func Test_ListStatement(t *testing.T) {
@@ -1012,6 +1031,24 @@ func Test_NextStatement(t *testing.T) {
 		assert.Equal(t, tt.tok, tt.nxt.TokenLiteral())
 		assert.Equal(t, tt.exp, tt.nxt.String())
 	}
+}
+
+func Test_OffExpression(t *testing.T) {
+	off := OffExpression{Token: token.Token{Literal: "OFF"}}
+
+	off.expressionNode()
+
+	assert.EqualValues(t, "OFF", off.TokenLiteral(), "OFF literal is incorrect")
+	assert.EqualValues(t, "OFF", off.String(), "OFF string is incorrect")
+}
+
+func Test_OnExpression(t *testing.T) {
+	on := OnExpression{Token: token.Token{Literal: "ON"}}
+
+	on.expressionNode()
+
+	assert.EqualValues(t, "ON", on.TokenLiteral(), "ON literal is incorrect")
+	assert.EqualValues(t, "ON", on.String(), "ON string is incorrect")
 }
 
 func Test_OctalConstant(t *testing.T) {

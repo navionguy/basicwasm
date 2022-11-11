@@ -3,7 +3,7 @@ package filelist
 import (
 	"bufio"
 	"encoding/json"
-	"io/ioutil"
+	"io"
 	"os"
 	"sort"
 	"strings"
@@ -51,7 +51,7 @@ func (fl *FileList) AddFile(file os.FileInfo) {
 func (fl *FileList) Build(dir *bufio.Reader, env *object.Environment) object.Object {
 	fl.Files = fl.Files[:0]
 
-	jsn, err := ioutil.ReadAll(dir)
+	jsn, err := io.ReadAll(dir)
 
 	if err != nil {
 		return object.StdError(env, berrors.InternalErr)

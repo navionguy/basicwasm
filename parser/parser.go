@@ -86,8 +86,11 @@ func New(l *lexer.Lexer) *Parser {
 	p.registerPrefix(token.IF, p.parseIfExpression)
 	p.registerPrefix(token.INT, p.parseIntegerLiteral)
 	p.registerPrefix(token.INTD, p.parseIntDoubleLiteral)
+	p.registerPrefix(token.LIST, p.parseListExpression)
 	p.registerPrefix(token.LPAREN, p.parseGroupedExpression)
 	p.registerPrefix(token.MINUS, p.parsePrefixExpression)
+	p.registerPrefix(token.OFF, p.parseOffExpression)
+	p.registerPrefix(token.ON, p.parseOnExpression)
 	p.registerPrefix(token.STRING, p.parseStringLiteral)
 	p.registerPrefix(token.USING, p.parseUsingExpression)
 
@@ -133,7 +136,6 @@ func (p *Parser) nextToken() {
 // ParseProgram time to get busy and build the Abstract Syntax Tree
 // The program object holds the code and he lives in the environment
 func (p *Parser) ParseProgram(env *object.Environment) {
-	defer untrace(trace("ParseProgram"))
 	p.env = env
 
 	for !p.curTokenIs(token.EOF) {
@@ -149,8 +151,6 @@ func (p *Parser) ParseProgram(env *object.Environment) {
 
 // ParseCmd is used to parse out a command entered directly
 func (p *Parser) ParseCmd(env *object.Environment) {
-	defer untrace(trace("ParseCmd"))
-
 	// if the command line entered starts with a line number
 	// we add it to the current program
 	if p.peekTokenIs(token.LINENUM) {
@@ -194,7 +194,6 @@ func (p *Parser) ParseUsingRunTime() string {
 }
 
 func (p *Parser) parseStatement() ast.Statement {
-	defer untrace(trace("parseStatement"))
 	switch p.curToken.Type {
 	case token.AUTO:
 		return p.parseAutoCommand()
@@ -899,6 +898,13 @@ func (p *Parser) parseLineNumber() *ast.LineNumStmt {
 	return stmt
 }
 
+// parse a LIST expression
+func (p *Parser) parseListExpression() ast.Expression {
+	lst := ast.ListExpression{Token: p.curToken}
+
+	return &lst
+}
+
 // user wants to list part or all of the program
 func (p *Parser) parseListStatement() *ast.ListStatement {
 	defer untrace(trace("parseListStatement"))
@@ -1015,7 +1021,7 @@ func (p *Parser) parseKeyStatement() *ast.KeyStatement {
 	// if there is a parameter, save it
 	if !p.chkEndOfStatement() {
 		p.nextToken()
-		stmt.Param = p.curToken
+		stmt.Param = p.parseExpression(LOWEST)
 	}
 
 	// load up any data items
@@ -1157,6 +1163,20 @@ func (p *Parser) parseNextStatement() *ast.NextStatement {
 	}
 
 	return &nxt
+}
+
+// parse OFF expression, parameter in statement meaning FALSE
+func (p *Parser) parseOffExpression() ast.Expression {
+	off := ast.OffExpression{}
+
+	return &off
+}
+
+// parse ON expression, parameter in statement meaning TRUE
+func (p *Parser) parseOnExpression() ast.Expression {
+	on := ast.OnExpression{}
+
+	return &on
 }
 
 // parse a "ONsomething" statement
@@ -1495,7 +1515,15 @@ func (p *Parser) innerParseIdentifier() *ast.Identifier {
 		exp.Type = p.curToken.Literal
 	}
 
-	if p.checkForFuncCall() {
+	// check if expression is a call to a built in function
+	_, ok := builtins.Builtins[exp.Value]
+	if ok {
+		return exp
+	}
+
+	// check if it is a call to a user defined function
+	if (len(exp.Value) > 2) && (strings.EqualFold(exp.Value[0:2], "FN")) {
+		// it is a function call
 		return exp
 	}
 
@@ -1626,6 +1654,7 @@ func (p *Parser) parseIfOption() ast.Statement {
 	return exp
 }
 
+// users is trying to define a function
 func (p *Parser) parseFunctionLiteral() ast.Expression {
 	if !p.expectPeek(token.IDENT) {
 		return nil

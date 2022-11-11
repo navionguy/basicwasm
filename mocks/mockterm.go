@@ -12,7 +12,7 @@ type Expector struct {
 }
 
 func (ep *Expector) chkExpectations(msg string) {
-	if ep.Exp == nil {
+	if (ep == nil) || (ep.Exp == nil) {
 		return // no Expectations
 	}
 	if strings.Compare(msg, ep.Exp[0]) != 0 {

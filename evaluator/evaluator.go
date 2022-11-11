@@ -1,3 +1,5 @@
+// Logic to evaluate statements and commands.  Updates variables saved in the environment and outputs
+// the browser UI.
 package evaluator
 
 import (
@@ -25,7 +27,8 @@ const syntaxErr = "Syntax error"
 const overflowErr = "Overflow"
 const unDefinedLineNumberErr = "Undefined line number"
 
-// Eval returns the object at a node
+// Eval evaluates the current node in the AST.  It generally returns nil, but
+// it can return an error object or a halt object.
 func Eval(node ast.Node, code *ast.Code, env *object.Environment) object.Object {
 	switch node := node.(type) {
 	// Statements
@@ -103,6 +106,9 @@ func Eval(node ast.Node, code *ast.Code, env *object.Environment) object.Object 
 
 	case *ast.HexConstant:
 		return evalHexConstant(node, code, env)
+
+	case *ast.KeyStatement:
+		return evalKeyStatement(node, code, env)
 
 	case *ast.LetStatement:
 		val := Eval(node.Value, code, env)
@@ -1381,6 +1387,98 @@ func evalImpliedLetStatement(node *ast.Identifier, code *ast.Code, env *object.E
 	return id
 }
 
+// defines, enables, disables and lists keyboard macros
+func evalKeyStatement(node *ast.KeyStatement, code *ast.Code, env *object.Environment) object.Object {
+	// get the current key definitions
+	keyDefs := evalKeyStatementGetKeyDefs(env)
+
+	switch node.Param.(type) {
+	case *ast.OnExpression:
+		keyDefs.Disp = true
+	case *ast.OffExpression:
+		keyDefs.Disp = false
+	case *ast.ListExpression: // list out the current defined values
+		env.Terminal().Print(keyDefs.String())
+	default:
+		err := evalKeyStatementFKeyParams(keyDefs, node, code, env)
+		if err != nil {
+			return err
+		}
+	}
+
+	// save any changes made
+	env.SaveSetting(settings.KeyMacs, keyDefs)
+
+	return nil
+}
+
+// retrieve or create the current key definitions
+func evalKeyStatementGetKeyDefs(env *object.Environment) *ast.KeySettings {
+	// create empty settings
+	keyDefs := &ast.KeySettings{}
+	keyDefs.Keys = make(map[string]string)
+
+	// go get the keyboard macro settings
+	keys := env.GetSetting(settings.KeyMacs)
+
+	if keys != nil {
+		// settings have been saved before, use saved values
+		keyDefs = keys.(*ast.KeySettings)
+	}
+
+	return keyDefs
+}
+
+// user wants to redefine macro for F1 to F10
+func evalKeyStatementFKeyParams(keys *ast.KeySettings, node *ast.KeyStatement, code *ast.Code, env *object.Environment) object.Object {
+	// do the error checking first
+	// one and only one parameter for this form
+	if len(node.Data) != 1 {
+		return object.StdError(env, berrors.Syntax)
+	}
+	ind := evalExpressionNodeTyped(node.Param, code, env, &object.Integer{})
+
+	if ind == nil {
+		return object.StdError(env, berrors.Syntax)
+	}
+
+	i := ind.(*object.Integer).Value
+	// index 1-10 is a keybord function key
+	if (i >= 1) && (i <= 10) {
+		return evalKeyStatementMapFKey(i, keys, node.Data[0], code, env)
+	}
+	// index 15-20 are user defined keys for the ON KEY statements
+	if (i >= 15) && (i <= 20) {
+		return evalKeyStatmentCustomKey(i, keys, node.Data[0], code, env)
+	}
+
+	// index is invalid
+	return object.StdError(env, berrors.IllegalFuncCallErr)
+}
+
+// define a string to insert for a function key
+func evalKeyStatementMapFKey(key int16, keys *ast.KeySettings, val ast.Expression, code *ast.Code, env *object.Environment) object.Object {
+	s := evalExpressionNodeTyped(val, code, env, &object.String{})
+
+	if s == nil {
+		return object.StdError(env, berrors.Syntax)
+	}
+
+	k := fmt.Sprintf("F%d", key)
+	keys.Keys[k] = s.(*object.String).Value
+
+	return nil
+}
+
+func evalKeyStatmentCustomKey(key int16, keys *ast.KeySettings, val ast.Expression, code *ast.Code, env *object.Environment) object.Object {
+	b := evalExpressionNodeTyped(val, code, env, &object.String{})
+
+	if b == nil {
+		return object.StdError(env, berrors.Syntax)
+	}
+	return nil
+}
+
 func evalListStatement(stmt *ast.ListStatement, code *ast.Code, env *object.Environment) {
 	var out bytes.Buffer
 	cd := env.StatementIter()
@@ -1805,7 +1903,7 @@ func evalPrintItems(node *ast.PrintStatement, code *ast.Code, env *object.Enviro
 			obj = Eval(node, code, env)
 
 		case *ast.Identifier:
-			obj = &object.String{Value: evalPrintIdentifier(node, code, env)}
+			obj = evalPrintIdentifier(node, code, env)
 		case *ast.InfixExpression:
 			l := evalExpressionNode(node.Left, code, env)
 			r := evalExpressionNode(node.Right, code, env)
@@ -1857,9 +1955,9 @@ func evalPrintItemUsing(form string, item object.Object, env *object.Environment
 	out := fmt.Sprintf("fmt snap %T", item)
 	switch val := item.(type) {
 	case *object.Integer:
-		out = fmt.Sprintf(form, val.Value)
+		out = fmt.Sprintf(form, float32(val.Value))
 	case *object.IntDbl:
-		out = fmt.Sprintf(form, val.Value)
+		out = fmt.Sprintf(form, float32(val.Value))
 	case *object.Fixed:
 		v, _ := val.Value.Float64()
 		out = fmt.Sprintf(form, v)
@@ -1892,10 +1990,10 @@ func evalPrintItemValue(item object.Object, env *object.Environment) {
 	env.Terminal().Print(out)
 }
 
-// print the specified variable
-func evalPrintIdentifier(item *ast.Identifier, code *ast.Code, env *object.Environment) string {
+// get the value of the identifier
+func evalPrintIdentifier(item *ast.Identifier, code *ast.Code, env *object.Environment) object.Object {
 	id := evalIdentifier(item, code, env)
-	return id.Inspect()
+	return id
 }
 
 func evalPrefixExpression(operator string, right object.Object, code *ast.Code, env *object.Environment) object.Object {
@@ -2127,7 +2225,7 @@ func evalExpressions(exps []ast.Expression, code *ast.Code, env *object.Environm
 	return result
 }
 
-// eval an expression looking for a specific type
+// eval an expression looking for a specific type, return nil if wrong type
 func evalExpressionNodeTyped(node ast.Node, code *ast.Code, env *object.Environment, want object.Object) object.Object {
 	val := evalExpressionNode(node, code, env)
 

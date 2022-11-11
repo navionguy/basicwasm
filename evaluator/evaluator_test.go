@@ -339,6 +339,35 @@ func Test_ChainStatementRunning(t *testing.T) {
 	}
 }
 
+func Test_ChrS(t *testing.T) {
+	tests := []struct {
+		inp string
+	}{
+		{inp: `10 X$ = CHR$(45)`},
+	}
+
+	for _, tt := range tests {
+		l := lexer.New(tt.inp)
+		p := parser.New(l)
+		var mt mocks.MockTerm
+		initMockTerm(&mt)
+		//mt.ExpMsg = &mocks.Expector{Exp: []string{tt.exp}}
+		env := object.NewTermEnvironment(mt)
+
+		p.ParseProgram(env)
+
+		if len(p.Errors()) > 0 {
+			for _, er := range p.Errors() {
+				fmt.Println(er)
+			}
+			return
+		}
+
+		env.SetRun(true)
+		Eval(&ast.Program{}, env.StatementIter(), env)
+	}
+}
+
 func Test_ChDirStatement(t *testing.T) {
 	tests := []struct {
 		path  ast.Expression
@@ -945,12 +974,53 @@ func TestDblInetegerExpression(t *testing.T) {
 	}
 }
 
+func TestDim_Statements(t *testing.T) {
+	tests := []struct {
+		inp string
+		chk string
+		exp int
+	}{
+		{inp: `10 DIM A[20] : A[11] = 6 : PRINT A[11]`, chk: "A[11]", exp: 6},
+		/*{`20 DIM B[10,10]`},
+		{`30 DIM A[9,10], B[14,15] : B[5,6] = 12 : PRINT B[5,6]`},*/
+	}
+
+	for _, tt := range tests {
+		rc := testEval(tt.inp, tt.chk)
+
+		assert.NotNil(t, rc, "TestDim_Statements failed to get value")
+	}
+
+	// want
+	// 4
+}
+
 func testEval(input string, vbl string) object.Object {
 	l := lexer.New(input)
 	p := parser.New(l)
 	var mt mocks.MockTerm
 	initMockTerm(&mt)
 	env := object.NewTermEnvironment(mt)
+	p.ParseProgram(env)
+
+	if len(p.Errors()) > 0 {
+		return nil
+	}
+
+	// need to execute run command
+	env.SetRun(true)
+	rc := Eval(&ast.Program{}, env.StatementIter(), env)
+
+	if rc != nil {
+		return rc
+	}
+
+	return env.Get(vbl)
+}
+
+func testEvalEnv(input string, vbl string, env *object.Environment) object.Object {
+	l := lexer.New(input)
+	p := parser.New(l)
 	p.ParseProgram(env)
 
 	if len(p.Errors()) > 0 {
@@ -1055,6 +1125,52 @@ func Test_EndStatement(t *testing.T) {
 	}
 }
 
+func Test_KeyStatement(t *testing.T) {
+	tests := []struct {
+		inp string
+		len int
+		exp string
+		err bool
+	}{
+		{inp: `10 KEY OFF`},
+		{inp: `10 KEY ON`},
+		{inp: `10 KEY LIST`, exp: "F1 \r\nF2 \r\nF3 \r\nF4 \r\nF5 \r\nF6 \r\nF7 \r\nF8 \r\nF9 \r\nF10 \r\n"},
+		{inp: `10 KEY 4,"FILES"`, len: 1},
+		{inp: `10 KEY 4,"FILES" : KEY LIST`, len: 1, exp: "F1 \r\nF2 \r\nF3 \r\nF4 FILES\r\nF5 \r\nF6 \r\nF7 \r\nF8 \r\nF9 \r\nF10 \r\n"},
+		{inp: `10 KEY 1`, err: true},
+		{inp: `20 KEY 25,"FILES"`, err: true},
+		{inp: `20 KEY "25","FILES"`, err: true},
+		{inp: `20 KEY 2,30`, err: true},
+		{inp: `60 KEY 15, CHR$(03)+CHR$(25)`},
+		{inp: `60 KEY 15, 34`, err: true},
+	}
+
+	for _, tt := range tests {
+		mt := mocks.MockTerm{}
+		mt.ExpMsg = &mocks.Expector{Exp: []string{tt.exp}}
+		env := object.NewTermEnvironment(mt)
+		err := testEvalEnv(tt.inp, "Key", env)
+
+		ks := env.GetSetting(settings.KeyMacs)
+
+		if !tt.err {
+			assert.NotNil(t, ks, "Key statement didn't create setting")
+
+			kset := ks.(*ast.KeySettings)
+			assert.NotNil(t, kset, "Key settings is incorrect type")
+			assert.EqualValues(t, tt.len, len(kset.Keys), "Key settings count is wrong")
+
+			if len(tt.exp) > 0 {
+				assert.Falsef(t, mt.ExpMsg.Failed, "KEY LIST didn't return expected value < %s", tt.inp)
+			}
+		} else {
+			assert.NotNil(t, err, "expected KEY to return an error and he didn't")
+			eval := err.(*object.Error)
+			assert.NotNilf(t, eval, "expected KEY to retrun error but got %T", err)
+		}
+	}
+}
+
 func Test_LetStatements(t *testing.T) {
 	tests := []struct {
 		inp string
@@ -1062,9 +1178,9 @@ func Test_LetStatements(t *testing.T) {
 		exp int16
 	}{
 		{inp: "10 LET a = 5", chk: "a", exp: 5},
-		/*{"20 LET a = 5 * 5: a", 25},
-		{"30 LET a = 5: let b = a: b", 5},
-		{"40 LET a = 5: let b = a: let c = a + b + 5: c", 15},*/
+		{inp: "20 LET a = 5 * 5", chk: "a", exp: 25},
+		{inp: "30 LET a = 5: let b = a:", chk: "b", exp: 5},
+		{inp: "40 LET a = 5: let b = a: let c = a + b + 5", chk: "c", exp: 15},
 	}
 	for _, tt := range tests {
 		testIntegerObject(t, testEval(tt.inp, tt.chk), tt.exp)
@@ -1291,28 +1407,31 @@ func Test_OnGoStatement(t *testing.T) {
 }
 
 func Test_PrintStatement(t *testing.T) {
-
-}
-
-func TestDim_Statements(t *testing.T) {
 	tests := []struct {
 		inp string
-		chk string
-		exp int
 	}{
-		{inp: `10 DIM A[20] : A[11] = 6 : PRINT A[11]`, chk: "A[11]", exp: 6},
-		/*{`20 DIM B[10,10]`},
-		{`30 DIM A[9,10], B[14,15] : B[5,6] = 12 : PRINT B[5,6]`},*/
+		{inp: `10 LET Y[0] = 5`},
 	}
 
 	for _, tt := range tests {
-		rc := testEval(tt.inp, tt.chk)
+		l := lexer.New(tt.inp)
+		p := parser.New(l)
+		var mt mocks.MockTerm
+		initMockTerm(&mt)
+		env := object.NewTermEnvironment(mt)
+		p.ParseProgram(env)
 
-		assert.NotNil(t, rc, "TestDim_Statements failed to get value")
+		errs := p.Errors()
+
+		assert.Zero(t, len(errs), "parser threw some errors")
+
+		code := env.StatementIter()
+		env.SetRun(true)
+		rc := Eval(&ast.Program{}, code, env)
+		env.SetRun(false)
+
+		assert.Nil(t, nil, "got %T back", rc)
 	}
-
-	// want
-	// 4
 }
 
 func TestStringLiteral(t *testing.T) {
@@ -1372,6 +1491,23 @@ func TestFunctionObject(t *testing.T) {
 	assert.Equal(t, "x = X + 2", fn.Body.String())
 }
 
+func TestFunctionExecution(t *testing.T) {
+	tests := []struct {
+		inp string
+		res object.Object
+		vbl string
+	}{
+		{inp: `10 DEF FNMUL(x,y)= x * y : Y = FNMUL(2,5)`, res: &object.Integer{Value: 10}, vbl: "Y"},
+		{inp: `10 DEF FNSKIP(x)= x + 2 : Y = FNSKIP(1)`, res: &object.Integer{Value: 3}, vbl: "Y"},
+		{inp: `10 DEF FNSKIP(x)= x + 2 : Y = FNSKIP(1)`, res: &object.Function{}, vbl: "FNSKIP"},
+	}
+
+	for _, tt := range tests {
+		rc := testEval(tt.inp, tt.vbl)
+		assert.IsTypef(t, tt.res, rc, "%s return %T", tt.inp, rc)
+	}
+}
+
 func TestInvalidFunctionName(t *testing.T) {
 	tests := []struct {
 		input    string
@@ -1405,8 +1541,8 @@ func TestFunctionApplication(t *testing.T) {
 		expected int16
 	}{
 		{"10 DEF FNID(x) = x : y = FNID(5)", 5},
-		{"20 DEF FNMUL(x,y) = x*y : y = FNMUL(2,3)", 6},
-		{"30 DEF FNSKIP(x)= (x + 2): y = FNSKIP(3)", 5},
+		//{"20 DEF FNMUL(x,y) = x*y : y = FNMUL(2,3)", 6},
+		//{"30 DEF FNSKIP(x)= (x + 2): y = FNSKIP(3)", 5},
 	}
 	for _, tt := range tests {
 		testIntegerObject(t, testEval(tt.input, "y"), tt.expected)
@@ -2057,7 +2193,6 @@ func ExampleT_array() {
 	}
 
 	// Output:
-	// Syntax error in 70
 	// 5
 	// 6
 	// 13
@@ -2344,6 +2479,9 @@ func Test_UsingStatement(t *testing.T) {
 	}{
 		{inp: `PRINT USING "###.##"; 23.45`, err: nil, exp: []string{" 23.45"}},
 		{inp: `PRINT "Totals:"; USING "###.##"; 23.45`, err: nil, exp: []string{"Totals:", " 23.45"}},
+		{inp: `PRINT USING "##.##"; X`, err: nil, exp: []string{" 0.00"}},
+		{inp: `PRINT USING "##.##"; X#`, err: nil, exp: []string{" 0.00"}},
+		{inp: `X=2.134E1 : PRINT USING "##.##"; X`, err: nil, exp: []string{"21.34"}},
 	}
 
 	for _, tt := range tests {
@@ -2353,9 +2491,7 @@ func Test_UsingStatement(t *testing.T) {
 		initMockTerm(&mt)
 		if len(tt.exp) != 0 {
 			exp := &mocks.Expector{}
-			for _, e := range tt.exp {
-				exp.Exp = append(exp.Exp, e)
-			}
+			exp.Exp = append(exp.Exp, tt.exp...)
 			mt.ExpMsg = exp
 		}
 		env := object.NewTermEnvironment(mt)
