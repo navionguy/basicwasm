@@ -1961,6 +1961,30 @@ func TestCheckForFuncCall(t *testing.T) {
 	}
 }
 
+func TestDefFN(t *testing.T) {
+	tests := []struct {
+		inp string
+		exp string
+	}{
+		{inp: `DEF FNINC(X) = X + 1`, exp: `DEF FNINC(X) = X + 1`},
+	}
+
+	for _, tt := range tests {
+		l := lexer.New(tt.inp)
+		p := New(l)
+		env := object.NewTermEnvironment(mocks.MockTerm{})
+		p.ParseCmd(env)
+
+		iter := env.CmdLineIter()
+		if iter.Len() == 0 {
+			t.Fatalf("parser failed to produce CmdLine")
+		}
+
+		lst := iter.Value().String()
+		assert.Equal(t, tt.exp, lst, "Unexpected DEF string")
+	}
+}
+
 func TestFunctionApplication(t *testing.T) {
 	tests := []struct {
 		input    string

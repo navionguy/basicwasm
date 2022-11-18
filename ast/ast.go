@@ -394,7 +394,7 @@ func (fl *FunctionLiteral) String() string {
 	out.WriteString(fl.TokenLiteral())
 	out.WriteString("(")
 	out.WriteString(strings.Join(params, ", "))
-	out.WriteString(") = ")
+	out.WriteString(")")
 	if fl.Body != nil {
 		out.WriteString(fl.Body.String())
 	}
@@ -692,10 +692,15 @@ func (es *ExpressionStatement) String() string {
 	var out bytes.Buffer
 
 	if es.Token.Literal != "" {
-		out.WriteString(es.Token.Literal + " = ")
+		out.WriteString(es.Token.Literal)
 	}
 
 	if es.Expression != nil {
+		_, ok := es.Expression.(*FunctionLiteral)
+
+		if !ok {
+			out.WriteString(" = ")
+		}
 		out.WriteString(es.Expression.String())
 	}
 	return out.String()
