@@ -63,7 +63,7 @@ type BeepStatement struct {
 	Token token.Token
 }
 
-func (bp *BeepStatement) statementNode() { return }
+func (bp *BeepStatement) statementNode() {}
 
 // TokenLiteral returns my token literal
 func (bp *BeepStatement) TokenLiteral() string { return strings.ToUpper(bp.Token.Literal) }
@@ -72,13 +72,48 @@ func (bp *BeepStatement) String() string {
 	return "BEEP"
 }
 
+// the expression that forms the user defined function
+type BlockExpression struct {
+	Token token.Token
+	Exp   Expression
+}
+
+func (be *BlockExpression) statementNode()       {}
+func (be *BlockExpression) TokenLiteral() string { return "" }
+
+func (be *BlockExpression) String() string {
+	var out bytes.Buffer
+
+	out.WriteString(" " + be.Exp.String())
+
+	return out.String()
+}
+
+// BlockStatement holds a block statement
+type BlockStatement struct {
+	Token      token.Token // the { token
+	Statements []Statement
+}
+
+func (bs *BlockStatement) statementNode()       {}
+func (bs *BlockStatement) TokenLiteral() string { return strings.ToUpper(bs.Token.Literal) }
+func (bs *BlockStatement) String() string {
+	var out bytes.Buffer
+
+	for _, s := range bs.Statements {
+		out.WriteString(s.String())
+	}
+
+	return out.String()
+}
+
 // holds a call to builtin function
 type BuiltinExpression struct {
 	Token  token.Token  // literal will hold the function name
 	Params []Expression //
 }
 
-func (bi *BuiltinExpression) expressionNode()      { return }
+func (bi *BuiltinExpression) expressionNode()      {}
 func (bi *BuiltinExpression) TokenLiteral() string { return strings.ToUpper(bi.Token.Literal) }
 func (bi *BuiltinExpression) String() string {
 	var out bytes.Buffer
@@ -103,7 +138,7 @@ type CallExpression struct {
 	Arguments []Expression
 }
 
-func (ce *CallExpression) expressionNode() { return }
+func (ce *CallExpression) expressionNode() {}
 
 // TokenLiteral returns my token literal
 func (ce *CallExpression) TokenLiteral() string { return strings.ToUpper(ce.Token.Literal) }
@@ -134,7 +169,7 @@ type ChainStatement struct {
 	Merge  bool       // overlays current program with called progarm, files stay open
 }
 
-func (chn *ChainStatement) statementNode() { return }
+func (chn *ChainStatement) statementNode() {}
 
 // TokenLiteral returns my token literal
 func (chn *ChainStatement) TokenLiteral() string { return strings.ToUpper(chn.Token.Literal) }
@@ -390,11 +425,11 @@ func (fl *FunctionLiteral) String() string {
 		params = append(params, p.String())
 	}
 
-	out.WriteString("DEF ")
+	out.WriteString(" ")
 	out.WriteString(fl.TokenLiteral())
 	out.WriteString("(")
 	out.WriteString(strings.Join(params, ", "))
-	out.WriteString(")")
+	out.WriteString(") =")
 	if fl.Body != nil {
 		out.WriteString(fl.Body.String())
 	}
@@ -1107,24 +1142,6 @@ func (ie *IfExpression) String() string {
 	if ie.Alternative != nil {
 		out.WriteString(" ELSE")
 		s := ie.Alternative
-		out.WriteString(s.String())
-	}
-
-	return out.String()
-}
-
-// BlockStatement holds a block statement
-type BlockStatement struct {
-	Token      token.Token // the { token
-	Statements []Statement
-}
-
-func (bs *BlockStatement) statementNode()       {}
-func (bs *BlockStatement) TokenLiteral() string { return strings.ToUpper(bs.Token.Literal) }
-func (bs *BlockStatement) String() string {
-	var out bytes.Buffer
-
-	for _, s := range bs.Statements {
 		out.WriteString(s.String())
 	}
 

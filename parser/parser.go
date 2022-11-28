@@ -347,13 +347,23 @@ func (p *Parser) parseBeepStatement() *ast.BeepStatement {
 	return &beep
 }
 
+// parse the expression part of a BlockStatement
+func (p *Parser) parseBlockExpression() *ast.BlockExpression {
+	ep := p.parseExpression(LOWEST)
+
+	be := ast.BlockExpression{Exp: ep}
+
+	return &be
+}
+
 // a questionable name for parsing a function definition
 func (p *Parser) parseBlockStatement() *ast.BlockStatement {
 	block := &ast.BlockStatement{Token: p.curToken}
 	block.Statements = []ast.Statement{}
 
 	for !p.curTokenIs(token.COLON) && !p.curTokenIs(token.EOF) && !p.curTokenIs(token.EOL) {
-		stmt := p.parseStatement()
+		stmt := p.parseBlockExpression()
+
 		if stmt != nil {
 			block.Statements = append(block.Statements, stmt)
 		}

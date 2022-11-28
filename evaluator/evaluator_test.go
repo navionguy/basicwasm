@@ -1488,7 +1488,7 @@ func TestFunctionObject(t *testing.T) {
 	assert.Truef(t, ok, "object is not Function. got=%T (%+v)", rc, rc)
 	assert.Equal(t, 1, len(fn.Parameters))
 	assert.Equal(t, "x", fn.Parameters[0].String())
-	assert.Equal(t, "x = X + 2", fn.Body.String())
+	assert.Equal(t, " X + 2", fn.Body.String())
 }
 
 func TestFunctionExecution(t *testing.T) {

@@ -114,7 +114,7 @@ func Test_BuiltinExpression(t *testing.T) {
 		exp, ok := stmt.(*ast.ExpressionStatement)
 		assert.True(t, ok, "Test_BuiltinExpression didn't get ExpressionStatement")
 
-		assert.Equal(t, "ABS(5)", exp.String(), "unexpected Builtin")
+		assert.Equal(t, " = ABS(5)", exp.String(), "unexpected Builtin")
 	}
 }
 

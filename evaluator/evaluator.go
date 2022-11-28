@@ -71,6 +71,9 @@ func Eval(node ast.Node, code *ast.Code, env *object.Environment) object.Object 
 	case *ast.DimStatement:
 		evalDimStatement(node, code, env)
 
+	case *ast.BlockExpression:
+		return evalBlockExpression(node, code, env)
+
 	case *ast.BlockStatement:
 		return evalBlockStatement(node, code, env)
 
@@ -365,6 +368,11 @@ func evalAutoCommandParam2(auto, cmd *ast.AutoCommand, code *ast.Code, env *obje
 // just sound the bell
 func evalBeepStatement(beep *ast.BeepStatement, code *ast.Code, env *object.Environment) {
 	env.Terminal().SoundBell()
+}
+
+// evaluate the user defined expression
+func evalBlockExpression(Exp *ast.BlockExpression, code *ast.Code, env *object.Environment) object.Object {
+	return Eval(Exp.Exp, code, env)
 }
 
 func evalBlockStatement(block *ast.BlockStatement, code *ast.Code, env *object.Environment) object.Object {

@@ -39,6 +39,18 @@ func Test_BuiltinExpression(t *testing.T) {
 	assert.Equal(t, `INSTR("FooBar","Bar",3)`, builtin.String())
 }
 
+func TestBlockExpression(t *testing.T) {
+	be := BlockExpression{Exp: &InfixExpression{Token: token.Token{Type: token.PLUS, Literal: "+"},
+		Left:     &IntegerLiteral{Value: 12},
+		Operator: "+",
+		Right:    &IntegerLiteral{Value: 10}}}
+
+	be.statementNode()
+
+	assert.Equalf(t, "", be.TokenLiteral(), "Block Expression should not have a TokenLiteral!")
+	assert.Equalf(t, " 12 + 10", be.String(), "Block Expression String() -> %s", be.String())
+}
+
 func Test_BlockStatement(t *testing.T) {
 	blk := BlockStatement{Token: token.Token{Type: token.LBRACE, Literal: "{"}}
 
@@ -795,13 +807,17 @@ func Test_ForStatement(t *testing.T) {
 }
 
 func Test_FunctionLiteral(t *testing.T) {
-	fn := &FunctionLiteral{Token: token.Token{Type: token.DEF, Literal: "FNMUL"}, Parameters: []*Identifier{{Value: "X"}, {Value: "Y"}},
-		Body: &BlockStatement{Statements: []Statement{&ExpressionStatement{Expression: &InfixExpression{Token: token.Token{Type: token.ASTERISK},
-			Left: &Identifier{Value: "X"}, Operator: "*", Right: &Identifier{Value: "Y"}}}}}}
+	fn := &ExpressionStatement{Token: token.Token{Type: token.DEF, Literal: "DEF"},
+		Expression: &FunctionLiteral{Token: token.Token{Type: token.DEF, Literal: "FNMUL"}, Parameters: []*Identifier{{Value: "X"}, {Value: "Y"}},
+			Body: &BlockStatement{Statements: []Statement{&BlockExpression{Exp: &InfixExpression{Token: token.Token{Type: token.ASTERISK},
+				Left: &Identifier{Value: "X"}, Operator: "*", Right: &Identifier{Value: "Y"}}}}}}}
+	/*fn := &FunctionLiteral{Token: token.Token{Type: token.DEF, Literal: "FNMUL"}, Parameters: []*Identifier{{Value: "X"}, {Value: "Y"}},
+	Body: &BlockStatement{Statements: []Statement{&ExpressionStatement{Expression: &InfixExpression{Token: token.Token{Type: token.ASTERISK},
+		Left: &Identifier{Value: "X"}, Operator: "*", Right: &Identifier{Value: "Y"}}}}}}*/
 
-	fn.expressionNode()
+	fn.Expression.expressionNode()
 
-	assert.Equal(t, "FNMUL", fn.TokenLiteral())
+	assert.Equal(t, "DEF", fn.TokenLiteral())
 	assert.Equal(t, "DEF FNMUL(X, Y) = X * Y", fn.String())
 }
 
