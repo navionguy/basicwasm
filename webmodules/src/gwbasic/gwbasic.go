@@ -28,7 +28,8 @@ func registerCallbacks() {
 	env.Terminal().Log("cli started")
 
 	js.Global().Set("keyPress", js.FuncOf(func(this js.Value, inputs []js.Value) interface{} {
-		keybuffer.SaveKeyStroke([]byte(inputs[0].String()))
+		kbuff := keybuffer.GetKeyBuffer()
+		kbuff.SaveKeyStroke([]byte(inputs[0].String()))
 		return nil
 	}))
 }

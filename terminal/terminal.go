@@ -11,13 +11,14 @@ import (
 
 // Terminal holds the terminal instance and provides io abilities
 type Terminal struct {
-	term js.Value
-	buff js.Value
+	term  js.Value
+	buff  js.Value
+	kbuff *keybuffer.KeyBuffer
 }
 
 // New creates a new Terminal object
 func New(t js.Value) *Terminal {
-	env := &Terminal{term: t}
+	env := &Terminal{term: t, kbuff: keybuffer.GetKeyBuffer()}
 
 	t.Call("setOption", "scrollback", 0)
 	return env
@@ -81,9 +82,9 @@ func (t *Terminal) ReadKeys(count int) []byte {
 	var keys []byte
 
 	for i := 0; i < count; {
-		bt, ok := keybuffer.ReadByte()
+		bt, err := t.kbuff.ReadByte()
 
-		if !ok {
+		if err != nil {
 			time.Sleep(100 * time.Millisecond)
 		} else {
 			keys = append(keys, bt)
@@ -103,8 +104,8 @@ func (t *Terminal) ReadKeys(count int) []byte {
 }
 
 func (t *Terminal) BreakCheck() bool {
-	bc := keybuffer.BreakSeen()
-	keybuffer.ClearBreak()
+	bc := t.kbuff.BreakSeen()
+	t.kbuff.ClearBreak()
 
 	return bc
 }
