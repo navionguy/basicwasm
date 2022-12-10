@@ -192,9 +192,7 @@ func Test_Environment(t *testing.T) {
 	}
 
 	for _, tt := range tests {
-		if tt.setev != nil {
-			tt.setev.Set(tt.item, tt.set)
-		}
+		tt.setev.Set(tt.item, tt.set)
 		obj := tt.getev.Get(tt.item)
 
 		assert.NotNil(t, obj, "Environment.Get(%s) returned nil", tt.item)
