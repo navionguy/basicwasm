@@ -3,13 +3,16 @@ package keybuffer
 import (
 	"errors"
 	"time"
+
+	"github.com/navionguy/basicwasm/ast"
 )
 
 type KeyBuffer struct {
-	keycodes  chan ([]byte)
-	inp       []byte
-	ind       int
-	sig_break bool
+	KeySettings *ast.KeySettings
+	keycodes    chan ([]byte)
+	inp         []byte
+	ind         int
+	sig_break   bool
 }
 
 var kbuff KeyBuffer

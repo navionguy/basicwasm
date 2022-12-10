@@ -7,6 +7,7 @@ import (
 	"github.com/navionguy/basicwasm/ast"
 	"github.com/navionguy/basicwasm/berrors"
 	"github.com/navionguy/basicwasm/decimal"
+	"github.com/navionguy/basicwasm/keybuffer"
 	"github.com/navionguy/basicwasm/mocks"
 	"github.com/navionguy/basicwasm/settings"
 	"github.com/navionguy/basicwasm/token"
@@ -327,6 +328,29 @@ func Test_Settings(t *testing.T) {
 	tst = env.GetSetting(name)
 
 	assert.Nil(t, tst, "setting didn't clear")
+}
+
+func Test_SettingKeyMac(t *testing.T) {
+	tests := []struct {
+		fail bool
+		sett ast.Node
+	}{
+		{fail: false, sett: &ast.KeySettings{}},
+		{fail: true, sett: &ast.KeyStatement{}},
+	}
+
+	for _, tt := range tests {
+		env := newEnvironment()
+
+		env.SaveSetting(settings.KeyMacs, tt.sett)
+		ks := keybuffer.GetKeyBuffer().KeySettings
+
+		if tt.fail {
+			assert.NotEqualValuesf(t, tt.sett, ks, "KeyMacs setting saved to KeyBuffer when it shouldn't have")
+		} else {
+			assert.EqualValuesf(t, tt.sett, ks, "KeyMacs setting didn't save to KeyBuffer")
+		}
+	}
 }
 
 func Test_Stack(t *testing.T) {

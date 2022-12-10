@@ -6,6 +6,7 @@ import (
 	"strings"
 
 	"github.com/navionguy/basicwasm/ast"
+	"github.com/navionguy/basicwasm/keybuffer"
 	"github.com/navionguy/basicwasm/settings"
 )
 
@@ -234,6 +235,17 @@ func (e *Environment) GetSetting(name string) ast.Node {
 // Save a runtime settting
 func (e *Environment) SaveSetting(name string, obj ast.Node) {
 	e.settings[name] = obj
+
+	// check for a special setting
+
+	if strings.EqualFold(name, settings.KeyMacs) {
+		ks, ok := obj.(*ast.KeySettings)
+
+		if !ok {
+			return
+		}
+		keybuffer.GetKeyBuffer().KeySettings = ks
+	}
 }
 
 // Push an address, returns stack size
