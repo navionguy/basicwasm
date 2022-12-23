@@ -18,6 +18,7 @@ import (
 	"github.com/navionguy/basicwasm/lexer"
 	"github.com/navionguy/basicwasm/object"
 	"github.com/navionguy/basicwasm/parser"
+	"github.com/navionguy/basicwasm/settings"
 )
 
 // The first group of functions are used by the basicwasm server.
@@ -341,7 +342,7 @@ func buildRequestURL(target string, env *object.Environment) string {
 // and main pushes it into the environment object store
 func getURL(env *object.Environment) string {
 
-	mom := env.GetSetting(object.SERVER_URL)
+	mom := env.GetSetting(settings.ServerURL)
 	if mom == nil {
 		mom = &ast.StringLiteral{Value: "http://localhost:8080/"}
 	}
@@ -381,7 +382,7 @@ func BuildFullPath(path string, env *object.Environment) string {
 
 // GetCWD returns the current working directory from the environment
 func GetCWD(env *object.Environment) string {
-	path := env.GetSetting(object.WORK_DRIVE)
+	path := env.GetSetting(settings.WorkDrive)
 	if path == nil { // if he wasn't set, use a default
 		path = &ast.StringLiteral{Value: `C:\`}
 	}
@@ -400,7 +401,7 @@ func SetCWD(path string, env *object.Environment) object.Object {
 	}
 
 	// looks good, save the new working directory
-	env.SaveSetting(object.WORK_DRIVE, &ast.StringLiteral{Value: path})
+	env.SaveSetting(settings.WorkDrive, &ast.StringLiteral{Value: path})
 
 	return nil
 }

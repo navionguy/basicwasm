@@ -138,6 +138,27 @@ func Test_Common(t *testing.T) {
 	assert.NotNil(t, env.common["I"].value, "Second COMMON lost value")
 }
 
+func Test_DefaultKeys(t *testing.T) {
+	tests := []struct {
+		key string
+		val string
+	}{
+		{key: `F1`, val: `LIST`},
+	}
+
+	var mt mocks.MockTerm
+	env := NewTermEnvironment(mt)
+	obj := env.GetSetting(settings.KeyMacs)
+
+	kys, ok := obj.(*ast.KeySettings)
+
+	assert.Truef(t, ok, "KeyMacs didn't default to a KeySettings object")
+
+	for _, tt := range tests {
+		assert.EqualValuesf(t, tt.val, kys.Keys[tt.key], "DefaultKeys expected %s, got %s", tt.val, kys.Keys[tt.key])
+	}
+}
+
 func Test_Integer(t *testing.T) {
 	fv, _ := decimal.NewFromString("14.25")
 

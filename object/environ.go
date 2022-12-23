@@ -99,6 +99,63 @@ type variable struct {
 	value Object // the variable object
 }
 
+// NewEnclosedEnvironment allows variables during function calls
+func NewEnclosedEnvironment(outer *Environment) *Environment {
+	env := newEnvironment()
+	env.outer = outer
+	env.term = outer.term
+	return env
+}
+
+// NewEnvironment creates a place to store variables and settings
+func newEnvironment() *Environment {
+	e := &Environment{settings: make(map[string]ast.Node)}
+	e.ClearCommon()
+	e.ClearFiles()
+	e.ClearVars()
+	if e.program == nil {
+		e.program = &ast.Program{}
+	}
+	e.program.New()
+	e.setDefaults()
+
+	// initialize my random number generator
+	e.rnd = rand.New(rand.NewSource(37))
+	e.rndVal = e.rnd.Float32()
+	dc := http.DefaultClient
+	e.SetClient(dc)
+	return e
+}
+
+// NewTermEnvironment creates an environment with a terminal front-end
+func NewTermEnvironment(term Console) *Environment {
+	env := newEnvironment()
+	env.term = term
+	return env
+}
+
+// set defaults for all the settings that have defaults
+func (e *Environment) setDefaults() {
+	// I always start on driveC
+	e.SaveSetting(settings.WorkDrive, &ast.StringLiteral{Value: `C:\`})
+
+	// setup default function key macros
+	kys := ast.KeySettings{Disp: true}
+	kys.Keys = make(map[string]string)
+	kys.Keys["F1"] = "LIST"
+	kys.Keys["F2"] = "RUN"
+	kys.Keys["F3"] = `LOAD "`
+	kys.Keys["F4"] = `SAVE "`
+	kys.Keys["F5"] = "CONT\r"
+	kys.Keys["F6"] = ", \"LPT1:\" \r"
+	kys.Keys["F7"] = "TRON\r"
+	kys.Keys["F8"] = "TROFF\r"
+	kys.Keys["F9"] = "KEY"
+	kys.Keys["F10"] = "SCREEN 0,0,0\r"
+	//kys.Keys["F11"] = "1b5b41"
+	e.SaveSetting(settings.KeyMacs, &kys)
+}
+
 // preserve a variable across a chain
 func (e *Environment) Common(name string) {
 	// everything stores in upper case

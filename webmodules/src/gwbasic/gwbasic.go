@@ -1,28 +1,26 @@
 package main
 
 import (
-	"fmt"
 	"syscall/js"
 
 	"github.com/navionguy/basicwasm/ast"
 	"github.com/navionguy/basicwasm/cli"
 	"github.com/navionguy/basicwasm/keybuffer"
 	"github.com/navionguy/basicwasm/object"
+	"github.com/navionguy/basicwasm/settings"
 	"github.com/navionguy/basicwasm/terminal"
 )
 
 func registerCallbacks() {
-
-	fmt.Println("gwbasic::registerCallBacks")
-
-	//kybd := make(chan byte, 0)
+	// reach into the document and get my servers address
 	document := js.Global().Get("document")
+
+	// Shout out to Mr. Schiedermayer's function, WhoIsMyMomma()
 	momma := document.Call("getElementById", "momma").Get("innerHTML")
 	term := terminal.New(js.Global().Get("term"))
 
 	env := object.NewTermEnvironment(term)
-	env.SaveSetting(object.SERVER_URL, &ast.StringLiteral{Value: momma.String()})
-	env.SaveSetting(object.WORK_DRIVE, &ast.StringLiteral{Value: `C:\`})
+	env.SaveSetting(settings.ServerURL, &ast.StringLiteral{Value: momma.String()})
 
 	cli.Start(env)
 	env.Terminal().Log("cli started")

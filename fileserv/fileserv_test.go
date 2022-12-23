@@ -16,6 +16,7 @@ import (
 	"github.com/navionguy/basicwasm/gwtoken"
 	"github.com/navionguy/basicwasm/mocks"
 	"github.com/navionguy/basicwasm/object"
+	"github.com/navionguy/basicwasm/settings"
 	"github.com/stretchr/testify/assert"
 )
 
@@ -391,7 +392,7 @@ func Test_GetCWD(t *testing.T) {
 		env := object.NewTermEnvironment(trm)
 
 		if len(tt.cwd) > 0 {
-			env.SaveSetting(object.WORK_DRIVE, &ast.StringLiteral{Value: tt.cwd})
+			env.SaveSetting(settings.WorkDrive, &ast.StringLiteral{Value: tt.cwd})
 		}
 
 		res := GetCWD(env)
@@ -444,7 +445,7 @@ func Test_GetURL(t *testing.T) {
 		env := object.NewTermEnvironment(trm)
 
 		if len(tt.url) > 0 {
-			env.SaveSetting(object.SERVER_URL, &ast.StringLiteral{Value: tt.url})
+			env.SaveSetting(settings.ServerURL, &ast.StringLiteral{Value: tt.url})
 		}
 
 		res := getURL(env)
@@ -469,11 +470,11 @@ func Test_BuildRequestURL(t *testing.T) {
 		env := object.NewTermEnvironment(trm)
 
 		if len(tt.url) > 0 {
-			env.SaveSetting(object.SERVER_URL, &ast.StringLiteral{Value: tt.url})
+			env.SaveSetting(settings.ServerURL, &ast.StringLiteral{Value: tt.url})
 		}
 
 		if len(tt.cwd) > 0 {
-			env.SaveSetting(object.WORK_DRIVE, &ast.StringLiteral{Value: tt.cwd})
+			env.SaveSetting(settings.WorkDrive, &ast.StringLiteral{Value: tt.cwd})
 		}
 
 		res := buildRequestURL(tt.file, env)
@@ -510,10 +511,10 @@ func Test_GetFile(t *testing.T) {
 		if len(tt.url) > 0 {
 			url = ast.StringLiteral{Value: tt.url}
 		}
-		env.SaveSetting(object.SERVER_URL, &url)
+		env.SaveSetting(settings.ServerURL, &url)
 
 		if len(tt.cwd) > 0 {
-			env.SaveSetting(object.WORK_DRIVE, &ast.StringLiteral{Value: tt.cwd})
+			env.SaveSetting(settings.WorkDrive, &ast.StringLiteral{Value: tt.cwd})
 		}
 
 		bt, err := GetFile(tt.file, env)

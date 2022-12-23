@@ -1,6 +1,7 @@
 package mocks
 
 import (
+	"encoding/hex"
 	"fmt"
 	"math"
 	"strings"
@@ -15,8 +16,9 @@ func (ep *Expector) chkExpectations(msg string) {
 	if (ep == nil) || (ep.Exp == nil) {
 		return // no Expectations
 	}
-	if strings.Compare(msg, ep.Exp[0]) != 0 {
-		fmt.Print("unexpected this is ->")
+	if !strings.EqualFold(msg, ep.Exp[0]) {
+		fmt.Printf("Got    -> %s\n", hex.EncodeToString([]byte(msg)))
+		fmt.Printf("wanted -> %s\n", hex.EncodeToString([]byte(ep.Exp[0])))
 		ep.Failed = true
 	}
 	if len(ep.Exp) > 1 {

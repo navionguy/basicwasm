@@ -4,8 +4,6 @@ package object
 import (
 	"bytes"
 	"fmt"
-	"math/rand"
-	"net/http"
 
 	"strings"
 
@@ -26,12 +24,6 @@ type Object interface {
 	Inspect() string
 }
 
-// some internal environment variables
-const (
-	SERVER_URL = "mom"
-	WORK_DRIVE = "path"
-)
-
 const (
 	ARRAY_OBJ      = "ARRAY"
 	AUTO_OBJ       = "AUTO"
@@ -51,40 +43,7 @@ const (
 	TYPED_OBJ      = "TYPED"
 )
 
-// NewEnclosedEnvironment allows variables during function calls
-func NewEnclosedEnvironment(outer *Environment) *Environment {
-	env := newEnvironment()
-	env.outer = outer
-	env.term = outer.term
-	return env
-}
-
-// NewEnvironment creates a place to store variables and settings
-func newEnvironment() *Environment {
-	e := &Environment{settings: make(map[string]ast.Node)}
-	e.ClearCommon()
-	e.ClearFiles()
-	e.ClearVars()
-	if e.program == nil {
-		e.program = &ast.Program{}
-	}
-	e.program.New()
-
-	// initialize my random number generator
-	e.rnd = rand.New(rand.NewSource(37))
-	e.rndVal = e.rnd.Float32()
-	dc := http.DefaultClient
-	e.SetClient(dc)
-	return e
-}
-
-// NewTermEnvironment creates an environment with a terminal front-end
-func NewTermEnvironment(term Console) *Environment {
-	env := newEnvironment()
-	env.term = term
-	return env
-}
-
+// holds an array of Objects
 type Array struct {
 	Elements []Object
 	TypeID   string

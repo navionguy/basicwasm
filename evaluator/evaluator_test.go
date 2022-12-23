@@ -280,7 +280,7 @@ func Test_ChainStatementCommandLine(t *testing.T) {
 			res.Write([]byte(tt.send))
 		}))
 		defer ts.Close()
-		env.SaveSetting(object.SERVER_URL, &ast.StringLiteral{Value: ts.URL})
+		env.SaveSetting(settings.ServerURL, &ast.StringLiteral{Value: ts.URL})
 
 		p.ParseCmd(env)
 
@@ -321,7 +321,7 @@ func Test_ChainStatementRunning(t *testing.T) {
 			res.Write([]byte(tt.send))
 		}))
 		defer ts.Close()
-		env.SaveSetting(object.SERVER_URL, &ast.StringLiteral{Value: ts.URL})
+		env.SaveSetting(settings.ServerURL, &ast.StringLiteral{Value: ts.URL})
 
 		p.ParseProgram(env)
 
@@ -394,7 +394,7 @@ func Test_ChDirStatement(t *testing.T) {
 		ts := mocks.NewMockServer(tt.rc, []byte("Body text"))
 		defer ts.Close()
 
-		env.SaveSetting(object.SERVER_URL, &ast.StringLiteral{Value: ts.ExpURL})
+		env.SaveSetting(settings.ServerURL, &ast.StringLiteral{Value: ts.ExpURL})
 
 		Eval(&cd, env.CmdLineIter(), env)
 
@@ -751,10 +751,10 @@ func Test_FilesCommand(t *testing.T) {
 		ts := mocks.NewMockServer(tt.rs, []byte(tt.send))
 		defer ts.Close()
 
-		env.SaveSetting(object.SERVER_URL, &ast.StringLiteral{Value: ts.ExpURL})
+		env.SaveSetting(settings.ServerURL, &ast.StringLiteral{Value: ts.ExpURL})
 
 		if len(tt.cwd) > 0 {
-			env.SaveSetting(object.WORK_DRIVE, &ast.StringLiteral{Value: tt.cwd})
+			env.SaveSetting(settings.WorkDrive, &ast.StringLiteral{Value: tt.cwd})
 		}
 
 		p.ParseCmd(env)
@@ -792,7 +792,7 @@ func Test_CatchNotDir(t *testing.T) {
 		var rec string
 		mt.SawStr = &rec
 		env := object.NewTermEnvironment(mt)
-		env.SaveSetting(object.WORK_DRIVE, &ast.StringLiteral{Value: `C:\`})
+		env.SaveSetting(settings.WorkDrive, &ast.StringLiteral{Value: `C:\`})
 
 		catchNotDir(tt.path, errors.New(tt.send), env)
 		assert.Equal(t, tt.exp, rec, "Test_CatchNotDir got unexpected return")
@@ -1132,21 +1132,22 @@ func Test_KeyStatement(t *testing.T) {
 		exp string
 		err bool
 	}{
-		{inp: `10 KEY OFF`},
-		{inp: `10 KEY ON`},
-		{inp: `10 KEY LIST`, exp: "F1 \r\nF2 \r\nF3 \r\nF4 \r\nF5 \r\nF6 \r\nF7 \r\nF8 \r\nF9 \r\nF10 \r\n"},
-		{inp: `10 KEY 4,"FILES"`, len: 1},
-		{inp: `10 KEY 4,"FILES" : KEY LIST`, len: 1, exp: "F1 \r\nF2 \r\nF3 \r\nF4 FILES\r\nF5 \r\nF6 \r\nF7 \r\nF8 \r\nF9 \r\nF10 \r\n"},
+		{inp: `10 KEY OFF`, len: 10},
+		{inp: `10 KEY ON`, len: 10},
+		{inp: `10 KEY LIST`, len: 10, exp: "F1 LIST\r\nF2 RUN\r\nF3 LOAD \"\r\nF4 SAVE \"\r\nF5 CONT\r\r\nF6 , \"LPT1:\" \r\r\nF7 TRON\r\r\nF8 TROFF\r\r\nF9 KEY\r\nF10 SCREEN 0,0,0\r\r\n"},
+		{inp: `10 KEY 4,"FILES"`, len: 10},
+		{inp: `10 KEY 4,"FILES" : KEY LIST`, len: 10, exp: "F1 LIST\r\nF2 RUN\r\nF3 LOAD \"\r\nF4 FILES\r\nF5 CONT\r\r\nF6 , \"LPT1:\" \r\r\nF7 TRON\r\r\nF8 TROFF\r\r\nF9 KEY\r\nF10 SCREEN 0,0,0\r\r\n"},
 		{inp: `10 KEY 1`, err: true},
 		{inp: `20 KEY 25,"FILES"`, err: true},
 		{inp: `20 KEY "25","FILES"`, err: true},
 		{inp: `20 KEY 2,30`, err: true},
-		{inp: `60 KEY 15, CHR$(03)+CHR$(25)`},
+		{inp: `60 KEY 15, CHR$(03)+CHR$(25)`, len: 10},
 		{inp: `60 KEY 15, 34`, err: true},
 	}
 
 	for _, tt := range tests {
 		mt := mocks.MockTerm{}
+
 		mt.ExpMsg = &mocks.Expector{Exp: []string{tt.exp}}
 		env := object.NewTermEnvironment(mt)
 		err := testEvalEnv(tt.inp, "Key", env)
@@ -1158,10 +1159,10 @@ func Test_KeyStatement(t *testing.T) {
 
 			kset := ks.(*ast.KeySettings)
 			assert.NotNil(t, kset, "Key settings is incorrect type")
-			assert.EqualValues(t, tt.len, len(kset.Keys), "Key settings count is wrong")
+			assert.EqualValuesf(t, tt.len, len(kset.Keys), "Key settings count is wrong %s", tt.inp)
 
 			if len(tt.exp) > 0 {
-				assert.Falsef(t, mt.ExpMsg.Failed, "KEY LIST didn't return expected value < %s", tt.inp)
+				assert.Falsef(t, mt.ExpMsg.Failed, "%s didn't return expected value < %s", tt.inp, tt.exp)
 			}
 		} else {
 			assert.NotNil(t, err, "expected KEY to return an error and he didn't")

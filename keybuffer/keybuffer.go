@@ -1,10 +1,29 @@
 package keybuffer
 
 import (
+	"encoding/hex"
 	"errors"
+	"fmt"
 	"time"
 
 	"github.com/navionguy/basicwasm/ast"
+)
+
+const (
+	f1Key  = "1b4f50" // the escape sequences received for all 12 function keys
+	f2Key  = "1b4f51"
+	f3Key  = "1b4f52"
+	f4Key  = "1b4f53"
+	f5Key  = "1b5b31357e"
+	f6Key  = "1b5b31377e"
+	f7Key  = "1b5b31387e"
+	f8Key  = "1b5b31397e"
+	f9Key  = "1b5b32307e"
+	f10Key = "1b5b32317e"
+	f11Key = "1b5b41" // cursor up
+	f12Key = "1b5b44" // cursor left
+	f13Key = "1b5b43" // cursor right
+	f14Key = "1b5b42" // cursor down
 )
 
 type KeyBuffer struct {
@@ -13,11 +32,22 @@ type KeyBuffer struct {
 	inp         []byte
 	ind         int
 	sig_break   bool
+	spcKeys     map[string]string
 }
 
 var kbuff KeyBuffer
 
 func GetKeyBuffer() *KeyBuffer {
+	fkeys := []string{f1Key, f2Key, f3Key, f4Key, f5Key, f6Key, f7Key, f8Key, f9Key, f10Key, f11Key, f12Key, f13Key, f14Key}
+
+	if kbuff.spcKeys == nil {
+		kbuff.spcKeys = make(map[string]string)
+	}
+
+	for i, key := range fkeys {
+		ind := fmt.Sprintf("F%d", i+1)
+		kbuff.spcKeys[key] = ind
+	}
 	return &kbuff
 }
 
@@ -29,7 +59,14 @@ func (buff *KeyBuffer) SaveKeyStroke(key []byte) {
 		buff.keycodes = make(chan []byte, 20)
 	}
 
+	// check for an escape sequence, like a function key
+	if (len(key) > 1) && (key[0] == 0x1b) {
+		// go see if maps to something have a macro set for
+		key = buff.checkForSpecialKeys(key)
+	}
+
 	// check for an empty array
+	// special key checks can return an empty array
 	if len(key) == 0 {
 		return
 	}
@@ -47,6 +84,21 @@ func (buff *KeyBuffer) checkForCtrlC(inp []byte) {
 			buff.sig_break = true
 		}
 	}
+}
+
+// check for special keys
+func (buff *KeyBuffer) checkForSpecialKeys(inp []byte) []byte {
+	if buff.KeySettings == nil {
+		// no macros have been set
+		return []byte("")
+	}
+
+	// convert the bytes to a string for checking
+	a := kbuff.spcKeys[hex.EncodeToString(inp)]
+	mac := kbuff.KeySettings.Keys[a]
+
+	// map the key label to the string to send and return it
+	return []byte(mac)
 }
 
 // has a Ctrl-C been entered
