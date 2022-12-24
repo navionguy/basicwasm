@@ -31,7 +31,30 @@ func Test_Build(t *testing.T) {
 	mt := &mocks.MockTerm{}
 	env := object.NewTermEnvironment(mt)
 
-	fl.Build(bufio.NewReader(bytes.NewReader(nil)), env)
+	obj := fl.Build(bufio.NewReader(bytes.NewReader(nil)), env)
+
+	_, ok := obj.(*object.Error)
+	assert.True(t, ok, "Test_Build didn't catch invalid json")
+}
+
+func TestBuildError(t *testing.T) {
+	rdr := bufio.NewReader(mocks.NewReader(nil))
+	fl := NewFileList()
+
+	mt := &mocks.MockTerm{}
+	env := object.NewTermEnvironment(mt)
+
+	obj := fl.Build(rdr, env)
+
+	_, ok := obj.(*object.Error)
+	assert.True(t, ok, "TestBuildError didn't get an error")
+
+	rdr = bufio.NewReader(mocks.NewReader([]byte(`{"entry":}`)))
+
+	obj = fl.Build(rdr, env)
+
+	_, ok = obj.(*object.Error)
+	assert.True(t, ok, "TestBuildError with invalid json didn't get an error")
 }
 
 func Test_FilesJSON(t *testing.T) {

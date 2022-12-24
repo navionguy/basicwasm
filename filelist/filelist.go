@@ -57,10 +57,6 @@ func (fl *FileList) Build(dir *bufio.Reader, env *object.Environment) object.Obj
 		return object.StdError(env, berrors.InternalErr)
 	}
 
-	if !json.Valid(jsn) {
-		return object.StdError(env, berrors.DeviceFault)
-	}
-
 	err = json.Unmarshal(jsn, &fl.Files)
 	if err != nil {
 		return object.StdError(env, berrors.DeviceTimeout)
