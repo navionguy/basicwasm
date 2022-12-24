@@ -152,7 +152,10 @@ func (e *Environment) setDefaults() {
 	kys.Keys["F8"] = "TROFF\r"
 	kys.Keys["F9"] = "KEY"
 	kys.Keys["F10"] = "SCREEN 0,0,0\r"
-	//kys.Keys["F11"] = "1b5b41"
+	kys.Keys["F11"] = "\x1b[A" // Up Arrow
+	kys.Keys["F12"] = "\x1b[D" // Left Arrow
+	kys.Keys["F13"] = "\x1b[C" // Right Arrow
+	kys.Keys["F14"] = "\x1b[B" // Down Arrow
 	e.SaveSetting(settings.KeyMacs, &kys)
 }
 

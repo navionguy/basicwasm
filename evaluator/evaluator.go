@@ -375,6 +375,7 @@ func evalBlockExpression(Exp *ast.BlockExpression, code *ast.Code, env *object.E
 	return Eval(Exp.Exp, code, env)
 }
 
+// evals a user defined function, need to rename this
 func evalBlockStatement(block *ast.BlockStatement, code *ast.Code, env *object.Environment) object.Object {
 	var result object.Object
 
