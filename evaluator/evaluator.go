@@ -23,10 +23,6 @@ import (
 	"github.com/navionguy/basicwasm/token"
 )
 
-const syntaxErr = "Syntax error"
-const overflowErr = "Overflow"
-const unDefinedLineNumberErr = "Undefined line number"
-
 // Eval evaluates the current node in the AST.  It generally returns nil, but
 // it can return an error object or a halt object.
 func Eval(node ast.Node, code *ast.Code, env *object.Environment) object.Object {
@@ -809,7 +805,7 @@ func evalRestoreStatement(rst *ast.RestoreStatement, code *ast.Code, env *object
 			return nil
 		}
 
-		return newError(env, unDefinedLineNumberErr)
+		return object.StdError(env, berrors.UnDefinedLineNumber)
 	}
 
 	// restore to the beginning
@@ -1375,9 +1371,9 @@ func evalHexConstant(stmt *ast.HexConstant, code *ast.Code, env *object.Environm
 	if err != nil {
 		st := err.Error()
 		if strings.Contains(st, "value out of range") {
-			return newError(env, overflowErr)
+			return object.StdError(env, berrors.Overflow)
 		}
-		return newError(env, syntaxErr)
+		return object.StdError(env, berrors.Syntax)
 	}
 
 	return &object.Integer{Value: int16(dst)}
