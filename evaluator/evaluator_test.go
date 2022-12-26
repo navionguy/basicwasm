@@ -1126,22 +1126,23 @@ func Test_EndStatement(t *testing.T) {
 }
 
 func Test_KeyStatement(t *testing.T) {
+	const keydef = 14
 	tests := []struct {
 		inp string
 		len int
 		exp string
 		err bool
 	}{
-		{inp: `10 KEY OFF`, len: 10},
-		{inp: `10 KEY ON`, len: 10},
-		{inp: `10 KEY LIST`, len: 10, exp: "F1 LIST\r\nF2 RUN\r\nF3 LOAD \"\r\nF4 SAVE \"\r\nF5 CONT\r\r\nF6 , \"LPT1:\" \r\r\nF7 TRON\r\r\nF8 TROFF\r\r\nF9 KEY\r\nF10 SCREEN 0,0,0\r\r\n"},
-		{inp: `10 KEY 4,"FILES"`, len: 10},
-		{inp: `10 KEY 4,"FILES" : KEY LIST`, len: 10, exp: "F1 LIST\r\nF2 RUN\r\nF3 LOAD \"\r\nF4 FILES\r\nF5 CONT\r\r\nF6 , \"LPT1:\" \r\r\nF7 TRON\r\r\nF8 TROFF\r\r\nF9 KEY\r\nF10 SCREEN 0,0,0\r\r\n"},
+		{inp: `10 KEY OFF`, len: keydef},
+		{inp: `10 KEY ON`, len: keydef},
+		{inp: `10 KEY LIST`, len: keydef, exp: "F1 LIST\r\nF2 RUN\r\nF3 LOAD \"\r\nF4 SAVE \"\r\nF5 CONT\r\r\nF6 , \"LPT1:\" \r\r\nF7 TRON\r\r\nF8 TROFF\r\r\nF9 KEY\r\nF10 SCREEN 0,0,0\r\r\n"},
+		{inp: `10 KEY 4,"FILES"`, len: keydef},
+		{inp: `10 KEY 4,"FILES" : KEY LIST`, len: keydef, exp: "F1 LIST\r\nF2 RUN\r\nF3 LOAD \"\r\nF4 FILES\r\nF5 CONT\r\r\nF6 , \"LPT1:\" \r\r\nF7 TRON\r\r\nF8 TROFF\r\r\nF9 KEY\r\nF10 SCREEN 0,0,0\r\r\n"},
 		{inp: `10 KEY 1`, err: true},
 		{inp: `20 KEY 25,"FILES"`, err: true},
 		{inp: `20 KEY "25","FILES"`, err: true},
 		{inp: `20 KEY 2,30`, err: true},
-		{inp: `60 KEY 15, CHR$(03)+CHR$(25)`, len: 10},
+		{inp: `60 KEY 15, CHR$(03)+CHR$(25)`, len: keydef},
 		{inp: `60 KEY 15, 34`, err: true},
 	}
 
