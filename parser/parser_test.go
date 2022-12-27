@@ -1703,24 +1703,25 @@ func TestParsingIndexExpressions(t *testing.T) {
 	}
 }
 
-func TestIfExpression(t *testing.T) {
+func TestIfStatement(t *testing.T) {
 	tests := []struct {
-		input string
-		cons  string
-		alt   string
-		op    string
+		inp  string // input source
+		cons string // consequence
+		alt  string // alternative
+		op   string // comparison operand
+		exp  string // expected string output
 	}{
-		{"10 IF X < Y THEN 300", "GOTO", "nil", "<"},
-		{"20 IF (X < Y) GOTO 300", "GOTO", "nil", "<"},
-		{"30 IF X > Y THEN 300 ELSE 400", "GOTO", "GOTO", ">"},
-		{"40 IF X >= Y THEN END", "END", "nil", ">="},
-		{"50 IF X < Y THEN 300 ELSE END", "GOTO", "END", "<"},
-		{"60 IF X < Y, THEN 300 ELSE END", "GOTO", "END", "<"},
-		{"70 IF X = Y, THEN 300 ELSE END", "GOTO", "END", "="},
+		{inp: "10 IF X < Y THEN GOTO 300", cons: "GOTO", alt: "nil", op: "<", exp: "IF X < Y THEN GOTO 300"},
+		{inp: "20 IF (X < Y) GOTO 300", cons: "GOTO", alt: "nil", op: "<", exp: "IF (X < Y) THEN GOTO 300"},
+		{inp: "30 IF X > Y THEN 300 ELSE 400", cons: "GOTO", alt: "GOTO", op: ">", exp: "IF X > Y THEN 300 ELSE 400"},
+		{inp: "40 IF X >= Y THEN END", cons: "END", alt: "nil", op: ">=", exp: "IF X >= Y THEN END"},
+		{inp: "50 IF X < Y THEN 300 ELSE END", cons: "GOTO", alt: "END", op: "<", exp: "IF X < Y THEN 300 ELSE END"},
+		{inp: "60 IF X < Y, THEN 300 ELSE END", cons: "GOTO", alt: "END", op: "<", exp: "IF X < Y THEN 300 ELSE END"},
+		{inp: "70 IF X = Y, THEN 300 ELSE END", cons: "GOTO", alt: "END", op: "=", exp: "IF X = Y THEN 300 ELSE END"},
 	}
 
 	for _, tt := range tests {
-		l := lexer.New(tt.input)
+		l := lexer.New(tt.inp)
 		p := New(l)
 		env := object.NewTermEnvironment(mocks.MockTerm{})
 		p.ParseProgram(env)
@@ -1735,17 +1736,16 @@ func TestIfExpression(t *testing.T) {
 		iter.Next()
 		stmt := iter.Value()
 
-		stmt1, ok := stmt.(*ast.ExpressionStatement)
+		stmt1, ok := stmt.(*ast.IfStatement)
+		assert.Truef(t, ok, "Test_IfStatement got %T", stmt1)
 		if !ok {
 			t.Fatalf("program.Statements[1] is not ast.ExpressionStatement. got=%T", stmt)
 		}
+		str := stmt1.String()
 
-		exp, ok := stmt1.Expression.(*ast.IfExpression)
-		if !ok {
-			t.Fatalf("stmt.Expression is not ast.IfExpression. got=%T", stmt1.Expression)
-		}
+		assert.Truef(t, strings.EqualFold(str, tt.exp), "Test_IfStatement expected %s, got %s", tt.exp, str)
 
-		gexp, ok := exp.Condition.(*ast.GroupedExpression)
+		gexp, ok := stmt1.Condition.(*ast.GroupedExpression)
 		if ok {
 			iexp, ok := gexp.Exp.(*ast.InfixExpression)
 
@@ -1755,16 +1755,16 @@ func TestIfExpression(t *testing.T) {
 				}
 			}
 		} else {
-			if !testInfixExpression(t, exp.Condition, "X", tt.op, "Y") {
+			if !testInfixExpression(t, stmt1.Condition, "X", tt.op, "Y") {
 				return
 			}
 		}
 
-		if !testIfConsequence(t, tt.cons, exp.Consequence) {
+		if !testIfConsequence(t, tt.cons, stmt1.Consequence) {
 			return
 		}
 
-		if !testIfAlternative(t, tt.alt, exp.Alternative) {
+		if !testIfAlternative(t, tt.alt, stmt1.Alternative) {
 			return
 		}
 	}

@@ -120,11 +120,20 @@ func (e *Error) Inspect() string  { return e.Message }
 
 // StdError returns both the GWBASIC message, and error code for a basic error
 func StdError(env *Environment, err int) *Error {
+	// turn on writing to my variables
+	env.readOnly["ERR"] = false
+	env.readOnly["ERL"] = false
+	// make sure to turn R/O back on as I leave
+	defer func(env *Environment) {
+		env.readOnly["ERR"] = true
+		env.readOnly["ERL"] = true
+	}(env)
+
 	// get the base error message
 	e := Error{Code: err, Message: berrors.TextForError(err)}
 	env.SaveSetting(settings.ERR, &ast.DblIntegerLiteral{Value: int32(err)})
 
-	erl := 0
+	erl := 65535
 	if env.ProgramRunning() {
 		tk := env.Get(token.LINENUM)
 

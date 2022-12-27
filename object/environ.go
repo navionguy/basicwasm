@@ -6,6 +6,7 @@ import (
 	"strings"
 
 	"github.com/navionguy/basicwasm/ast"
+	"github.com/navionguy/basicwasm/berrors"
 	"github.com/navionguy/basicwasm/keybuffer"
 	"github.com/navionguy/basicwasm/settings"
 )
@@ -82,6 +83,7 @@ type Environment struct {
 	store    map[string]*variable // variables and other program data
 	common   map[string]*variable // variables the live through a CHAIN
 	settings map[string]ast.Node  // environment settings
+	readOnly map[string]bool      // my read only environment variables
 	outer    *Environment         // possibly a tempory containing environment
 	program  *ast.Program         // current Abstract Syntax Tree
 	term     Console              // the terminal console object
@@ -118,6 +120,7 @@ func newEnvironment() *Environment {
 	}
 	e.program.New()
 	e.setDefaults()
+	e.setReadOnlys()
 
 	// initialize my random number generator
 	e.rnd = rand.New(rand.NewSource(37))
@@ -159,6 +162,18 @@ func (e *Environment) setDefaults() {
 	e.SaveSetting(settings.KeyMacs, &kys)
 }
 
+// define all the variables that are read only
+func (e *Environment) setReadOnlys() {
+	e.readOnly = make(map[string]bool)
+
+	e.readOnly["CSRLIN"] = true
+	e.readOnly["ERDEV"] = true
+	e.readOnly["ERDEV$"] = true
+	e.readOnly["ERL"] = true
+	e.readOnly["ERR"] = true
+	e.readOnly["INKEY$"] = true
+}
+
 // preserve a variable across a chain
 func (e *Environment) Common(name string) {
 	// everything stores in upper case
@@ -196,6 +211,15 @@ func (e *Environment) Get(name string) Object {
 	// if I found him, send the value
 	if ok {
 		return v.value
+	}
+
+	// check for my special case
+	if strings.EqualFold(name, "INKEY$") {
+		bt, err := keybuffer.GetKeyBuffer().ReadByte()
+		if err != nil {
+			return &String{Value: ""}
+		}
+		return &String{Value: string(bt)}
 	}
 
 	// am I in an enclosed environment?
@@ -261,25 +285,32 @@ func (e *Environment) getType(name string) byte {
 }
 
 // Set stores an object in the environment
-func (e *Environment) Set(name string, val Object) {
+func (e *Environment) Set(name string, val Object) Object {
 	// don't store a nil
 	if val == nil {
-		return
+		return StdError(e, berrors.Syntax)
 	}
 	// I always store in upper case
 	name = strings.ToUpper(name)
+
+	// check for the read only variables
+	if e.readOnly[name] {
+		return StdError(e, berrors.Syntax)
+	}
 
 	// is he already saved?
 	t, ok := e.store[name]
 
 	if ok {
 		t.value = val
-		return
+		return nil
 	}
 
 	// create and store a variable to hold the value
 	v := &variable{value: val}
 	e.store[name] = v
+
+	return nil
 }
 
 // clear a setting
@@ -439,4 +470,9 @@ func (e *Environment) ConstData() *ast.ConstData {
 func (e *Environment) NewProgram() {
 	e.program = &ast.Program{}
 	e.program.New() // make sure to initialize the new program
+}
+
+// check if a variable name is defined read only
+func (e *Environment) ReadOnly(v string) bool {
+	return e.readOnly[strings.ToUpper(v)]
 }

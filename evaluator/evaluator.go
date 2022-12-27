@@ -191,8 +191,8 @@ func Eval(node ast.Node, code *ast.Code, env *object.Environment) object.Object 
 		right := Eval(node.Right, code, env)
 		return evalInfixExpression(node.Operator, left, right, env)
 
-	case *ast.IfExpression:
-		return evalIfExpression(node, code, env)
+	case *ast.IfStatement:
+		return evalIfStatement(node, code, env)
 
 	case *ast.FunctionLiteral:
 		params := node.Parameters
@@ -2203,13 +2203,16 @@ func evalFloatDblInfixExpression(operator string, leftVal, rightVal float64, env
 	}
 }
 
-func evalIfExpression(ie *ast.IfExpression, code *ast.Code, env *object.Environment) object.Object {
+func evalIfStatement(ie *ast.IfStatement, code *ast.Code, env *object.Environment) object.Object {
 	condition := Eval(ie.Condition, code, env)
 	if isError(condition) {
 		return condition
 	}
 
 	if condition.(*object.Integer).Value == 0 { // that's a false
+		if ie.Alternative == nil {
+			return nil // continues at next statement
+		}
 		return Eval(ie.Alternative, code, env)
 	}
 

@@ -83,7 +83,7 @@ func New(l *lexer.Lexer) *Parser {
 	p.registerPrefix(token.FLOAT, p.parseFloatingPointLiteral)
 	p.registerPrefix(token.FIXED, p.parseFixedPointLiteral)
 	p.registerPrefix(token.IDENT, p.parseIdentifier)
-	p.registerPrefix(token.IF, p.parseIfExpression)
+	//p.registerPrefix(token.IF, p.parseIfStatement)
 	p.registerPrefix(token.INT, p.parseIntegerLiteral)
 	p.registerPrefix(token.INTD, p.parseIntDoubleLiteral)
 	p.registerPrefix(token.LIST, p.parseListExpression)
@@ -237,7 +237,7 @@ func (p *Parser) parseStatement() ast.Statement {
 	case token.GOTO:
 		return p.parseGotoStatement()
 	case token.IF:
-		return p.parseExpressionStatement()
+		return p.parseIfStatement()
 	case token.KEY:
 		return p.parseKeyStatement()
 	case token.LET:
@@ -1611,9 +1611,8 @@ func (p *Parser) parseGroupedExpression() ast.Expression {
 	return exp
 }
 
-func (p *Parser) parseIfExpression() ast.Expression {
-	defer untrace(trace("parseIfExpression"))
-	expression := &ast.IfExpression{Token: p.curToken}
+func (p *Parser) parseIfStatement() ast.Statement {
+	expression := ast.IfStatement{Token: p.curToken}
 
 	p.nextToken()
 	expression.Condition = p.parseExpression(LOWEST)
@@ -1635,7 +1634,7 @@ func (p *Parser) parseIfExpression() ast.Expression {
 
 	// if there is no ELSE we are done
 	if !p.peekTokenIs(token.ELSE) {
-		return expression
+		return &expression
 	}
 
 	p.nextToken()
@@ -1643,7 +1642,7 @@ func (p *Parser) parseIfExpression() ast.Expression {
 
 	expression.Alternative = p.parseIfOption()
 
-	return expression
+	return &expression
 }
 
 // parseIfOption handles the special cases
@@ -1801,7 +1800,6 @@ func (p *Parser) innerParseIndexExpression(left ast.Expression) *ast.IndexExpres
 
 // parse an expression statement, returns nil if it isn't parsable
 func (p *Parser) parseExpressionStatement() *ast.ExpressionStatement {
-	defer untrace(trace("parseExpressionStatement"))
 	stmt := &ast.ExpressionStatement{Token: p.curToken}
 	stmt.Expression = p.parseExpression(LOWEST)
 	return stmt
@@ -1809,7 +1807,6 @@ func (p *Parser) parseExpressionStatement() *ast.ExpressionStatement {
 
 // parse an expression, returns nil if it isn't parsable
 func (p *Parser) parseExpression(precedence int) ast.Expression {
-	defer untrace(trace("parseExpression"))
 	prefix := p.prefixParseFns[p.curToken.Type]
 	if prefix == nil {
 		p.noPrefixParseFnError(p.curToken.Type)

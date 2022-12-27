@@ -92,13 +92,13 @@ func (t *Terminal) ReadKeys(count int) []byte {
 		}
 	}
 
-	if len(keys) > 0 {
+	/*if len(keys) > 0 {
 		t.Log("Keypress")
 		for _, bt := range keys {
 			msg := fmt.Sprintf("%x", bt)
 			t.Log(msg)
 		}
-	}
+	}*/
 
 	return keys
 }

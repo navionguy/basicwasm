@@ -501,7 +501,7 @@ type LetStatement struct {
 	Value Expression
 }
 
-func (ls *LetStatement) statementNode() { return }
+func (ls *LetStatement) statementNode() {}
 
 // TokenLiteral returns literal value of the statement
 func (ls *LetStatement) TokenLiteral() string {
@@ -1113,35 +1113,49 @@ func (ge *GroupedExpression) String() string {
 	return out.String()
 }
 
-// IfExpression holds an If expression
-type IfExpression struct {
+// IfStatement holds an If statement
+type IfStatement struct {
 	Token       token.Token // The 'if' token
 	Condition   Expression
 	Consequence Statement
 	Alternative Statement
 }
 
-func (ie *IfExpression) expressionNode() {}
-
-// TokenLiteral returns my literal
-func (ie *IfExpression) TokenLiteral() string { return strings.ToUpper(ie.Token.Literal) }
+func (ifs *IfStatement) statementNode()       {}
+func (ifs *IfStatement) TokenLiteral() string { return strings.ToUpper(ifs.Token.Literal) }
 
 // String returns my string representation
-func (ie *IfExpression) String() string {
+func (ifs *IfStatement) String() string {
 	var out bytes.Buffer
 
 	out.WriteString("IF ")
-	if ie.Condition != nil {
-		out.WriteString(ie.Condition.String())
+	if ifs.Condition != nil {
+		out.WriteString(ifs.Condition.String())
 	}
-	out.WriteString(" THEN ")
-	if ie.Consequence != nil {
-		out.WriteString(ie.Consequence.String())
+	out.WriteString(" THEN")
+	if ifs.Consequence != nil {
+		_, ok := ifs.Consequence.(*GosubStatement)
+		if ok {
+			out.WriteString(" ")
+		}
+		gt, ok := ifs.Consequence.(*GotoStatement)
+		if ok && strings.EqualFold(gt.TokenLiteral(), "GOTO") {
+			out.WriteString(" ")
+		}
+		_, ok = ifs.Consequence.(*EndStatement)
+		if ok {
+			out.WriteString(" ")
+		}
+		out.WriteString(ifs.Consequence.String())
 	}
 
-	if ie.Alternative != nil {
+	if ifs.Alternative != nil {
 		out.WriteString(" ELSE")
-		s := ie.Alternative
+		s := ifs.Alternative
+		_, ok := s.(*EndStatement)
+		if ok {
+			out.WriteString(" ")
+		}
 		out.WriteString(s.String())
 	}
 
@@ -1156,7 +1170,7 @@ type GosubStatement struct {
 
 func (gsb *GosubStatement) statementNode() {}
 
-// TokenLiteral should return GOTO
+// TokenLiteral should return GOSUB
 func (gsb *GosubStatement) TokenLiteral() string { return strings.ToUpper(gsb.Token.Literal) }
 func (gsb *GosubStatement) String() string {
 	var out bytes.Buffer
@@ -1195,7 +1209,7 @@ func (end *EndStatement) TokenLiteral() string { return strings.ToUpper(end.Toke
 // String just prettier TokenLiteral
 func (end *EndStatement) String() string {
 	var out bytes.Buffer
-	out.WriteString(end.TokenLiteral() + " ")
+	out.WriteString(end.TokenLiteral())
 	return out.String()
 }
 

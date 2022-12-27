@@ -194,26 +194,31 @@ func Test_Environment(t *testing.T) {
 	encenv := NewEnclosedEnvironment(env)
 
 	tests := []struct {
-		setev *Environment
-		getev *Environment
-		item  string
-		set   Object
-		exp   Object
+		setev  *Environment
+		getev  *Environment
+		item   string
+		set    Object
+		seterr Object
+		exp    Object
 	}{
-		{setev: nil, getev: env, item: "A$[]", set: nil, exp: &String{Value: ""}},
-		{setev: nil, getev: env, item: "A[]", set: nil, exp: &Integer{Value: 0}},
-		{setev: nil, getev: env, item: "A#", set: nil, exp: &IntDbl{Value: 0}},
-		{setev: nil, getev: env, item: "A%", set: nil, exp: &Integer{Value: 0}},
-		{setev: nil, getev: env, item: "A$", set: nil, exp: &String{Value: ""}},
-		{setev: nil, getev: env, item: "INDEX", set: nil, exp: &Integer{Value: 0}},
-		{setev: nil, getev: env, item: "A", set: nil, exp: &Integer{Value: 0}},
+		{setev: env, getev: env, item: "A$[]", set: nil, exp: &String{Value: ""}},
+		{setev: env, getev: env, item: "A[]", set: nil, exp: &Integer{Value: 0}},
+		{setev: env, getev: env, item: "A#", set: nil, exp: &IntDbl{Value: 0}},
+		{setev: env, getev: env, item: "A%", set: nil, exp: &Integer{Value: 0}},
+		{setev: env, getev: env, item: "A$", set: nil, exp: &String{Value: ""}},
+		{setev: env, getev: env, item: "INDEX", set: nil, exp: &Integer{Value: 0}},
+		{setev: env, getev: env, item: "A", set: nil, exp: &Integer{Value: 0}},
 		{setev: env, getev: env, item: "B", set: &Integer{Value: 5}, exp: &Integer{Value: 5}},
+		{setev: env, getev: env, item: "INKEY$", set: &Integer{Value: 5}, exp: &String{Value: ""}, seterr: &Error{Message: "Syntax error", Code: 5}},
 		{setev: encenv, getev: env, item: "B", set: &Integer{Value: 6}, exp: &Integer{Value: 5}}, // this test depends on var set in previous test!!!
 		{setev: env, getev: encenv, item: "D", set: &Integer{Value: 6}, exp: &Integer{Value: 6}},
 	}
 
+	var se Object
 	for _, tt := range tests {
-		tt.setev.Set(tt.item, tt.set)
+		if tt.setev != nil {
+			se = tt.setev.Set(tt.item, tt.set)
+		}
 		obj := tt.getev.Get(tt.item)
 
 		assert.NotNil(t, obj, "Environment.Get(%s) returned nil", tt.item)
@@ -225,6 +230,10 @@ func Test_Environment(t *testing.T) {
 		}
 
 		assert.True(t, strings.EqualFold(obj.Inspect(), tt.exp.Inspect()), "Get of %s differed %s | %s", tt.item, obj.Inspect(), tt.exp.Inspect())
+
+		if tt.seterr != nil {
+			assert.True(t, strings.EqualFold(se.Inspect(), tt.seterr.Inspect()), "Test_Environment failed to get %s", tt.seterr.Inspect())
+		}
 	}
 }
 
@@ -273,6 +282,14 @@ func TestRandom(t *testing.T) {
 			t.Fatalf("Random returned %.9f, expected %.9f!  That's too random!!!", rc.Value, tt.exp)
 		}
 	}
+}
+
+func TestReadOnly(t *testing.T) {
+	env := newEnvironment()
+
+	assert.True(t, env.ReadOnly("ERL"), "TestReadOnly failed")
+	assert.True(t, env.ReadOnly("erl"), "TestReadOnly failed")
+
 }
 
 func Test_Function(t *testing.T) {

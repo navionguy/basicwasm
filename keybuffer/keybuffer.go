@@ -126,7 +126,7 @@ func (buff *KeyBuffer) ReadByte() (byte, error) {
 		return ' ', errors.New("no data")
 	}
 
-	// try to read key scan codes and repor it
+	// try to read key scan codes and report it
 	select {
 	case buff.inp = <-buff.keycodes:
 		buff.ind = 1

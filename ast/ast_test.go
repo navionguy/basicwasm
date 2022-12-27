@@ -715,7 +715,7 @@ func Test_EndStatement(t *testing.T) {
 
 	end.statementNode()
 	assert.Equal(t, "END", end.TokenLiteral())
-	assert.Equal(t, "END ", end.String())
+	assert.Equal(t, "END", end.String())
 }
 
 func Test_EOFExpression(t *testing.T) {
@@ -878,17 +878,17 @@ func Test_Identifier(t *testing.T) {
 	}
 }
 
-func Test_IfExpression(t *testing.T) {
+func Test_IfStatement(t *testing.T) {
 
-	ife := &IfExpression{Token: token.Token{Type: token.IF, Literal: "IF"},
+	ifs := &IfStatement{Token: token.Token{Type: token.IF, Literal: "IF"},
 		Condition:   &InfixExpression{Left: &Identifier{Value: "X"}, Operator: "!=", Right: &IntegerLiteral{Value: 5}},
 		Consequence: &GosubStatement{Gosub: 200},
 		Alternative: &GotoStatement{Goto: "1000"}}
 
-	ife.expressionNode()
-	assert.Equal(t, "IF", ife.TokenLiteral())
+	ifs.statementNode()
+	assert.Equal(t, "IF", ifs.TokenLiteral())
 
-	assert.Equal(t, "IF X != 5 THEN GOSUB 200 ELSE 1000", ife.String())
+	assert.Equal(t, "IF X != 5 THEN GOSUB 200 ELSE 1000", ifs.String())
 }
 
 func Test_IndexExpression(t *testing.T) {
