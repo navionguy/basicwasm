@@ -491,7 +491,7 @@ func TestMID(t *testing.T) {
 	// a simple way to get my parameter
 
 	var mt mocks.MockTerm
-	fn, _ := Builtins["MKD$"]
+	fn := Builtins["MKD$"]
 	mocks.InitMockTerm(&mt)
 	env := object.NewTermEnvironment(mt)
 	res := fn.Fn(env, fn, &object.IntDbl{Value: 35456778})
@@ -667,10 +667,37 @@ func TestStrings(t *testing.T) {
 	runTests(t, "STRING$", tests)
 }
 
+func TestTab(t *testing.T) {
+	tests := []struct {
+		inp []object.Object
+		exp object.Object
+		col int
+	}{
+		{inp: []object.Object{&object.Integer{Value: 5}}, col: 5},
+		{inp: []object.Object{&object.Integer{Value: 5}, &object.Integer{Value: 0}}, exp: &object.Error{Code: 2, Message: "Syntax error"}},
+		{inp: []object.Object{&object.String{Value: "fred"}}, exp: &object.Error{Code: 13, Message: "Type mismatch"}},
+	}
+
+	for _, tt := range tests {
+		fn, ok := Builtins["TAB"]
+
+		assert.True(t, ok, "Failed to find TAB() function")
+
+		var mt mocks.MockTerm
+		mocks.InitMockTerm(&mt)
+		env := object.NewTermEnvironment(mt)
+		res := fn.Fn(env, fn, tt.inp...)
+
+		assert.EqualValuesf(t, tt.exp, res, "call to TAB(%s) returned %T", tt.inp[0].Inspect(), res)
+		assert.EqualValuesf(t, tt.col, *mt.Col, "expected to be @col %d but at %d", tt.col, *mt.Col)
+	}
+
+}
+
 func TestTan(t *testing.T) {
 	tests := []test{
 		{cmd: `10 TAN(5, 2)`, lnum: 10, inp: []object.Object{&object.Integer{Value: 5}, &object.Integer{Value: 2}}, exp: &object.Error{Message: syntaxErr + " in 10"}},
-		{cmd: `20 TAN("fred")`, lnum: 20, inp: []object.Object{&object.String{Value: "fred"}}, exp: &object.Error{Message: typeMismatchErr + " in 20"}},
+		{cmd: `20 TAN("fred")`, lnum: 20, inp: []object.Object{&object.String{Value: "fred"}}, exp: &object.Error{Message: typeMismatchErr}},
 		{cmd: `30 TAN(5)`, inp: []object.Object{&object.Integer{Value: 5}}, exp: &object.FloatSgl{Value: -3.380515099}},
 		{cmd: `40 TAN(0.5)`, inp: []object.Object{&object.FloatSgl{Value: 0.5}}, exp: &object.FloatSgl{Value: 0.546302497}},
 	}

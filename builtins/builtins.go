@@ -7,6 +7,7 @@ import (
 	"math"
 	"strconv"
 
+	"github.com/navionguy/basicwasm/berrors"
 	"github.com/navionguy/basicwasm/object"
 	"github.com/navionguy/basicwasm/token"
 )
@@ -16,8 +17,6 @@ const typeMismatchErr = "Type mismatch"
 const overflowErr = "Overflow"
 const illegalFuncCallErr = "Illegal function call"
 const illegalArgErr = "Illegal argument"
-const outOfDataErr = "Out of data"
-const unDefinedLineNumberErr = "Undefined line number"
 
 var Builtins = map[string]*object.Builtin{
 	"ABS": { // absolute value
@@ -838,6 +837,28 @@ var Builtins = map[string]*object.Builtin{
 			return &object.String{Value: string(bt)}
 		},
 	},
+	"TAB": { // space to position n on the screen
+		Fn: func(env *object.Environment, fn *object.Builtin, args ...object.Object) object.Object {
+			if len(args) != 1 {
+				return object.StdError(env, berrors.Syntax)
+			}
+
+			arg, ok := extractNumeric(args[0])
+
+			if !ok {
+				return object.StdError(env, berrors.TypeMismatch)
+			}
+
+			_, col := env.Terminal().GetCursor()
+			tc := int(math.Round(arg))
+
+			for col != tc {
+				env.Terminal().Print(" ")
+				_, col = env.Terminal().GetCursor()
+			}
+			return nil
+		},
+	},
 	"TAN": { // compute the tangent of x in radians
 		Fn: func(env *object.Environment, fn *object.Builtin, args ...object.Object) object.Object {
 			if len(args) != 1 {
@@ -847,7 +868,7 @@ var Builtins = map[string]*object.Builtin{
 			arg, ok := extractNumeric(args[0])
 
 			if !ok {
-				return newError(env, typeMismatchErr)
+				return object.StdError(env, berrors.TypeMismatch)
 			}
 
 			return &object.FloatSgl{Value: float32(math.Tan(arg))}

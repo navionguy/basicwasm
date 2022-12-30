@@ -61,6 +61,11 @@ func (mt MockTerm) Cls() {
 func (mt MockTerm) Print(msg string) {
 	fmt.Print(msg)
 	mt.ExpMsg.chkExpectations(msg)
+	*mt.Col += len(msg)
+	if *mt.Col > 80 {
+		*mt.Row++
+		*mt.Col -= 80
+	}
 }
 
 func (mt MockTerm) Println(msg string) {
@@ -69,6 +74,8 @@ func (mt MockTerm) Println(msg string) {
 		*mt.SawStr = *mt.SawStr + msg
 	}
 	mt.ExpMsg.chkExpectations(msg)
+	*mt.Row++
+	*mt.Col = 0
 }
 
 func (mt MockTerm) SoundBell() {
