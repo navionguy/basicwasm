@@ -92,6 +92,8 @@ func TextForError(err int) string {
 		return "File not found"
 	case IllegalDirect:
 		return "Illegal direct"
+	case IllegalFuncCallErr:
+		return "Illegal function call"
 	case NextWithoutFor:
 		return "NEXT without FOR"
 	case OutOfData:

@@ -537,22 +537,25 @@ func evalColorMode(env *object.Environment) *ast.ScreenStatement {
 // for screen mode 0, the three parameters are foreground, background, border
 // ToDo: actually support border color if I ever see it used
 func evalColorScreen0(color *ast.ColorStatement, plt ast.ColorPalette, code *ast.Code, env *object.Environment) object.Object {
-	for i, exp := range color.Parms {
-		// error on border for now
+	// go evaluate all my parameters
+	parms := evalExpressions(color.Parms, code, env)
+
+	// apply all them parameters
+	for i, p := range parms {
+		// I ignore border colors for now
 		if i == 2 {
-			return object.StdError(env, berrors.IllegalFuncCallErr)
+			return nil
 		}
 
-		// if there is a param, evaluate and action it
-		if exp != nil {
-			val := evalExpressions(color.Parms[i:1], code, env)
-			ind, err := coerceIndex(val[0], env)
+		// convert it to an int16
+		ind, err := coerceIndex(p, env)
 
-			if err != nil {
-				return err
-			}
-			evalColorSet((ind & 0x0f), (i == 1), plt, env)
+		if err != nil {
+			return err
 		}
+
+		// currently only does foreground and background
+		evalColorSet((ind & 0x0f), (i == 1), plt, env)
 	}
 
 	return nil

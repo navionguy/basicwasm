@@ -9,6 +9,7 @@ import (
 	"github.com/navionguy/basicwasm/berrors"
 	"github.com/navionguy/basicwasm/keybuffer"
 	"github.com/navionguy/basicwasm/settings"
+	"golang.org/x/text/encoding/charmap"
 )
 
 // GWBasic color values for screen work,https://hwiegman.home.xs4all.nl/gw-man/SCREENS.html
@@ -475,4 +476,15 @@ func (e *Environment) NewProgram() {
 // check if a variable name is defined read only
 func (e *Environment) ReadOnly(v string) bool {
 	return e.readOnly[strings.ToUpper(v)]
+}
+
+// convert the CP437 values to a strings
+func DecodeBytes(bts []byte) string {
+	var r []rune
+
+	for _, b := range bts {
+		r = append(r, charmap.CodePage437.DecodeByte(b))
+	}
+
+	return string(r)
 }

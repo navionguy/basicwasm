@@ -138,6 +138,17 @@ func Test_Common(t *testing.T) {
 	assert.NotNil(t, env.common["I"].value, "Second COMMON lost value")
 }
 
+func Test_DecodeByte(t *testing.T) {
+	test := []byte{0xf9, 0xcd, 0xcc, 0xce}
+	exp := "∙═╠╬"
+
+	// go decode the test array
+	str := string(DecodeBytes(test))
+
+	assert.NotNil(t, str, "DecodeByte returned nothing")
+	assert.EqualValues(t, exp, str, "decodeByte values don't match ")
+}
+
 func Test_DefaultKeys(t *testing.T) {
 	tests := []struct {
 		key string

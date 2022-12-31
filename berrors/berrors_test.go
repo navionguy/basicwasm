@@ -15,6 +15,7 @@ func TestTextForError(t *testing.T) {
 		{inp: DivByZero, exp: "Division by zero"},
 		{inp: FileNotFound, exp: "File not found"},
 		{inp: IllegalDirect, exp: "Illegal direct"},
+		{inp: IllegalFuncCallErr, exp: "Illegal function call"},
 		{inp: NextWithoutFor, exp: "NEXT without FOR"},
 		{inp: OutOfData, exp: "Out of DATA"},
 		{inp: Overflow, exp: "Overflow"},

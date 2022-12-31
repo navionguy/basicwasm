@@ -446,7 +446,7 @@ func Test_ColorStatement(t *testing.T) {
 		mode int
 		exp  string
 	}{
-		{inp: "COLOR 15", mode: 0, exp: "\x1b[97m"},
+		{inp: "COLOR 15,1", mode: 0, exp: "\x1b[97m"},
 		{inp: "COLOR 7", mode: 0, exp: "\x1b[37m"},
 		{inp: "COLOR 1", mode: 0, exp: "\x1b[1m"},
 		{inp: "COLOR 1", mode: 3},
@@ -1148,6 +1148,7 @@ func Test_KeyStatement(t *testing.T) {
 
 	for _, tt := range tests {
 		mt := mocks.MockTerm{}
+		mocks.InitMockTerm(&mt)
 
 		mt.ExpMsg = &mocks.Expector{Exp: []string{tt.exp}}
 		env := object.NewTermEnvironment(mt)

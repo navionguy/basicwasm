@@ -93,7 +93,7 @@ func ParseFile(src *bufio.Reader, env *object.Environment) {
 }
 
 // used for testing
-func ParseFileToText(src *bufio.Reader, dest *bufio.Writer) {
+/*func ParseFileToText(src *bufio.Reader, dest *bufio.Writer, env *object.Environment) {
 	dest.WriteString("gwtoken.ParseFileToText")
 	bt := make([]byte, 1)
 	n, err := src.Read(bt)
@@ -110,15 +110,15 @@ func ParseFileToText(src *bufio.Reader, dest *bufio.Writer) {
 
 	rdr := progRdr{src: src}
 
-	for true {
+	for {
 		rdr.readLineHeader()
 		if rdr.linenum == 0 {
 			return
 		}
-		rdr.readLine()
+		rdr.readLine(env)
 		dest.WriteString(rdr.lineInp)
 	}
-}
+}*/
 
 // loop to read line header (line number & offset)
 // reads and de-tokens until the end of line
@@ -131,7 +131,7 @@ func (rdr *progRdr) readProg(env *object.Environment) {
 		if rdr.linenum == 0 {
 			return
 		}
-		rdr.readLine()
+		rdr.readLine(env)
 
 		l := lexer.New(rdr.lineInp)
 		p := parser.New(l)
@@ -140,7 +140,7 @@ func (rdr *progRdr) readProg(env *object.Environment) {
 }
 
 // reads tokens until I get back nothing
-func (rdr *progRdr) readLine() {
+func (rdr *progRdr) readLine(env *object.Environment) {
 	rdr.lineInp = fmt.Sprintf("%d ", rdr.linenum)
 
 	for val := "tmp"; val != ""; {
@@ -196,7 +196,7 @@ func (rdr *progRdr) readToken() string {
 			val = rdr.readToken()
 		}
 		if pk[0] == rem_TOK {
-			val = rdr.readToken()
+			_ = rdr.readToken()
 			val = rdr.readToken()
 		}
 	case '"':
@@ -691,19 +691,23 @@ func (rdr *progRdr) readHexConst() string {
 
 // Handlers for the different progarm statements
 
+// readString reads the contents of a quoted string
 func (rdr *progRdr) readString() string {
+	// read everything to the next quote
 	str, err := rdr.src.ReadBytes('"')
 
+	// if he ran out of bytes before finding a quote, he errors
 	if err != nil {
 		rdr.eof = true
 	}
 
+	// if no data, append a closing quote
 	if len(str) == 0 {
 		return "\""
 	}
 
-	val := string(str)
-	return val
+	// return convert bytes in array as a string
+	return object.DecodeBytes(str)
 }
 
 func (rdr *progRdr) read8ByteFloat() string {
