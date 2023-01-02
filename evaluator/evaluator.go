@@ -1487,13 +1487,18 @@ func evalKeyStatmentCustomKey(key int16, keys *ast.KeySettings, val ast.Expressi
 	return nil
 }
 
+// list some or all of the current program
 func evalListStatement(stmt *ast.ListStatement, code *ast.Code, env *object.Environment) {
 	var out bytes.Buffer
+	// get a code iterator
 	cd := env.StatementIter()
+
+	// assume my default limits
 	start := 0
 	stop := cd.MaxLineNum()
 
 	// figure out any limits to the listing
+	// is there a starting line?
 	if len(stmt.Start) > 0 {
 		start, _ = strconv.Atoi(stmt.Start)
 		if len(stmt.Lrange) == 0 {
@@ -1501,40 +1506,49 @@ func evalListStatement(stmt *ast.ListStatement, code *ast.Code, env *object.Envi
 		}
 	}
 
+	// is there a stopping point
 	if len(stmt.Stop) > 0 {
 		stop, _ = strconv.Atoi(stmt.Stop)
 	}
 
-	bMidLine := false
-	bList := false
-	for bMore := true; bMore; {
-		stmt := cd.Value()
+	// couple of flags to control the listing loop
+	midLine := false // tells me I've printed a line # and the first statement (need to insert colons)
+	bList := false   // set true when I see a line # in the printing range
 
+	// roll through lines until I'm done
+	for more := true; more; {
+		stmt := cd.Value() // fetch the next statment
+
+		// check to see if we are starting a new line
 		lnm, ok := stmt.(*ast.LineNumStmt)
 
 		if ok {
 			if int(lnm.Value) > stop {
+				// I've passed the end line #, I'm done
 				break
 			}
 
+			// output anything in the buffer from a previous line, if I'm printing yet
 			if bList {
 				env.Terminal().Println(strings.TrimRight(out.String(), " "))
 				out.Truncate(0)
 			}
 			bList = (int(lnm.Value) >= start)
-			bMidLine = false
-		} else {
-			if bMidLine {
-				out.WriteString(": ")
-			}
-			bMidLine = true
+			midLine = false // just wrote a line number, not in the middle of a line
 		}
 
 		if bList {
+			if midLine {
+				// seperate the statements
+				out.WriteString(": ")
+			}
 			out.WriteString(stmt.String())
+			if lnm == nil {
+				midLine = true // in a line until your not
+			}
 		}
 
-		bMore = cd.Next()
+		more = cd.Next()
 	}
 	env.Terminal().Println(out.String())
 }
