@@ -526,7 +526,7 @@ type LineNumStmt struct {
 	Value int32
 }
 
-func (lns *LineNumStmt) statementNode() { return }
+func (lns *LineNumStmt) statementNode() {}
 
 // TokenLiteral returns the literal value
 func (lns *LineNumStmt) TokenLiteral() string { return lns.Token.Literal }
@@ -542,7 +542,7 @@ type LoadCommand struct {
 	KeppOpen bool       // keep all open files open
 }
 
-func (ld *LoadCommand) statementNode() { return }
+func (ld *LoadCommand) statementNode() {}
 
 // TokenLiteral returns my token literal
 func (ld *LoadCommand) TokenLiteral() string { return strings.ToUpper(ld.Token.Literal) }
@@ -564,7 +564,7 @@ type LocateStatement struct {
 	Parms []Expression
 }
 
-func (lct *LocateStatement) statementNode() { return }
+func (lct *LocateStatement) statementNode() {}
 
 func (lct *LocateStatement) TokenLiteral() string { return strings.ToUpper(lct.Token.Literal) }
 
@@ -1165,7 +1165,7 @@ func (ifs *IfStatement) String() string {
 // GosubStatement call subroutine
 type GosubStatement struct {
 	Token token.Token
-	Gosub int
+	Gosub []token.Token
 }
 
 func (gsb *GosubStatement) statementNode() {}
@@ -1175,7 +1175,10 @@ func (gsb *GosubStatement) TokenLiteral() string { return strings.ToUpper(gsb.To
 func (gsb *GosubStatement) String() string {
 	var out bytes.Buffer
 
-	out.WriteString("GOSUB " + fmt.Sprintf("%d", gsb.Gosub))
+	out.WriteString("GOSUB ")
+	for _, t := range gsb.Gosub {
+		out.WriteString(t.Literal)
+	}
 
 	return out.String()
 }
@@ -1183,7 +1186,7 @@ func (gsb *GosubStatement) String() string {
 // GotoStatement triggers a jump
 type GotoStatement struct {
 	Token token.Token
-	Goto  string
+	JmpTo []token.Token
 }
 
 func (gt *GotoStatement) statementNode()       {}
@@ -1191,7 +1194,10 @@ func (gt *GotoStatement) TokenLiteral() string { return gt.Token.Literal }
 func (gt *GotoStatement) String() string {
 	var out bytes.Buffer
 
-	out.WriteString(gt.TokenLiteral() + " " + gt.Goto)
+	out.WriteString(gt.TokenLiteral() + " ")
+	for _, t := range gt.JmpTo {
+		out.WriteString(t.Literal)
+	}
 
 	return out.String()
 }

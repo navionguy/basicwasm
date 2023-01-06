@@ -98,7 +98,7 @@ func Eval(node ast.Node, code *ast.Code, env *object.Environment) object.Object 
 		return evalGosubStatement(node, code, env)
 
 	case *ast.GotoStatement:
-		return evalGotoStatement(strings.Trim(node.Goto, " "), code, env)
+		return evalGotoStatement(node, code, env)
 
 	case *ast.GroupedExpression:
 		return Eval(node.Exp, code, env)
@@ -659,7 +659,11 @@ func evalStatements(code *ast.Code, env *object.Environment) object.Object {
 	ok := t > 0
 	// loop until you run out of code
 	for halt := false; ok && !halt; {
-		rc = Eval(code.Value(), code, env)
+		if code.Value() != nil {
+			rc = Eval(code.Value(), code, env)
+		} else {
+			rc = object.StdError(env, berrors.Syntax)
+		}
 
 		// Eval should *almost* always return nil
 		// the exceptions are:
@@ -1305,32 +1309,42 @@ func evalForSkipLoop(four *ast.ForStatment, code *ast.Code, env *object.Environm
 
 // push current code position then jump to new position
 func evalGosubStatement(gosub *ast.GosubStatement, code *ast.Code, env *object.Environment) object.Object {
-	// if 0, means no line number specified
-	if gosub.Gosub == 0 {
+	// should only have one destination
+	if len(gosub.Gosub) != 1 || gosub.Gosub[0].Type != token.INT {
 		return object.StdError(env, berrors.Syntax)
 	}
-	// check that the line exists
-	if !code.Exists(gosub.Gosub) {
-		return object.StdError(env, berrors.UnDefinedLineNumber)
-	}
+
+	line, _ := strconv.Atoi(gosub.Gosub[0].Literal)
 
 	// save the return address and jump to the sub-routine
 	env.Push(code.GetReturnPoint())
-	code.Jump(gosub.Gosub)
-	if env.GetTrace() {
-		env.Terminal().Print(fmt.Sprintf("[%d]", gosub.Gosub))
+
+	if !env.ProgramRunning() {
+		return evalGotoStart(line, env)
 	}
+
+	err := code.Jump(line)
+
+	if err > 0 {
+		return object.StdError(env, err)
+	}
+
+	if env.GetTrace() {
+		env.Terminal().Print(fmt.Sprintf("[%d]", line))
+	}
+
 	return nil
 }
 
 // Transfer control to the indicated line number
 // If we aren't currently running, get started!
-func evalGotoStatement(jmp string, code *ast.Code, env *object.Environment) object.Object {
-	line, err := strconv.Atoi(strings.Trim(jmp, " "))
-
-	if err != nil {
+func evalGotoStatement(node *ast.GotoStatement, code *ast.Code, env *object.Environment) object.Object {
+	// should only have one destination
+	if len(node.JmpTo) != 1 || node.JmpTo[0].Type != token.INT {
 		return object.StdError(env, berrors.Syntax)
 	}
+
+	line, _ := strconv.Atoi(node.JmpTo[0].Literal)
 
 	if env.ProgramRunning() {
 		return evalGotoJump(line, code, env)
@@ -1347,9 +1361,6 @@ func evalGotoJump(line int, code *ast.Code, env *object.Environment) object.Obje
 	if err > 0 {
 		return object.StdError(env, err)
 	}
-	if env.GetTrace() {
-		env.Terminal().Print(fmt.Sprintf("[%d]", line))
-	}
 
 	return nil
 }
@@ -1365,7 +1376,10 @@ func evalGotoStart(line int, env *object.Environment) object.Object {
 	}
 
 	// go run the program
-	return Eval(&ast.Program{}, code, env)
+	env.SetRun(true)
+	rc := evalStatements(code, env)
+	env.SetRun(false)
+	return rc
 }
 
 func evalHexConstant(stmt *ast.HexConstant, code *ast.Code, env *object.Environment) object.Object {
@@ -1849,9 +1863,9 @@ func evalOnGoJump(ind int32, node *ast.OnGoStatement, code *ast.Code, env *objec
 
 	switch node.MidTok.Literal {
 	case "GOTO":
-		return Eval(&ast.GotoStatement{Goto: strconv.Itoa(int(jmp))}, code, env)
+		return Eval(&ast.GotoStatement{JmpTo: []token.Token{{Type: token.INT, Literal: strconv.Itoa(int(jmp))}}}, code, env)
 	case "GOSUB":
-		return Eval(&ast.GosubStatement{Gosub: int(jmp)}, code, env)
+		return Eval(&ast.GosubStatement{Gosub: []token.Token{{Type: token.INT, Literal: strconv.Itoa(int(jmp))}}}, code, env)
 	}
 	return object.StdError(env, berrors.Syntax)
 }

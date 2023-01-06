@@ -879,13 +879,23 @@ func Test_ForSkip(t *testing.T) {
 	}
 }
 
-func Test_GosubStatement(t *testing.T) {
+func Test_GosubGotoStatements(t *testing.T) {
 	tests := []struct {
-		inp string
+		inp   string
+		err   object.Object
+		trace bool
+		line  int
 	}{
-		{inp: "10 GOSUB"},
-		{inp: "10 GOSUB 30"},
-		{inp: "10 GOSUB 30\n20 END\n30 STOP"},
+		{inp: "10 GOSUB", err: &object.Error{Code: 2, Message: "Syntax error in 10"}},
+		{inp: "10 GOSUB 30", err: &object.Error{Code: 8, Message: "Undefined line number in 10"}},
+		{inp: "10 GOSUB 30\n20 END\n30 STOP", line: 0},
+		{inp: "10 GOSUB 30\n20 END\n30 STOP", trace: true, line: 0},
+		{inp: "20 GOTO", err: &object.Error{Code: 2, Message: "Syntax error in 20"}},
+		{inp: "20 GOTO X", err: &object.Error{Code: 2, Message: "Syntax error in 20"}},
+		{inp: "20 GOTO 30", err: &object.Error{Code: 8, Message: "Undefined line number in 20"}},
+		{inp: "20 GOTO 40\n30 END\n40 STOP", line: 0},
+		{inp: "20 GOTO 40\n30 END\n40 STOP", trace: true, line: 0},
+		{inp: "20 GOTO 40\n30 END", err: &object.Error{Code: 8, Message: "Undefined line number in 20"}},
 	}
 
 	for _, tt := range tests {
@@ -898,8 +908,60 @@ func Test_GosubStatement(t *testing.T) {
 
 		p.ParseProgram(env)
 		itr := env.StatementIter()
-		Eval(&ast.Program{}, itr, env)
+		env.SetTrace(tt.trace)
+		env.SetRun(true)
+		rc := Eval(&ast.Program{}, itr, env)
+
+		if tt.err != nil {
+			assert.EqualValuesf(t, tt.err, rc, "Error doesn't match!")
+		} else {
+			assert.Nilf(t, rc, "%s returned unexpectedly with a %T", tt.inp, rc)
+		}
+
+		if tt.line != 0 {
+			assert.EqualValuesf(t, tt.line, itr.CurLine(), "%s unexpectedly ended on line %d", tt.inp, itr.CurLine())
+		}
 	}
+}
+
+// GOTO and GOSUB can also be entered from the command line to start a program running
+//
+func Test_GotoGosubDirect(t *testing.T) {
+	tests := []struct {
+		inp string
+		cmd string
+		exp object.Object
+	}{
+		{inp: "10 STOP\n20 REM\n30 ERROR 2", cmd: "GOTO 20", exp: &object.Error{Code: 2, Message: "Syntax error in 30"}},
+		{inp: "10 STOP\n20 REM\n30 END", cmd: "GOTO 40", exp: &object.Error{Code: 8, Message: "Undefined line number"}},
+		{inp: "10 STOP\n20 REM\n40 ERROR 2", cmd: "GOSUB 20", exp: &object.Error{Code: 2, Message: "Syntax error in 40"}},
+	}
+
+	for _, tt := range tests {
+
+		l := lexer.New(tt.inp)
+		p := parser.New(l)
+		var mt mocks.MockTerm
+		initMockTerm(&mt)
+		env := object.NewTermEnvironment(mt)
+
+		p.ParseProgram(env)
+
+		l = lexer.New(tt.cmd)
+		p = parser.New(l)
+		p.ParseCmd(env)
+		itr := env.CmdLineIter()
+		rc := Eval(&ast.Program{}, itr, env)
+
+		assert.Equal(t, tt.exp, rc, "Command evaluation returned %T, not %T", rc, tt.exp)
+
+		// test repeating the command
+		itr = env.CmdLineIter()
+		rc = Eval(&ast.Program{}, itr, env)
+
+		assert.Equal(t, tt.exp, rc, "Command evaluation returned %T, not %T", rc, tt.exp)
+	}
+
 }
 
 func Test_EvalIntegerExpression(t *testing.T) {

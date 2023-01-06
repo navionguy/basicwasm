@@ -1799,12 +1799,9 @@ func TestGotoStatements(t *testing.T) {
 		if !ok {
 			t.Fatalf("stmt not *ast.GotoStatement. got=%T", stmt)
 		}
-		if gotoStmt.TokenLiteral() != "GOTO" {
-			t.Fatalf("returnStmt.TokenLiteral not 'GOTO', got %q", gotoStmt.TokenLiteral())
-		}
-		if gotoStmt.Goto != tt.expectedValue {
-			t.Fatalf("expected linenum %s, got %s", tt.expectedValue, gotoStmt.Goto)
-		}
+		assert.Equalf(t, "GOTO", gotoStmt.TokenLiteral(), "returnStmt.TokenLiteral not 'GOTO', got %q", gotoStmt.TokenLiteral())
+		assert.Equalf(t, 1, len(gotoStmt.JmpTo), "Goto didn't have 1 JmpTo, it had %d", len(gotoStmt.JmpTo))
+		assert.Equalf(t, tt.expectedValue, gotoStmt.JmpTo[0].Literal, "expected linenum %s, got %s", tt.expectedValue, gotoStmt.JmpTo[0].Literal)
 	}
 }
 
@@ -1812,10 +1809,10 @@ func TestGosubStatements(t *testing.T) {
 	tests := []struct {
 		input         string
 		expStmts      int
-		expectedValue int
+		expectedValue string
 	}{
-		{"10 GOSUB 100", 2, 100},
-		{"20 GOSUB 100 : GOSUB 200", 3, 100},
+		{"10 GOSUB 100", 2, "100"},
+		{"20 GOSUB 100 : GOSUB 200", 3, "100"},
 	}
 
 	for _, tt := range tests {
@@ -1837,12 +1834,9 @@ func TestGosubStatements(t *testing.T) {
 		if !ok {
 			t.Fatalf("stmt not *ast.GosubStatement. got=%T", stmt)
 		}
-		if gosubStmt.TokenLiteral() != "GOSUB" {
-			t.Fatalf("returnStmt.TokenLiteral not 'GOSUB', got %q", gosubStmt.TokenLiteral())
-		}
-		if gosubStmt.Gosub != tt.expectedValue {
-			t.Fatalf("expected linenum %d, got %d", tt.expectedValue, gosubStmt.Gosub)
-		}
+		assert.Equalf(t, "GOSUB", gosubStmt.TokenLiteral(), "returnStmt.TokenLiteral not 'GOSUB', got %q", gosubStmt.TokenLiteral())
+		assert.Equalf(t, 1, len(gosubStmt.Gosub), "GOSUB had more than one destination")
+		assert.Equalf(t, tt.expectedValue, gosubStmt.Gosub[0].Literal, "expected linenum %s, got %s", tt.expectedValue, gosubStmt.Gosub[0].Literal)
 	}
 }
 

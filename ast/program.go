@@ -194,6 +194,9 @@ func (cd *Code) addLine(lineNum int) {
 
 // CurLine returns the current executing line number or zero if there isn't one
 func (cd *Code) CurLine() int {
+	if cd.currIndex > len(cd.lines)-1 {
+		return 0
+	}
 	return cd.lines[cd.currIndex].lineNum
 }
 

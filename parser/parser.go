@@ -970,6 +970,12 @@ func (p *Parser) parsePrintStatement() *ast.PrintStatement {
 	return stmt
 }
 
+// returns true if curToken is the end of the statement
+
+func (p *Parser) atEndOfStatement() bool {
+	return p.curTokenIs(token.COLON) || p.curTokenIs(token.LINENUM) || p.curTokenIs(token.EOF) || p.curTokenIs(token.EOL)
+}
+
 // returns true if the next token would put us at the end of a statement
 func (p *Parser) chkEndOfStatement() bool {
 	return p.peekTokenIs(token.COLON) || p.peekTokenIs(token.LINENUM) || p.peekTokenIs(token.EOF) || p.peekTokenIs(token.EOL)
@@ -988,14 +994,13 @@ func (p *Parser) skipRestOfStatement() string {
 
 // gosub - uncondition transfer to subroutine
 func (p *Parser) parseGosubStatement() *ast.GosubStatement {
-	defer untrace(trace("parseGosubStatement"))
-	stmt := ast.GosubStatement{Token: p.curToken, Gosub: 0}
+	stmt := ast.GosubStatement{Token: p.curToken}
+	p.nextToken()
 
-	if !p.expectPeek(token.INT) {
-		return &stmt
+	for !p.atEndOfStatement() {
+		stmt.Gosub = append(stmt.Gosub, p.curToken)
+		p.nextToken()
 	}
-
-	stmt.Gosub, _ = strconv.Atoi(p.curToken.Literal)
 
 	if p.peekTokenIs(token.COLON) { // if a colon follows consume it
 		p.nextToken()
@@ -1006,16 +1011,16 @@ func (p *Parser) parseGosubStatement() *ast.GosubStatement {
 
 // goto - uncondition transfer to line
 func (p *Parser) parseGotoStatement() *ast.GotoStatement {
-	defer untrace(trace("parseGotoStatement"))
-	stmt := ast.GotoStatement{Token: p.curToken, Goto: ""}
+	stmt := ast.GotoStatement{Token: p.curToken}
+	p.nextToken()
 
-	if !p.expectPeek(token.INT) {
-		return nil
+	for !p.atEndOfStatement() {
+		stmt.JmpTo = append(stmt.JmpTo, p.curToken)
+		p.nextToken()
 	}
 
-	stmt.Goto = p.curToken.Literal
-
-	if p.peekTokenIs(token.COLON) { // if a colon follows consume it
+	// move onto the colon if it's there
+	if p.peekTokenIs(token.COLON) {
 		p.nextToken()
 	}
 
@@ -1651,7 +1656,7 @@ func (p *Parser) parseIfOption() ast.Statement {
 
 	switch p.curToken.Type {
 	case token.INT:
-		exp = &ast.GotoStatement{Token: token.Token{Type: token.LookupIdent(token.GOTO), Literal: ""}, Goto: p.curToken.Literal}
+		exp = &ast.GotoStatement{Token: token.Token{Type: token.LookupIdent(token.GOTO), Literal: ""}, JmpTo: []token.Token{p.curToken}}
 
 	case token.END:
 		exp = &ast.EndStatement{Token: token.Token{Type: token.LookupIdent(token.END), Literal: "END"}}

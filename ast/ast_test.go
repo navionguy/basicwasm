@@ -409,11 +409,7 @@ func Test_CommonStatement(t *testing.T) {
 
 	for _, tt := range tests {
 		stmt := CommonStatement{Token: token.Token{Type: token.COMMON, Literal: "COMMON"}}
-
-		for _, id := range tt.vars {
-			stmt.Vars = append(stmt.Vars, id)
-		}
-
+		stmt.Vars = append(stmt.Vars, tt.vars...)
 		stmt.statementNode()
 
 		assert.Equal(t, token.COMMON, stmt.TokenLiteral(), "Common statement returned wrong token")
@@ -503,7 +499,8 @@ func TestCodeIterValue(t *testing.T) {
 
 		for _, ln := range tt.lines {
 			itr.addLine(ln)
-			stmt := &GotoStatement{Token: token.Token{Type: token.GOTO, Literal: "GOTO"}, Goto: strconv.Itoa(int(ln))}
+			stmt := &GotoStatement{Token: token.Token{Type: token.GOTO, Literal: "GOTO"},
+				JmpTo: []token.Token{{Type: token.STRING, Literal: strconv.Itoa(int(ln))}}}
 			itr.lines[itr.currIndex].stmts = append(itr.lines[itr.currIndex].stmts, stmt)
 		}
 
@@ -518,9 +515,7 @@ func TestCodeIterValue(t *testing.T) {
 				t.Fatalf("expected goto statment, got %T", res)
 			}
 
-			if strings.Compare(jmp.Goto, strconv.Itoa(int(ln))) != 0 {
-				t.Fatalf("expected line %d, got %s", ln, jmp.Goto)
-			}
+			assert.EqualValuesf(t, jmp.JmpTo[0].Literal, strconv.Itoa(int(ln)), "expected line %d, got %s", ln, jmp.JmpTo[0].Literal)
 			itr.Next()
 		}
 		itr.Value()
@@ -822,7 +817,7 @@ func Test_FunctionLiteral(t *testing.T) {
 }
 
 func Test_GosubStatement(t *testing.T) {
-	gsb := GosubStatement{Token: token.Token{Type: token.GOSUB, Literal: "GOSUB"}, Gosub: 1000}
+	gsb := GosubStatement{Token: token.Token{Type: token.GOSUB, Literal: "GOSUB"}, Gosub: []token.Token{{Type: token.INT, Literal: "1000"}}}
 
 	gsb.statementNode()
 
@@ -831,7 +826,7 @@ func Test_GosubStatement(t *testing.T) {
 }
 
 func Test_GotoStatement(t *testing.T) {
-	gto := GotoStatement{Token: token.Token{Type: token.GOTO, Literal: "GOTO"}, Goto: "1000"}
+	gto := GotoStatement{Token: token.Token{Type: token.GOTO, Literal: "GOTO"}, JmpTo: []token.Token{{Type: token.INT, Literal: "1000"}}}
 
 	gto.statementNode()
 
@@ -882,8 +877,8 @@ func Test_IfStatement(t *testing.T) {
 
 	ifs := &IfStatement{Token: token.Token{Type: token.IF, Literal: "IF"},
 		Condition:   &InfixExpression{Left: &Identifier{Value: "X"}, Operator: "!=", Right: &IntegerLiteral{Value: 5}},
-		Consequence: &GosubStatement{Gosub: 200},
-		Alternative: &GotoStatement{Goto: "1000"}}
+		Consequence: &GosubStatement{Gosub: []token.Token{{Type: token.INT, Literal: "200"}}},
+		Alternative: &GotoStatement{JmpTo: []token.Token{{Type: token.INT, Literal: "1000"}}}}
 
 	ifs.statementNode()
 	assert.Equal(t, "IF", ifs.TokenLiteral())
@@ -988,9 +983,7 @@ func Test_LocateStatement(t *testing.T) {
 
 	for _, tt := range tests {
 		stmt := LocateStatement{Token: token.Token{Type: token.LOCATE, Literal: "LOCATE"}}
-		for _, p := range tt.parms {
-			stmt.Parms = append(stmt.Parms, p)
-		}
+		stmt.Parms = append(stmt.Parms, tt.parms...)
 		stmt.statementNode()
 
 		assert.Equal(t, "LOCATE", stmt.TokenLiteral(), "Locate statement has incorrect TokenLiteral")
