@@ -2,6 +2,7 @@ package cli
 
 import (
 	"fmt"
+	"time"
 
 	"github.com/navionguy/basicwasm/ast"
 	"github.com/navionguy/basicwasm/evaluator"
@@ -34,10 +35,17 @@ func evalKeyCodes(keys []byte, env *object.Environment) {
 	k := keys[0]
 	switch k {
 	case '\r':
-		row, _ := env.Terminal().GetCursor()
-		//fmt.Printf("cursor at %d:%d\n", row, col)
+		row, col := env.Terminal().GetCursor()
+		fmt.Printf("cursor at %d:%d\n", row, col)
 		env.Terminal().Print("\r\n")
+		nr, nc := env.Terminal().GetCursor()
+		for (nr == row) || (nc == col) {
+			time.Sleep(time.Millisecond)
+			nr, nc = env.Terminal().GetCursor()
+			env.Terminal().Log(fmt.Sprintf("cursor at %d:%d\n", nr, nc))
+		}
 		execCommand(env.Terminal().Read(0, row, 80), env)
+
 		//fmt.Println(term.Read(0, row, 80))
 	case 0x7F: // down arrow
 		row, col := env.Terminal().GetCursor()

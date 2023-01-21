@@ -62,9 +62,15 @@ func (mt MockTerm) Print(msg string) {
 	fmt.Print(msg)
 	mt.ExpMsg.chkExpectations(msg)
 	*mt.Col += len(msg)
+	if strings.Contains(msg, "\r") {
+		*mt.Col = 0
+	}
+	if strings.Contains(msg, "\n") {
+		*mt.Row++
+	}
 	if *mt.Col > 80 {
 		*mt.Row++
-		*mt.Col -= 80
+		*mt.Col = *mt.Col - 80
 	}
 }
 

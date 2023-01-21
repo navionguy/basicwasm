@@ -1475,7 +1475,7 @@ func Test_PrintStatement(t *testing.T) {
 	tests := []struct {
 		inp string
 	}{
-		{inp: `10 LET Y[0] = 5`},
+		{inp: `10 PRINT TAB(30);"Hello World!"`},
 	}
 
 	for _, tt := range tests {

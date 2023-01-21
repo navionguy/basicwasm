@@ -668,7 +668,8 @@ func TestTab(t *testing.T) {
 		exp object.Object
 		col int
 	}{
-		{inp: []object.Object{&object.Integer{Value: 5}}, col: 5},
+		{inp: []object.Object{&object.Integer{Value: 5}}, exp: &object.String{Value: "     "}},
+		{inp: []object.Object{&object.Integer{Value: 5}}, exp: &object.String{Value: "          "}, col: 75},
 		{inp: []object.Object{&object.Integer{Value: 5}, &object.Integer{Value: 0}}, exp: &object.Error{Code: 2, Message: "Syntax error"}},
 		{inp: []object.Object{&object.String{Value: "fred"}}, exp: &object.Error{Code: 13, Message: "Type mismatch"}},
 	}
@@ -680,11 +681,11 @@ func TestTab(t *testing.T) {
 
 		var mt mocks.MockTerm
 		mocks.InitMockTerm(&mt)
+		*mt.Col = tt.col
 		env := object.NewTermEnvironment(mt)
 		res := fn.Fn(env, fn, tt.inp...)
 
 		assert.EqualValuesf(t, tt.exp, res, "call to TAB(%s) returned %T", tt.inp[0].Inspect(), res)
-		assert.EqualValuesf(t, tt.col, *mt.Col, "expected to be @col %d but at %d", tt.col, *mt.Col)
 	}
 
 }

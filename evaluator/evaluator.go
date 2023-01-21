@@ -2008,7 +2008,7 @@ func evalPrintItemUsing(form string, item object.Object, env *object.Environment
 
 // figure out what a print item is, and turn it into a string
 func evalPrintItemValue(item object.Object, env *object.Environment) {
-	out := "oh snap"
+	out := fmt.Sprintf("oh snap %T", item)
 	switch val := item.(type) {
 	case *object.String:
 		out = val.Inspect()

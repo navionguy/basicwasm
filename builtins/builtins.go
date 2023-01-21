@@ -844,6 +844,7 @@ var Builtins = map[string]*object.Builtin{
 	},
 	"TAB": { // space to position n on the screen
 		Fn: func(env *object.Environment, fn *object.Builtin, args ...object.Object) object.Object {
+			// one and only one arguement
 			if len(args) != 1 {
 				return object.StdError(env, berrors.Syntax)
 			}
@@ -856,12 +857,19 @@ var Builtins = map[string]*object.Builtin{
 
 			_, col := env.Terminal().GetCursor()
 			tc := int(math.Round(arg))
+			reps := tc
 
-			for col != tc {
-				env.Terminal().Print(" ")
-				_, col = env.Terminal().GetCursor()
+			if tc >= col {
+				reps -= col // if target is 20 and col is 5, I need 15 spaces
+			} else if tc < col {
+				reps = 80 - (col - tc) // If I'm pass target, subtract distance past from 80 for rep count
 			}
-			return nil
+
+			var out bytes.Buffer
+			for i := 0; i < reps; i++ {
+				out.WriteString(" ")
+			}
+			return &object.String{Value: out.String()}
 		},
 	},
 	"TAN": { // compute the tangent of x in radians

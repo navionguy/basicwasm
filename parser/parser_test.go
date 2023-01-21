@@ -2091,6 +2091,7 @@ func Test_PrintStatements(t *testing.T) {
 		{`40 PRINT "Test of tab","due to comma"`, 2},
 		{`50 PRINT "Test of a run on";`, 2},
 		{`60 PRINT " sentence"`, 2},
+		{`70 PRINT TAB(20);"Hello"`, 2},
 	}
 
 	for _, tt := range tests {
