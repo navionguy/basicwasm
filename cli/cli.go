@@ -36,13 +36,13 @@ func evalKeyCodes(keys []byte, env *object.Environment) {
 	switch k {
 	case '\r':
 		row, col := env.Terminal().GetCursor()
-		fmt.Printf("cursor at %d:%d\n", row, col)
+		//		fmt.Printf("cursor at %d:%d\n", row, col)
 		env.Terminal().Print("\r\n")
 		nr, nc := env.Terminal().GetCursor()
 		for (nr == row) || (nc == col) {
 			time.Sleep(time.Millisecond)
 			nr, nc = env.Terminal().GetCursor()
-			env.Terminal().Log(fmt.Sprintf("cursor at %d:%d\n", nr, nc))
+			//			env.Terminal().Log(fmt.Sprintf("cursor at %d:%d\n", nr, nc))
 		}
 		execCommand(env.Terminal().Read(0, row, 80), env)
 

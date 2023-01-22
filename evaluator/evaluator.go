@@ -537,6 +537,9 @@ func evalColorMode(env *object.Environment) *ast.ScreenStatement {
 // for screen mode 0, the three parameters are foreground, background, border
 // ToDo: actually support border color if I ever see it used
 func evalColorScreen0(color *ast.ColorStatement, plt ast.ColorPalette, code *ast.Code, env *object.Environment) object.Object {
+	// reset to normal video mode
+	// TODO preserve foreground color
+	env.Terminal().Print("\x1B[0m")
 	// go evaluate all my parameters
 	parms := evalExpressions(color.Parms, code, env)
 
@@ -570,7 +573,9 @@ func evalColorSet(color int16, bkGrnd bool, plt ast.ColorPalette, env *object.En
 	}
 
 	// set the color
-	env.Terminal().Print(fmt.Sprintf("\x1B[%dm", rc))
+	if rc != 40 {
+		env.Terminal().Print(fmt.Sprintf("\x1B[%dm", rc))
+	}
 }
 
 func evalColorPalette(scr *ast.ScreenStatement, env *object.Environment) *ast.PaletteStatement {
@@ -593,7 +598,6 @@ func evalCommonStatement(com *ast.CommonStatement, code *ast.Code, env *object.E
 	for _, id := range com.Vars {
 		env.Common(id.Value)
 	}
-	return
 }
 
 // user wants to continue execution, if we can

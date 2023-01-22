@@ -34,14 +34,15 @@ const (
 
 // XTermjs color directives,https://xtermjs.org/docs/api/vtfeatures/
 const (
-	XBlack   = iota + 90 //90
-	XRed                 // 91
+	//	XBlack   = iota + 90 // 90
+	XRed     = iota + 91 // 91
 	XGreen               // 92
 	XYellow              // 93
 	XBlue                // 94
 	XMagenta             // 95
 	XCyan                // 96
 	XWhite               // 97
+	XBlack   = 30
 )
 
 // size of arrays that haven't been DIM'd

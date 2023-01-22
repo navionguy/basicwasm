@@ -594,7 +594,10 @@ type PaletteStatement struct {
 	Token  token.Token // token.PALETTE
 	Attrib Expression  // index of attribute to change
 	Color  Expression  // color value to use, array of values for PALETTE USING
+
 	// values below will hold the active palette settings
+	// defaults are set in evaluator.evalPaletteDefault()
+	//
 	CurPalette  ColorPalette // current color mappings for screen
 	BasePalette ColorPalette // base mapping of basic colors to xterm colors
 }

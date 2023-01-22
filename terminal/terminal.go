@@ -103,6 +103,8 @@ func (t *Terminal) ReadKeys(count int) []byte {
 	return keys
 }
 
+// returns true if CTRL+C has been seen
+// if it has flag is cleared before returning
 func (t *Terminal) BreakCheck() bool {
 	bc := t.kbuff.BreakSeen()
 	t.kbuff.ClearBreak()
