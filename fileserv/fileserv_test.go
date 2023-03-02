@@ -66,7 +66,7 @@ func Test_WrapSubDirs(t *testing.T) {
 func Test_WrapFileSources(t *testing.T) {
 	rt := mux.NewRouter()
 	fix := "../source"
-	drives["driveC"] = &fix
+	drives["drivec"] = &fix
 
 	WrapFileSources(rt)
 
@@ -83,7 +83,7 @@ func Test_WrapFileSources(t *testing.T) {
 			ts := httptest.NewServer(rt)
 			defer ts.Close()
 
-			res, err := http.Get(ts.URL + "/driveC/")
+			res, err := http.Get(ts.URL + "/drivec/")
 
 			assert.Nil(t, err, "http.Get got error")
 			assert.NotEmpty(t, res, "http.Get no body returned")
@@ -383,8 +383,8 @@ func Test_GetCWD(t *testing.T) {
 		cwd string
 		exp string
 	}{
-		{"", `C:\`},
-		{`D:\menu`, `D:\menu`},
+		{"", `c:\`},
+		{`D:\menu`, `d:\menu`},
 	}
 
 	for _, tt := range tests {
@@ -461,8 +461,8 @@ func Test_BuildRequestURL(t *testing.T) {
 		file string
 		exp  string
 	}{
-		{"http://localhost:8080/", `C:\`, "menu1.bas", "http://localhost:8080/driveC/menu1.bas"},
-		{"http://localhost:8080/", `C:\`, `prog\menu1.bas`, "http://localhost:8080/driveC/prog/menu1.bas"},
+		{"http://localhost:8080/", `C:\`, "menu1.bas", "http://localhost:8080/drivec/menu1.bas"},
+		{"http://localhost:8080/", `C:\`, `prog\menu1.bas`, "http://localhost:8080/drivec/prog/menu1.bas"},
 	}
 
 	for _, tt := range tests {

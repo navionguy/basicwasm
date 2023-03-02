@@ -375,12 +375,12 @@ func Test_ChDirStatement(t *testing.T) {
 		rpath string // request path the server should see
 		rc    int    // return code for mock server
 	}{
-		{path: &ast.StringLiteral{Value: `D:\`}, rpath: `/driveD`, exp: `D:\`, rc: 200},
-		{path: &ast.StringLiteral{Value: `D:\`}, rpath: `/driveD`, exp: `C:\`, rc: 404},
-		{path: &ast.StringLiteral{Value: `PROG`}, rpath: `/driveC/PROG`, exp: `C:\PROG\`, rc: 200},
-		{path: &ast.StringLiteral{Value: `PROG`}, rpath: `/driveC/PROG`, exp: `C:\`, rc: 404},
-		{path: &ast.IntegerLiteral{Value: 6}, exp: `C:\`},
-		{path: &ast.StringLiteral{Value: `\prog`}, rpath: `/driveC/prog`, exp: `C:\prog\`, rc: 200},
+		{path: &ast.StringLiteral{Value: `D:\`}, rpath: `/drived`, exp: `d:\`, rc: 200},
+		{path: &ast.StringLiteral{Value: `D:\`}, rpath: `/drived`, exp: `c:\`, rc: 404},
+		{path: &ast.StringLiteral{Value: `PROG`}, rpath: `/drivec/prog`, exp: `c:\prog\`, rc: 200},
+		{path: &ast.StringLiteral{Value: `PROG`}, rpath: `/drivec/prog`, exp: `c:\`, rc: 404},
+		{path: &ast.IntegerLiteral{Value: 6}, exp: `c:\`},
+		{path: &ast.StringLiteral{Value: `\prog`}, rpath: `/drivec/prog`, exp: `c:\prog\`, rc: 200},
 	}
 
 	for _, tt := range tests {
@@ -723,16 +723,16 @@ func Test_FilesCommand(t *testing.T) {
 	tests := []struct {
 		param  string // parameter to the files command
 		expURL string // the URL I expect him to ask for
-		cwd    string
-		send   string
+		cwd    string // Current Working Directory
+		send   string // filenames to return to caller
 		exp    string
 		rs     int
 		err    bool
 	}{
-		{param: "", expURL: `/driveC`, cwd: `C:\`, send: "10 PRINT \"Main Menu\"\n", exp: "10 PRINT \"Main Menu\"\n", rs: 404, err: false},
-		{param: "", expURL: `/driveC`, cwd: `C:\`, send: "10 PRINT \"Main Menu\"\n", exp: "10 PRINT \"Main Menu\"\n", rs: 200, err: false},
-		{param: "HamCalc", expURL: `/driveC/HamCalc`, cwd: `C:\`, send: "10 PRINT \"Main Menu\"\n", exp: "10 PRINT \"Main Menu\"\n", rs: 200, err: false},
-		{param: "", expURL: `/driveC`, cwd: `C:\`, send: `[{"name":"test.bas","isdir":false},{"name":"alongername.bas","isdir":true}]`, exp: `[{"name":"test.bas","isdir":false},{"name":"alongername.bas","isdir":true}]`, rs: 200, err: false},
+		{param: "", expURL: `/drivec`, cwd: `C:\`, send: "10 PRINT \"Main Menu\"\n", exp: "10 PRINT \"Main Menu\"\n", rs: 404, err: false},
+		{param: "", expURL: `/drivec`, cwd: `C:\`, send: "10 PRINT \"Main Menu\"\n", exp: "10 PRINT \"Main Menu\"\n", rs: 200, err: false},
+		{param: "HamCalc", expURL: `/drivec/hamcalc`, cwd: `C:\`, send: "10 PRINT \"Main Menu\"\n", exp: "10 PRINT \"Main Menu\"\n", rs: 200, err: false},
+		{param: "", expURL: `/drivec`, cwd: `C:\`, send: `[{"name":"test.bas","isdir":false},{"name":"alongername.bas","isdir":true}]`, exp: `[{"name":"test.bas","isdir":false},{"name":"alongername.bas","isdir":true}]`, rs: 200, err: false},
 	}
 
 	for _, tt := range tests {
@@ -782,7 +782,7 @@ func Test_CatchNotDir(t *testing.T) {
 		send string
 		exp  string
 	}{
-		{path: "file.ext", send: "NotDir", exp: `C:\file.ext`},
+		{path: "file.ext", send: "NotDir", exp: `c:\file.ext`},
 		{path: "file.ext", send: "File not found", exp: `File not found`},
 	}
 

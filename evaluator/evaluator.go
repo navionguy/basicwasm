@@ -485,7 +485,8 @@ func evalChDirStatement(chdir *ast.ChDirStatement, code *ast.Code, env *object.E
 		return object.StdError(env, berrors.Syntax)
 	}
 
-	fp := fileserv.BuildFullPath(path.Value, env)
+	fp := fileserv.BuildFullPath(strings.ToLower(path.Value), env)
+	fmt.Printf("evalChDirStatement(%s)\n", path)
 
 	return fileserv.SetCWD(fp, env)
 }

@@ -27,8 +27,7 @@ import (
 // the results of those requests.
 
 type fileSource struct {
-	src      http.FileSystem
-	filename string
+	src http.FileSystem
 }
 
 // These are the command line flags that tell where to find runtime resources
@@ -36,10 +35,10 @@ var (
 	assetsDir = flag.String("assets", "./assets/", "web page assets")
 	moduleDir = flag.String("webmodules", "./webmodules/", "web assembly file(s)")
 	drives    = map[string]*string{
-		"driveA": flag.String("driveA", "", ""),
-		"driveB": flag.String("driveB", "", ""),
-		"driveC": flag.String("driveC", "./source", "current directory on start-up"),
-		"driveD": flag.String("driveD", "/Users/don/Downloads/HCALC_129", "HamCalc source files"),
+		"drivea": flag.String("driveA", "", ""),
+		"driveb": flag.String("driveB", "", ""),
+		"drivec": flag.String("driveC", "./source", "current directory on start-up"),
+		"drived": flag.String("driveD", "/Users/don/Downloads/HCALC_129", "HamCalc source files"),
 		// TODO: add the rest of the possible drive letter flags
 	}
 )
@@ -72,7 +71,8 @@ func WrapFileSources(rtr *mux.Router) {
 
 	for key, drv := range drives {
 		if len(*drv) > 0 {
-			fs := &fileSource{src: http.Dir(*drv)}
+			ndrv := strings.ToLower(*drv)
+			fs := &fileSource{src: http.Dir(ndrv)}
 			path := "/" + key
 			fs.fullyWrapSource(rtr, path)
 			fs.wrapSubDirs(rtr, *drv, path)
@@ -84,7 +84,10 @@ func WrapFileSources(rtr *mux.Router) {
 // parts of the path and then call the source directory to work
 // on the file
 func (fs *fileSource) wrapSource(rtr *mux.Router, path string, mimetype string) {
+	path = strings.ToLower(path)
+	fmt.Printf("Wrapping %s, %s\n", path, mimetype)
 	rtr.HandleFunc(path, func(rw http.ResponseWriter, r *http.Request) {
+		fmt.Printf("Serving %s\n", path)
 		vs := mux.Vars(r)
 		file := vs["file"]
 		ext := vs["ext"]
@@ -174,6 +177,7 @@ func (fs fileSource) wrapADir(rtr *mux.Router, dir string, path string, files []
 // serveFile opens up the file and sends its contents
 //
 func (fs fileSource) serveFile(w http.ResponseWriter, r *http.Request, fname string, mimetype string) {
+	fmt.Printf("serveFile %s\n", fname)
 	if len(fname) == 0 {
 		fname = "/"
 	}
@@ -181,6 +185,7 @@ func (fs fileSource) serveFile(w http.ResponseWriter, r *http.Request, fname str
 	hfile, err := fs.Open(fname)
 
 	if err != nil {
+		fmt.Printf("Unable to find file %s\n", fname)
 		w.WriteHeader(404)
 		return
 	}
@@ -218,6 +223,7 @@ func (fs fileSource) sendDirectory(hfile http.File, w http.ResponseWriter) {
 	files, err := hfile.Readdir(-1)
 
 	if err != nil {
+		fmt.Println("No files in directory.")
 		w.WriteHeader(404)
 		return
 	}
@@ -335,7 +341,7 @@ func buildRequestURL(target string, env *object.Environment) string {
 	cwd := GetCWD(env)
 	target = convertDrive(target, cwd)
 
-	return url + target
+	return strings.ToLower(url + target)
 }
 
 // Get the URL of my server, he hides it in the HTML
@@ -366,18 +372,18 @@ func BuildFullPath(path string, env *object.Environment) string {
 	}
 	// is it a full path specification, case 1
 	if strings.EqualFold(path[1:3], ":\\") {
-		return path
+		return strings.ToLower(path)
 	}
 
 	// does the path start from the root, case 2
 	if strings.EqualFold(path[0:1], "\\") {
 		// add path to CWD
-		return GetCWD(env)[0:2] + path
+		return strings.ToLower(GetCWD(env)[0:2] + path)
 	}
 
 	// is it directory off the current directory, case 3
 	// add path to CWD
-	return GetCWD(env) + path
+	return strings.ToLower(GetCWD(env) + path)
 }
 
 // GetCWD returns the current working directory from the environment
@@ -387,7 +393,7 @@ func GetCWD(env *object.Environment) string {
 		path = &ast.StringLiteral{Value: `C:\`}
 	}
 
-	return path.(*ast.StringLiteral).Value
+	return strings.ToLower(path.(*ast.StringLiteral).Value)
 }
 
 // change to a new working directory
@@ -397,6 +403,7 @@ func SetCWD(path string, env *object.Environment) object.Object {
 
 	// error tells us he is invalid
 	if err != nil {
+		fmt.Printf("SetCWD(%s)\n", path)
 		return err
 	}
 
