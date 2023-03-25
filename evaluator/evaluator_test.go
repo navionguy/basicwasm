@@ -1476,6 +1476,7 @@ func Test_PrintStatement(t *testing.T) {
 		inp string
 	}{
 		{inp: `10 PRINT TAB(30);"Hello World!"`},
+		{inp: `10 PRINT "x";USING "##.#";Z;:PRINT " ";A(5);  'comment`},
 	}
 
 	for _, tt := range tests {

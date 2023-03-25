@@ -143,7 +143,9 @@ func (p *Parser) ParseProgram(env *object.Environment) {
 		if stmt != nil {
 			env.AddStatement(stmt)
 		}
-		p.nextToken()
+		if !p.curTokenIs(token.REM) || p.peekTokenIs(token.EOF) || p.peekTokenIs(token.EOL) {
+			p.nextToken()
+		}
 	}
 
 	env.Parsed()
@@ -193,6 +195,11 @@ func (p *Parser) ParseUsingRunTime() string {
 	return rc
 }
 
+// parseStatment builds a statement out and adds it to the the
+// AST (Abstract Syntax Tree)
+// just a big case statment with every token I know how to parse
+// for know, anything I don't recognize is presumed to be
+// a variable name
 func (p *Parser) parseStatement() ast.Statement {
 	switch p.curToken.Type {
 	case token.AUTO:
@@ -978,7 +985,7 @@ func (p *Parser) atEndOfStatement() bool {
 
 // returns true if the next token would put us at the end of a statement
 func (p *Parser) chkEndOfStatement() bool {
-	return p.peekTokenIs(token.COLON) || p.peekTokenIs(token.LINENUM) || p.peekTokenIs(token.EOF) || p.peekTokenIs(token.EOL)
+	return p.peekTokenIs(token.COLON) || p.peekTokenIs(token.LINENUM) || p.peekTokenIs(token.EOF) || p.peekTokenIs(token.EOL) || p.peekTokenIs(token.REM)
 }
 
 // parsing isn't making sense, just hoover up the rest of the statement

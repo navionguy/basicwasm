@@ -1131,6 +1131,8 @@ func Test_RemStatement(t *testing.T) {
 		if strings.Compare(stmt.String(), tt.res) != 0 {
 			t.Fatalf("REM stmt expected %s, got %s", tt.res, stmt.String())
 		}
+
+		assert.True(t, strings.EqualFold(tt.res, stmt.String()), "REM stmt expected %s, got %s", tt.res, stmt.String())
 	}
 }
 
@@ -2092,6 +2094,7 @@ func Test_PrintStatements(t *testing.T) {
 		{`50 PRINT "Test of a run on";`, 2},
 		{`60 PRINT " sentence"`, 2},
 		{`70 PRINT TAB(20);"Hello"`, 2},
+		{`80 PRINT " ";USING Z$;Z;:PRINT " ";C$(Z+Y);  'comment`, 4},
 	}
 
 	for _, tt := range tests {
