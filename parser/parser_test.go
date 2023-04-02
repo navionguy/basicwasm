@@ -7,7 +7,6 @@ import (
 	"testing"
 
 	"github.com/navionguy/basicwasm/ast"
-	"github.com/navionguy/basicwasm/decimal"
 	"github.com/navionguy/basicwasm/lexer"
 	"github.com/navionguy/basicwasm/mocks"
 	"github.com/navionguy/basicwasm/object"
@@ -403,8 +402,6 @@ func Test_DataStatement(t *testing.T) {
 	tkFloatD := token.Token{Type: token.FLOAT, Literal: "3.14159D+0"}
 	tkDblInt := token.Token{Type: token.INTD, Literal: "INTD"}
 
-	fixed, _ := decimal.NewFromString("123.45")
-
 	tests := []struct {
 		inp     string           // source line
 		stmtNum int              // # of statements expected
@@ -418,7 +415,7 @@ func Test_DataStatement(t *testing.T) {
 		}},
 		{`20 DATA 123, 123.45, "Fred", 99999`, 2, 20, 4, []ast.Expression{
 			&ast.IntegerLiteral{Token: tkInt, Value: 123},
-			&ast.FixedLiteral{Token: tkFixed, Value: fixed},
+			&ast.FixedLiteral{Token: tkFixed, Value: tkFixed},
 			&ast.StringLiteral{Token: tkString, Value: "Fred"},
 			&ast.DblIntegerLiteral{Token: tkDblInt, Value: 99999},
 		},
@@ -1444,6 +1441,7 @@ func TestHexOctalConstants(t *testing.T) {
 
 type parseFunc func(*Parser) ast.Expression
 
+// TODO: This code is crap
 func TestNumericConversion(t *testing.T) {
 	tests := []struct {
 		input string
@@ -1462,7 +1460,7 @@ func TestNumericConversion(t *testing.T) {
 		}, ""},
 		{"62.4d5", token.FIXED, func(p *Parser) ast.Expression {
 			return p.parseFixedPointLiteral()
-		}, ""},
+		}, "62.4d5"},
 		{"53", token.INT, func(p *Parser) ast.Expression {
 			return p.parseIntegerLiteral()
 		}, "53"},
@@ -1471,10 +1469,10 @@ func TestNumericConversion(t *testing.T) {
 		}, "62.45"},
 		{"62.", token.INT, func(p *Parser) ast.Expression {
 			return p.parseFixedPointLiteral()
-		}, "62"},
+		}, "62."},
 		{"62.45.37", token.INT, func(p *Parser) ast.Expression {
 			return p.parseFixedPointLiteral()
-		}, ""},
+		}, "62.45.37"},
 		{"624537", token.INT, func(p *Parser) ast.Expression {
 			return p.parseIntegerLiteral()
 		}, "624537"},
@@ -2065,6 +2063,23 @@ func Test_FilesCommand(t *testing.T) {
 	}
 }
 
+func Test_FixedLiteral(t *testing.T) {
+	tests := []struct {
+		inp string
+	}{
+		{inp: `10 X = 12.5`},
+	}
+
+	for _, tt := range tests {
+
+		l := lexer.New(tt.inp)
+		p := New(l)
+		env := object.NewTermEnvironment(mocks.MockTerm{})
+
+		p.ParseProgram(env)
+	}
+}
+
 func Test_ForStatement(t *testing.T) {
 	tests := []struct {
 		inp string
@@ -2314,7 +2329,7 @@ func compareStatements(inp string, got interface{}, want interface{}, t *testing
 		}
 
 		if gotFixed.Value != wantVal.Value {
-			t.Fatalf("bad value from %s, got %d, wanted %d", inp, gotFixed.Value, wantVal.Value)
+			t.Fatalf("bad value from %s, got %s, wanted %s", inp, gotFixed.Value.Literal, wantVal.Value.Literal)
 		}
 
 		if gotFixed.Token.Literal != wantVal.Token.Literal {

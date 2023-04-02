@@ -163,7 +163,7 @@ func Eval(node ast.Node, code *ast.Code, env *object.Environment) object.Object 
 		return &object.IntDbl{Value: node.Value}
 
 	case *ast.FixedLiteral:
-		val, err := decimal.NewFromString(node.Value.String())
+		val, err := decimal.NewFromString(node.Value.Literal)
 
 		if err != nil {
 			return newError(env, err.Error())
@@ -789,7 +789,8 @@ func evalReadStatement(rd *ast.ReadStatement, code *ast.Code, env *object.Enviro
 		case *ast.DblIntegerLiteral:
 			value = &object.IntDbl{Value: val.Value}
 		case *ast.FixedLiteral:
-			value = &object.Fixed{Value: val.Value}
+			fval := Eval(val, code, env)
+			value, _ = fval.(*object.Fixed)
 		case *ast.FloatSingleLiteral:
 			value = &object.FloatSgl{Value: val.Value}
 		case *ast.FloatDoubleLiteral:
@@ -1956,7 +1957,8 @@ func evalPrintItems(node *ast.PrintStatement, code *ast.Code, env *object.Enviro
 		case *ast.DblIntegerLiteral:
 			obj = &object.IntDbl{Value: node.Value}
 		case *ast.FixedLiteral:
-			obj = &object.Fixed{Value: node.Value}
+			fval := Eval(node, code, env)
+			obj = fval.(*object.Fixed)
 		case *ast.UsingExpression:
 			obj = evalUsingExpression(node, code, env)
 			form, ok := obj.(*object.String)

@@ -158,7 +158,7 @@ func TestAutoCommand(t *testing.T) {
 		step ast.DblIntegerLiteral
 		err  bool
 	}{
-		//{inp: "AUTO 10,10,10", err: true},
+		{inp: "AUTO 10,10,10", err: true},
 		{inp: "AUTO", strt: ast.DblIntegerLiteral{Value: 10}, step: ast.DblIntegerLiteral{Value: 10}},
 		{inp: "AUTO 500", strt: ast.DblIntegerLiteral{Value: 500}, step: ast.DblIntegerLiteral{Value: 10}},
 		{inp: "AUTO 500, 50", strt: ast.DblIntegerLiteral{Value: 500}, step: ast.DblIntegerLiteral{Value: 50}},
@@ -776,6 +776,25 @@ func Test_FilesCommand(t *testing.T) {
 	}
 }
 
+func Test_FixedLiteral(t *testing.T) {
+	tests := []struct {
+		inp string
+	}{
+		{inp: `10 X = 12.5`},
+	}
+
+	for _, tt := range tests {
+
+		l := lexer.New(tt.inp)
+		p := parser.New(l)
+		var mt mocks.MockTerm
+		initMockTerm(&mt)
+		env := object.NewTermEnvironment(mt)
+
+		p.ParseProgram(env)
+	}
+}
+
 func Test_CatchNotDir(t *testing.T) {
 	tests := []struct {
 		path string
@@ -1246,6 +1265,7 @@ func Test_LetStatements(t *testing.T) {
 		{inp: "20 LET a = 5 * 5", chk: "a", exp: 25},
 		{inp: "30 LET a = 5: let b = a:", chk: "b", exp: 5},
 		{inp: "40 LET a = 5: let b = a: let c = a + b + 5", chk: "c", exp: 15},
+		{inp: `50 LET a = 2*(4+1)`, chk: "a", exp: 10},
 	}
 	for _, tt := range tests {
 		testIntegerObject(t, testEval(tt.inp, tt.chk), tt.exp)

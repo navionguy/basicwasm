@@ -6,7 +6,6 @@ import (
 	"strings"
 	"testing"
 
-	"github.com/navionguy/basicwasm/decimal"
 	"github.com/navionguy/basicwasm/token"
 	"github.com/stretchr/testify/assert"
 )
@@ -759,8 +758,7 @@ func Test_FilesCommand(t *testing.T) {
 }
 
 func Test_FixedLiteral(t *testing.T) {
-	d := decimal.New(12345, -2)
-	fx := &FixedLiteral{Token: token.Token{Type: token.FIXED, Literal: "123.45"}, Value: d}
+	fx := &FixedLiteral{Token: token.Token{Type: token.FIXED, Literal: "123.45"}, Value: token.Token{Type: token.STRING, Literal: "123.45"}}
 
 	fx.expressionNode()
 

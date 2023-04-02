@@ -9,7 +9,6 @@ import (
 	"github.com/navionguy/basicwasm/ast"
 	"github.com/navionguy/basicwasm/berrors"
 	"github.com/navionguy/basicwasm/builtins"
-	"github.com/navionguy/basicwasm/decimal"
 	"github.com/navionguy/basicwasm/lexer"
 	"github.com/navionguy/basicwasm/object"
 	"github.com/navionguy/basicwasm/settings"
@@ -823,20 +822,13 @@ func (p *Parser) buildDoubleIIntegerLiteral(value int) ast.Expression {
 	return lit
 }
 
+// Looks like user has a fixed point literal
 func (p *Parser) parseFixedPointLiteral() ast.Expression {
-	defer untrace(trace("parseFixedPointLiteral"))
+	// the current token should be the only value
+	lit := ast.FixedLiteral{Token: p.curToken}
+	lit.Value = p.curToken
 
-	val, err := decimal.NewFromString(p.curToken.Literal)
-
-	if err != nil {
-		msg := fmt.Sprintf("numeric %s invalid at line %d", p.curToken.Literal, p.curLine)
-		p.errors = append(p.errors, msg)
-		return nil
-	}
-
-	lit := &ast.FixedLiteral{Token: p.curToken, Value: val}
-
-	return lit
+	return &lit
 }
 
 func (p *Parser) parseFloatingPointLiteral() ast.Expression {

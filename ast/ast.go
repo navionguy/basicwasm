@@ -7,7 +7,6 @@ import (
 	"strconv"
 	"strings"
 
-	"github.com/navionguy/basicwasm/decimal"
 	"github.com/navionguy/basicwasm/token"
 )
 
@@ -855,7 +854,7 @@ func (dil *DblIntegerLiteral) String() string { return fmt.Sprintf("%d", dil.Val
 // FixedLiteral is a Fixed Point number
 type FixedLiteral struct {
 	Token token.Token
-	Value decimal.Decimal
+	Value token.Token
 }
 
 func (fl *FixedLiteral) expressionNode() {}
@@ -863,8 +862,13 @@ func (fl *FixedLiteral) expressionNode() {}
 // TokenLiteral returns literal value
 func (fl *FixedLiteral) TokenLiteral() string { return fl.Token.Literal }
 
-// String returns value as an integer
-func (fl *FixedLiteral) String() string { return fl.Value.String() }
+// return the value as a string
+func (fl *FixedLiteral) String() string {
+	var out bytes.Buffer
+
+	out.WriteString(fl.Value.Literal)
+	return out.String()
+}
 
 // FloatSingleLiteral holds a single precision floating point eg. "123.45"
 type FloatSingleLiteral struct {
