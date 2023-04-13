@@ -85,9 +85,9 @@ func WrapFileSources(rtr *mux.Router) {
 // on the file
 func (fs *fileSource) wrapSource(rtr *mux.Router, path string, mimetype string) {
 	path = strings.ToLower(path)
-	fmt.Printf("Wrapping %s, %s\n", path, mimetype)
+	//fmt.Printf("Wrapping %s, %s\n", path, mimetype)
 	rtr.HandleFunc(path, func(rw http.ResponseWriter, r *http.Request) {
-		fmt.Printf("Serving %s\n", path)
+		//fmt.Printf("Serving %s\n", path)
 		vs := mux.Vars(r)
 		file := vs["file"]
 		ext := vs["ext"]
@@ -177,7 +177,7 @@ func (fs fileSource) wrapADir(rtr *mux.Router, dir string, path string, files []
 // serveFile opens up the file and sends its contents
 //
 func (fs fileSource) serveFile(w http.ResponseWriter, r *http.Request, fname string, mimetype string) {
-	fmt.Printf("serveFile %s\n", fname)
+	//fmt.Printf("serveFile %s\n", fname)
 	if len(fname) == 0 {
 		fname = "/"
 	}
@@ -185,7 +185,7 @@ func (fs fileSource) serveFile(w http.ResponseWriter, r *http.Request, fname str
 	hfile, err := fs.Open(fname)
 
 	if err != nil {
-		fmt.Printf("Unable to find file %s\n", fname)
+		//fmt.Printf("Unable to find file %s\n", fname)
 		w.WriteHeader(404)
 		return
 	}
@@ -223,7 +223,7 @@ func (fs fileSource) sendDirectory(hfile http.File, w http.ResponseWriter) {
 	files, err := hfile.Readdir(-1)
 
 	if err != nil {
-		fmt.Println("No files in directory.")
+		//fmt.Println("No files in directory.")
 		w.WriteHeader(404)
 		return
 	}
@@ -453,7 +453,7 @@ func checkForDrive(path string) bool {
 	}
 
 	// letter followed by colon, it's a drive spec
-	if (unicode.IsLetter(rune(path[0:1][0]))) && (":" == path[1:2]) {
+	if (unicode.IsLetter(rune(path[0:1][0]))) && (path[1:2] == ":") {
 		return true
 	}
 

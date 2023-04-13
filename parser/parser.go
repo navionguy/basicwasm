@@ -865,13 +865,10 @@ func (p *Parser) parseDoubleFloatingPointLiteral(newTokLit string) ast.Expressio
 }
 
 func (p *Parser) parseStringLiteral() ast.Expression {
-	defer untrace(trace("parseStringLiteral"))
 	return &ast.StringLiteral{Token: p.curToken, Value: p.curToken.Literal}
 }
 
 func (p *Parser) parseLineNumber() *ast.LineNumStmt {
-	defer untrace(trace("parseLineNumber"))
-
 	// rebrand it a line number
 	stmt := &ast.LineNumStmt{Token: p.curToken}
 	stmt.Token.Literal = p.curToken.Literal
@@ -881,6 +878,10 @@ func (p *Parser) parseLineNumber() *ast.LineNumStmt {
 
 	if err != nil {
 		p.generalError("Invalid line number")
+	}
+	msg := fmt.Sprintf("Parsing line %d", tv)
+	if p.env != nil {
+		p.env.Terminal().Log(msg)
 	}
 	stmt.Value = int32(tv)
 	p.curLine = tv

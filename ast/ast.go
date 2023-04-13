@@ -241,6 +241,26 @@ func (clr *ClearCommand) String() string {
 	return rc
 }
 
+// CloseStatement closes an open file or COM port
+type CloseStatement struct {
+	Token  token.Token // Literal "CLOSE"
+	Params []Node      // array of parameters and seperators
+}
+
+func (cls *CloseStatement) statementNode()       {}
+func (cls *CloseStatement) TokenLiteral() string { return cls.Token.Literal }
+func (cls *CloseStatement) String() string {
+
+	var out bytes.Buffer
+	out.WriteString(cls.Token.Literal)
+
+	for _, p := range cls.Params {
+		out.WriteString(" " + p.String())
+	}
+
+	return out.String()
+}
+
 // ClsStatement command to clear screen
 type ClsStatement struct {
 	Token token.Token
@@ -351,6 +371,25 @@ func (err *ErrorStatement) String() string {
 	var out bytes.Buffer
 
 	out.WriteString(err.TokenLiteral() + " " + err.ErrNum.String())
+
+	return out.String()
+}
+
+// FileNumber holds the I/O identity of an open file
+type FileNumber struct {
+	Token token.Token
+	Numbr Node
+}
+
+func (fn *FileNumber) expressionNode()      {}
+func (fn *FileNumber) TokenLiteral() string { return fn.Token.Literal }
+func (fn *FileNumber) String() string {
+	var out bytes.Buffer
+
+	out.WriteString(fn.TokenLiteral())
+	if fn.Numbr != nil {
+		out.WriteString(fn.Numbr.String())
+	}
 
 	return out.String()
 }
@@ -918,7 +957,7 @@ func (hc *HexConstant) String() string {
 	return out.String()
 }
 
-// OctalConstant has two form &37 or &O37
+// OctalConstant has two forms &37 or &O37
 type OctalConstant struct {
 	Token token.Token
 	Value string
@@ -935,6 +974,27 @@ func (oc *OctalConstant) String() string {
 
 	out.WriteString(oc.Token.Literal)
 	out.WriteString(oc.Value)
+	return out.String()
+}
+
+// OpenStatement opens a data file or com port
+type OpenStatement struct {
+	Token  token.Token // OPEN
+	Params []Node      // any and all parameters to the OPEN statement
+}
+
+func (opn *OpenStatement) statementNode()       {}
+func (opn *OpenStatement) TokenLiteral() string { return opn.Token.Literal }
+
+func (opn *OpenStatement) String() string {
+	var out bytes.Buffer
+
+	out.WriteString(opn.Token.Literal)
+	for _, p := range opn.Params {
+		out.WriteString(" ")
+		out.WriteString(p.String())
+	}
+
 	return out.String()
 }
 
@@ -1141,15 +1201,7 @@ func (ifs *IfStatement) String() string {
 	}
 	out.WriteString(" THEN")
 	if ifs.Consequence != nil {
-		_, ok := ifs.Consequence.(*GosubStatement)
-		if ok {
-			out.WriteString(" ")
-		}
-		gt, ok := ifs.Consequence.(*GotoStatement)
-		if ok && strings.EqualFold(gt.TokenLiteral(), "GOTO") {
-			out.WriteString(" ")
-		}
-		_, ok = ifs.Consequence.(*EndStatement)
+		_, ok := ifs.Consequence.(*EndStatement)
 		if ok {
 			out.WriteString(" ")
 		}
@@ -1182,7 +1234,7 @@ func (gsb *GosubStatement) TokenLiteral() string { return strings.ToUpper(gsb.To
 func (gsb *GosubStatement) String() string {
 	var out bytes.Buffer
 
-	out.WriteString("GOSUB ")
+	out.WriteString(" GOSUB ")
 	for _, t := range gsb.Gosub {
 		out.WriteString(t.Literal)
 	}
@@ -1201,7 +1253,11 @@ func (gt *GotoStatement) TokenLiteral() string { return gt.Token.Literal }
 func (gt *GotoStatement) String() string {
 	var out bytes.Buffer
 
-	out.WriteString(gt.TokenLiteral() + " ")
+	out.WriteString(" ")
+	if len(gt.TokenLiteral()) > 0 {
+		out.WriteString(gt.TokenLiteral() + " ")
+	}
+
 	for _, t := range gt.JmpTo {
 		out.WriteString(t.Literal)
 	}

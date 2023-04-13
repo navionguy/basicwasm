@@ -687,6 +687,16 @@ func Test_ClearCommand(t *testing.T) {
 	assert.Equal(t, cmd.String(), "CLEAR 1,2,3", "Clear command didn't build string correctly")
 }
 
+func Test_CloseStatement(t *testing.T) {
+	cls := CloseStatement{Token: token.Token{Literal: "CLOSE", Type: token.CLOSE}, Params: []Node{&FileNumber{Token: token.Token{Type: token.HASHTAG, Literal: "#"},
+		Numbr: &IntegerLiteral{Value: 2}}}}
+
+	cls.statementNode()
+
+	assert.Equal(t, "CLOSE", cls.TokenLiteral(), "Close has incorrect TokenLiteral")
+	assert.Equal(t, "CLOSE #2", cls.String(), "Close statement didn't build string correctly")
+}
+
 func Test_Csrlin(t *testing.T) {
 	csr := Csrlin{Token: token.Token{Literal: "csrlin", Type: token.CSRLIN}}
 
@@ -735,6 +745,14 @@ func Test_ErrorStatment(t *testing.T) {
 	err.statementNode()
 	assert.Equal(t, "ERROR", err.TokenLiteral())
 	assert.Equal(t, "ERROR 31", err.String())
+}
+
+func Test_FileNumber(t *testing.T) {
+	fn := FileNumber{Token: token.Token{Type: token.HASHTAG, Literal: "#"}, Numbr: &IntegerLiteral{Value: 1}}
+
+	fn.expressionNode()
+	assert.Equal(t, "#", fn.Token.Literal, "FileNumber has incorrect token literal")
+	assert.Equal(t, "#1", fn.String(), "FileNumber has incorrect String() value")
 }
 
 func Test_FilesCommand(t *testing.T) {
@@ -820,7 +838,7 @@ func Test_GosubStatement(t *testing.T) {
 	gsb.statementNode()
 
 	assert.Equal(t, "GOSUB", gsb.TokenLiteral())
-	assert.Equal(t, "GOSUB 1000", gsb.String())
+	assert.Equal(t, " GOSUB 1000", gsb.String())
 }
 
 func Test_GotoStatement(t *testing.T) {
@@ -829,7 +847,7 @@ func Test_GotoStatement(t *testing.T) {
 	gto.statementNode()
 
 	assert.Equal(t, "GOTO", gto.TokenLiteral())
-	assert.Equal(t, "GOTO 1000", gto.String())
+	assert.Equal(t, " GOTO 1000", gto.String())
 }
 
 func Test_GroupedExpression(t *testing.T) {
@@ -872,16 +890,36 @@ func Test_Identifier(t *testing.T) {
 }
 
 func Test_IfStatement(t *testing.T) {
+	tests := []struct {
+		con Statement
+		alt Statement
+		exp string
+	}{
+		{con: &GotoStatement{JmpTo: []token.Token{{Type: token.INT, Literal: "200"}}},
+			alt: &GosubStatement{Gosub: []token.Token{{Type: token.INT, Literal: "1000"}}},
+			exp: "IF X != 5 THEN 200 ELSE GOSUB 1000"},
+		{con: &GosubStatement{Gosub: []token.Token{{Type: token.INT, Literal: "200"}}},
+			alt: &GotoStatement{JmpTo: []token.Token{{Type: token.INT, Literal: "1000"}}},
+			exp: "IF X != 5 THEN GOSUB 200 ELSE 1000"},
+		{con: &GosubStatement{Gosub: []token.Token{{Type: token.INT, Literal: "200"}}},
+			alt: &EndStatement{Token: token.Token{Type: token.END, Literal: "END"}},
+			exp: "IF X != 5 THEN GOSUB 200 ELSE END"},
+		{con: &EndStatement{Token: token.Token{Type: token.END, Literal: "END"}},
+			exp: "IF X != 5 THEN END"},
+	}
 
-	ifs := &IfStatement{Token: token.Token{Type: token.IF, Literal: "IF"},
-		Condition:   &InfixExpression{Left: &Identifier{Value: "X"}, Operator: "!=", Right: &IntegerLiteral{Value: 5}},
-		Consequence: &GosubStatement{Gosub: []token.Token{{Type: token.INT, Literal: "200"}}},
-		Alternative: &GotoStatement{JmpTo: []token.Token{{Type: token.INT, Literal: "1000"}}}}
+	for _, tt := range tests {
 
-	ifs.statementNode()
-	assert.Equal(t, "IF", ifs.TokenLiteral())
+		ifs := &IfStatement{Token: token.Token{Type: token.IF, Literal: "IF"},
+			Condition:   &InfixExpression{Left: &Identifier{Value: "X"}, Operator: "!=", Right: &IntegerLiteral{Value: 5}},
+			Consequence: tt.con,
+			Alternative: tt.alt}
 
-	assert.Equal(t, "IF X != 5 THEN GOSUB 200 ELSE 1000", ifs.String())
+		ifs.statementNode()
+		assert.Equal(t, "IF", ifs.TokenLiteral())
+
+		assert.Equal(t, tt.exp, ifs.String())
+	}
 }
 
 func Test_IndexExpression(t *testing.T) {
@@ -1056,6 +1094,15 @@ func Test_OnExpression(t *testing.T) {
 
 	assert.EqualValues(t, "ON", on.TokenLiteral(), "ON literal is incorrect")
 	assert.EqualValues(t, "ON", on.String(), "ON string is incorrect")
+}
+
+func Test_OpenStatement(t *testing.T) {
+	opn := OpenStatement{Token: token.Token{Type: token.OPEN, Literal: "OPEN"}, Params: []Node{&StringLiteral{Token: token.Token{Type: token.STRING}, Value: "filename"}}}
+
+	opn.statementNode()
+
+	assert.EqualValues(t, "OPEN", opn.TokenLiteral(), "OPEN literal is incorrect")
+	assert.EqualValues(t, `OPEN "filename"`, opn.String(), "OPEN string is incorrect")
 }
 
 func Test_OctalConstant(t *testing.T) {

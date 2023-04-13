@@ -68,6 +68,7 @@ const (
 	CHAIN   = "CHAIN"
 	CHDIR   = "CHDIR"
 	CLEAR   = "CLEAR"
+	CLOSE   = "CLOSE"
 	CLS     = "CLS"
 	COLOR   = "COLOR"
 	COMMON  = "COMMON"
@@ -96,6 +97,7 @@ const (
 	NEXT    = "NEXT"
 	OFF     = "OFF"
 	ON      = "ON"
+	OPEN    = "OPEN"
 	PALETTE = "PALETTE"
 	PRINT   = "PRINT"
 	READ    = "READ"
@@ -128,6 +130,7 @@ var keywords = map[string]TokenType{
 	"chain":   CHAIN,
 	"chdir":   CHDIR,
 	"clear":   CLEAR,
+	"close":   CLOSE,
 	"cls":     CLS,
 	"color":   COLOR,
 	"common":  COMMON,
@@ -156,6 +159,7 @@ var keywords = map[string]TokenType{
 	"next":    NEXT,
 	"off":     OFF,
 	"on":      ON,
+	"open":    OPEN,
 	"palette": PALETTE,
 	"print":   PRINT,
 	"read":    READ,
