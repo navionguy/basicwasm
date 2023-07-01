@@ -82,7 +82,6 @@ func New(l *lexer.Lexer) *Parser {
 	p.registerPrefix(token.FLOAT, p.parseFloatingPointLiteral)
 	p.registerPrefix(token.FIXED, p.parseFixedPointLiteral)
 	p.registerPrefix(token.IDENT, p.parseIdentifier)
-	//p.registerPrefix(token.IF, p.parseIfStatement)
 	p.registerPrefix(token.INT, p.parseIntegerLiteral)
 	p.registerPrefix(token.INTD, p.parseIntDoubleLiteral)
 	p.registerPrefix(token.LIST, p.parseListExpression)
@@ -211,6 +210,8 @@ func (p *Parser) parseStatement() ast.Statement {
 		return p.parseChDirStatement()
 	case token.CLEAR:
 		return p.parseClearCommand()
+	case token.CLOSE:
+		return p.parseCloseStatement()
 	case token.CLS:
 		return p.parseClsStatement()
 	case token.COLOR:
@@ -485,6 +486,19 @@ func (p *Parser) parseClearCommand() *ast.ClearCommand {
 	return &clr
 }
 
+// Close shuts down an input source
+func (p *Parser) parseCloseStatement() *ast.CloseStatement {
+	stmt := ast.CloseStatement{Token: p.curToken}
+
+	// load up any parameters
+	for !p.chkEndOfStatement() {
+		p.nextToken()
+		stmt.Files = append(stmt.Files, p.parseFileNumber())
+	}
+	return &stmt
+}
+
+// CLS clears the display screen
 func (p *Parser) parseClsStatement() *ast.ClsStatement {
 	defer untrace(trace("parseClsStatement"))
 	stmt := ast.ClsStatement{Token: p.curToken, Param: -1}
@@ -678,6 +692,17 @@ func (p *Parser) parseFilesCommand() *ast.FilesCommand {
 	return cd
 }
 
+// parseFileNumber reads in a file number
+func (p *Parser) parseFileNumber() ast.FileNumber {
+	stmt := ast.FileNumber{Token: token.Token{Literal: p.curToken.Literal}}
+	if p.curToken.Literal == token.HASHTAG {
+		p.nextToken()
+	}
+	stmt.Numbr = p.parseIntegerLiteral()
+
+	return stmt
+}
+
 // parse the begining of a FOR loop
 func (p *Parser) parseForStatement() *ast.ForStatment {
 	defer untrace(trace("parseForStatement"))
@@ -711,12 +736,12 @@ func (p *Parser) parseForStatement() *ast.ForStatment {
 
 // parse an Integer Literal
 func (p *Parser) parseIntegerLiteral() ast.Expression {
-	defer untrace(trace("parseIntegerLiteral"))
 	lit := &ast.IntegerLiteral{Token: p.curToken}
 	value, err := strconv.Atoi(p.curToken.Literal)
+
+	// what ever that was, just return it
 	if err != nil {
-		p.reportError(berrors.Syntax)
-		return nil
+		return lit
 	}
 
 	if (value > math.MaxInt16) || (value < math.MinInt16) {

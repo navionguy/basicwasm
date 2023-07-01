@@ -226,6 +226,27 @@ func Test_ChDir(t *testing.T) {
 	}
 }
 
+func TestClose(t *testing.T) {
+	tests := []struct {
+		inp string
+	}{
+		{inp: "CLOSE #1"},
+		{inp: "CLOSE 12"},
+	}
+
+	for _, tt := range tests {
+		l := lexer.New(tt.inp)
+		p := New(l)
+		env := object.NewTermEnvironment(mocks.MockTerm{})
+		p.ParseCmd(env)
+		checkParserErrors(t, p)
+		itr := env.CmdLineIter()
+		stmt := itr.Value()
+
+		assert.Equal(t, tt.inp, stmt.String(), "Close failed to parse")
+	}
+}
+
 func TestCls(t *testing.T) {
 	tests := []struct {
 		input string

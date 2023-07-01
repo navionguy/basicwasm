@@ -19,3 +19,8 @@ basicwasm
 
 # Dependency directories (remove the comment below to include it)
 # vendor/
+
+# random files
+.DS_Store
+HCALC.txt
+favicon.bak

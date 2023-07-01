@@ -22,7 +22,7 @@ type Statement interface {
 	statementNode()
 }
 
-//Expression defines interface for all expression nodes
+// Expression defines interface for all expression nodes
 type Expression interface {
 	Node
 	expressionNode()
@@ -243,8 +243,8 @@ func (clr *ClearCommand) String() string {
 
 // CloseStatement closes an open file or COM port
 type CloseStatement struct {
-	Token  token.Token // Literal "CLOSE"
-	Params []Node      // array of parameters and seperators
+	Token token.Token  // Literal "CLOSE"
+	Files []FileNumber // array of file numbers to close
 }
 
 func (cls *CloseStatement) statementNode()       {}
@@ -252,10 +252,14 @@ func (cls *CloseStatement) TokenLiteral() string { return cls.Token.Literal }
 func (cls *CloseStatement) String() string {
 
 	var out bytes.Buffer
-	out.WriteString(cls.Token.Literal)
+	out.WriteString(cls.Token.Literal + " ")
 
-	for _, p := range cls.Params {
-		out.WriteString(" " + p.String())
+	for i, f := range cls.Files {
+		out.WriteString(f.String())
+		// you can close more than one file at a time
+		if i+1 < len(cls.Files) {
+			out.WriteString(", ")
+		}
 	}
 
 	return out.String()
@@ -1107,7 +1111,7 @@ func (ie *IndexExpression) String() string {
 	return out.String()
 }
 
-//PrefixExpression the big one here is - as in -5
+// PrefixExpression the big one here is - as in -5
 type PrefixExpression struct {
 	Token    token.Token // The prefix token, e.g. !
 	Operator string
@@ -1116,7 +1120,7 @@ type PrefixExpression struct {
 
 func (pe *PrefixExpression) expressionNode() {}
 
-//TokenLiteral returns read string of Token
+// TokenLiteral returns read string of Token
 func (pe *PrefixExpression) TokenLiteral() string { return pe.Token.Literal }
 func (pe *PrefixExpression) String() string {
 	var out bytes.Buffer
@@ -1135,7 +1139,7 @@ type InfixExpression struct {
 
 func (ie *InfixExpression) expressionNode() {}
 
-//TokenLiteral my token
+// TokenLiteral my token
 func (ie *InfixExpression) TokenLiteral() string {
 	return ie.Token.Literal
 }

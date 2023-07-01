@@ -688,13 +688,15 @@ func Test_ClearCommand(t *testing.T) {
 }
 
 func Test_CloseStatement(t *testing.T) {
-	cls := CloseStatement{Token: token.Token{Literal: "CLOSE", Type: token.CLOSE}, Params: []Node{&FileNumber{Token: token.Token{Type: token.HASHTAG, Literal: "#"},
-		Numbr: &IntegerLiteral{Value: 2}}}}
+	cls := CloseStatement{Token: token.Token{Literal: "CLOSE", Type: token.CLOSE}, Files: []FileNumber{
+		{Token: token.Token{Type: token.HASHTAG, Literal: "#"}, Numbr: &IntegerLiteral{Value: 2}},
+		{Token: token.Token{Type: token.HASHTAG, Literal: ""}, Numbr: &IntegerLiteral{Value: 3}},
+	}}
 
 	cls.statementNode()
 
 	assert.Equal(t, "CLOSE", cls.TokenLiteral(), "Close has incorrect TokenLiteral")
-	assert.Equal(t, "CLOSE #2", cls.String(), "Close statement didn't build string correctly")
+	assert.Equal(t, "CLOSE #2, 3", cls.String(), "Close statement didn't build string correctly")
 }
 
 func Test_Csrlin(t *testing.T) {
