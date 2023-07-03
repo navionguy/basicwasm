@@ -49,7 +49,7 @@ type ConstData struct {
 	exp  int            // index into data.exp[]
 }
 
-//Program holds the root of the AST (Abstract Syntax Tree)
+// Program holds the root of the AST (Abstract Syntax Tree)
 type Program struct {
 	code    *Code
 	cmdLine *Code
@@ -387,10 +387,10 @@ func (data *ConstData) findNextData() *Expression {
 		stmt := data.value()
 
 		if stmt == nil {
-			return nil
+			break
 		}
 
-		ds, ok := (*stmt).(*DataStatement)
+		ds, ok := stmt.(*DataStatement)
 
 		if ok {
 			// found him
@@ -403,12 +403,16 @@ func (data *ConstData) findNextData() *Expression {
 	return nil
 }
 
-func (data *ConstData) value() *Statement {
+// value returns the statement that evaluates to a value
+// to be READ into a variable
+func (data *ConstData) value() Statement {
 	if data == nil {
+		// shouldn't happen, but if the data item is nil, is the value
 		return nil
 	}
 
 	if data.line >= len(data.code.lines) {
+		// READ has consumed all the data items
 		return nil
 	}
 
@@ -418,11 +422,12 @@ func (data *ConstData) value() *Statement {
 		data.line++
 
 		if data.line >= len(data.code.lines) {
+			// no more data to be found
 			return nil
 		}
 
 	}
-	return &data.code.lines[data.line].stmts[data.stmt]
+	return data.code.lines[data.line].stmts[data.stmt]
 }
 
 func (data *ConstData) nextStmt() {
