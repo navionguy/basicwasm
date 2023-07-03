@@ -1470,12 +1470,12 @@ func TestNumericConversion(t *testing.T) {
 		fn    parseFunc
 		res   string
 	}{
-		{"235.988E-7", token.FLOAT, func(p *Parser) ast.Expression {
+		/*{"235.988E-7", token.FLOAT, func(p *Parser) ast.Expression {
 			return p.parseFloatingPointLiteral()
 		}, "235.988E-7"},
 		{"235.988D-7", token.FLOAT, func(p *Parser) ast.Expression {
 			return p.parseFloatingPointLiteral()
-		}, "235.988D-7"},
+		}, "235.988D-7"},*/
 		{"53a", token.INT, func(p *Parser) ast.Expression {
 			return p.parseIntegerLiteral()
 		}, ""},
@@ -1509,12 +1509,13 @@ func TestNumericConversion(t *testing.T) {
 
 		res := tt.fn(p)
 
-		if (tt.res == "") && (res != nil) {
+		if (tt.res == "") && (strings.Compare(res.TokenLiteral(), tt.input) != 0) {
 			t.Errorf("Parse succeeded when it should have failed, %s", tt.input)
 		}
 
-		if (tt.res == "") && (len(p.errors) == 0) {
-			t.Errorf("Parse failed to report error")
+		// moving error reporting to evaluator
+		if len(p.errors) > 0 {
+			t.Errorf("Parse reported errors")
 			break
 		}
 

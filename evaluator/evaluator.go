@@ -49,6 +49,9 @@ func Eval(node ast.Node, code *ast.Code, env *object.Environment) object.Object 
 	case *ast.ClearCommand:
 		evalClearCommand(node, code, env)
 
+	case *ast.CloseStatement:
+		evalCloseStatement(node, code, env)
+
 	case *ast.ClsStatement:
 		evalClsStatement(node, code, env)
 
@@ -157,7 +160,11 @@ func Eval(node ast.Node, code *ast.Code, env *object.Environment) object.Object 
 
 		// Expressions
 	case *ast.IntegerLiteral:
-		return &object.Integer{Value: node.Value}
+		i, err := strconv.Atoi(node.TokenLiteral())
+		if err != nil {
+			return object.StdError(env, berrors.Syntax)
+		}
+		return &object.Integer{Value: int16(i)}
 
 	case *ast.DblIntegerLiteral:
 		return &object.IntDbl{Value: node.Value}
@@ -496,6 +503,11 @@ func evalClearCommand(clear *ast.ClearCommand, code *ast.Code, env *object.Envir
 	env.ClearVars() // environment handles all the details
 	env.ClearFiles()
 	env.ClearCommon()
+}
+
+// close one or more files
+func evalCloseStatement(close *ast.CloseStatement, code *ast.Code, env *object.Environment) {
+
 }
 
 // just tell the termianl to clear the screen
@@ -1279,7 +1291,6 @@ func evalForTestSkip(four forStmtParams, code *ast.Code, env *object.Environment
 	return evalForSkipLoop(four.forBlock.Four, code, env)
 }
 
-//
 func evalForStartLoop(fb object.ForBlock, code *ast.Code, env *object.Environment) object.Object {
 
 	// add ForBlock to the list of running for loops

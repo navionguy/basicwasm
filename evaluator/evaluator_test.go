@@ -484,7 +484,6 @@ func Test_ColorStatement(t *testing.T) {
 	}
 }
 
-//
 func Test_ClearCommand(t *testing.T) {
 	var mt mocks.MockTerm
 	initMockTerm(&mt)
@@ -492,6 +491,25 @@ func Test_ClearCommand(t *testing.T) {
 	cmd := ast.ClearCommand{}
 
 	Eval(&cmd, env.CmdLineIter(), env)
+}
+
+func Test_CloseStatement(t *testing.T) {
+	tests := []struct {
+		files []ast.FileNumber
+	}{
+		{},
+	}
+
+	for _, tt := range tests {
+		stmt := ast.CloseStatement{}
+		stmt.Files = append(stmt.Files, tt.files...)
+
+		var mt mocks.MockTerm
+		initMockTerm(&mt)
+		env := object.NewTermEnvironment(mt)
+
+		Eval(&stmt, env.CmdLineIter(), env)
+	}
 }
 
 func TestClsStatement(t *testing.T) {
@@ -577,7 +595,7 @@ func Test_ContCommand_Errors(t *testing.T) {
 	}
 }
 
-//func Test_ContCommand_Start(t *testing.T) {
+// func Test_ContCommand_Start(t *testing.T) {
 func ExampleContCommand() {
 	// create my test program
 	inp := `10 PRINT "Hello!" : X = 5: STOP : PRINT "Goodbye!"`
@@ -700,7 +718,7 @@ func Test_EvalExpressionNodeTyped(t *testing.T) {
 	}{
 		{inp: &ast.StringLiteral{Value: "A test!"}, want: &object.String{}, err: false, dsc: "string to get string"},
 		{inp: &ast.StringLiteral{Value: "A test!"}, want: &object.Integer{}, err: true, dsc: "string to get integer"},
-		{inp: &ast.IntegerLiteral{Value: 12}, want: &object.Integer{}, err: false, dsc: "integer to get integer"},
+		{inp: &ast.IntegerLiteral{Token: token.Token{Literal: "12"}, Value: 12}, want: &object.Integer{}, err: false, dsc: "integer to get integer"},
 	}
 
 	for _, tt := range tests {
@@ -944,7 +962,6 @@ func Test_GosubGotoStatements(t *testing.T) {
 }
 
 // GOTO and GOSUB can also be entered from the command line to start a program running
-//
 func Test_GotoGosubDirect(t *testing.T) {
 	tests := []struct {
 		inp string

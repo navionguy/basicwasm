@@ -694,8 +694,9 @@ func (p *Parser) parseFilesCommand() *ast.FilesCommand {
 
 // parseFileNumber reads in a file number
 func (p *Parser) parseFileNumber() ast.FileNumber {
-	stmt := ast.FileNumber{Token: token.Token{Literal: p.curToken.Literal}}
+	stmt := ast.FileNumber{}
 	if p.curToken.Literal == token.HASHTAG {
+		stmt.Token.Literal = p.curToken.Literal
 		p.nextToken()
 	}
 	stmt.Numbr = p.parseIntegerLiteral()
@@ -904,10 +905,10 @@ func (p *Parser) parseLineNumber() *ast.LineNumStmt {
 	if err != nil {
 		p.generalError("Invalid line number")
 	}
-	msg := fmt.Sprintf("Parsing line %d", tv)
+	/*msg := fmt.Sprintf("Parsing line %d", tv)
 	if p.env != nil {
 		p.env.Terminal().Log(msg)
-	}
+	}*/
 	stmt.Value = int32(tv)
 	p.curLine = tv
 
@@ -1784,7 +1785,6 @@ func (p *Parser) parseCallExpression(function ast.Expression) ast.Expression {
 	return exp
 }
 
-//
 func (p *Parser) parseCallArguments() []ast.Expression {
 	args := []ast.Expression{}
 
