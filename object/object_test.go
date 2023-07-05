@@ -64,10 +64,31 @@ func Test_ClearCommon(t *testing.T) {
 	env.ClearCommon()
 }
 
-func Test_ClearFiles(t *testing.T) {
+func Test_CloseAllFiles(t *testing.T) {
 	env := newEnvironment()
 
-	env.ClearFiles()
+	env.CloseAllFiles()
+}
+
+func Test_CloseFile(t *testing.T) {
+	tests := []struct {
+		num int16
+		ok  bool
+	}{
+		{num: 1},
+		{num: 2, ok: true},
+	}
+
+	for _, tt := range tests {
+		env := newEnvironment()
+		if tt.ok {
+			f := aFile{}
+			env.files[tt.num] = &f
+		}
+		rc := env.CloseFile(tt.num)
+
+		assert.Equalf(t, tt.ok, rc, "CloseFile(%d) returned %t/n", tt.num, rc)
+	}
 }
 
 func Test_ClearVars(t *testing.T) {

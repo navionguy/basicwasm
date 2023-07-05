@@ -1,6 +1,7 @@
 package object
 
 import (
+	"bytes"
 	"math/rand"
 	"net/http"
 	"strings"
@@ -79,11 +80,27 @@ type HttpClient interface {
 	Get(url string) (*http.Response, error)
 }
 
+// file access modes
+const (
+	inputFile = 1
+	outputFile
+	rndFile
+	apndFile
+)
+
+// in-memory implementation of data files
+type aFile struct {
+	mode int          // access mode for file
+	data bytes.Buffer // the local storage for the file
+}
+
 // Environment holds my variables and possibly an outer environment
 type Environment struct {
 	ForLoops []ForBlock           // any For Loops that are active
 	store    map[string]*variable // variables and other program data
-	common   map[string]*variable // variables the live through a CHAIN
+	common   map[string]*variable // variables that live through a CHAIN
+	files    map[int16]*aFile     // currently open files
+	dir      map[string]*aFile    // locally cached files by full name
 	settings map[string]ast.Node  // environment settings
 	readOnly map[string]bool      // my read only environment variables
 	outer    *Environment         // possibly a tempory containing environment
@@ -91,12 +108,12 @@ type Environment struct {
 	term     Console              // the terminal console object
 
 	// The following hold "state" information controlled by commands/statements
+	client  HttpClient     // for making server requests
 	rnd     *rand.Rand     // random number generator
 	rndVal  float32        // most recent generated value
-	traceOn bool           // is tracing turned on
-	client  HttpClient     // for making server requests
-	run     bool           // program is currently execute, if false, a command is executing
+	run     bool           // program is currently executing, if false, a command is executing
 	stack   []ast.RetPoint // return addresses for GOSUB/RETURN
+	traceOn bool           // is tracing turned on
 }
 
 type variable struct {
@@ -114,8 +131,9 @@ func NewEnclosedEnvironment(outer *Environment) *Environment {
 // NewEnvironment creates a place to store variables and settings
 func newEnvironment() *Environment {
 	e := &Environment{settings: make(map[string]ast.Node)}
+	e.dir = make(map[string]*aFile)
 	e.ClearCommon()
-	e.ClearFiles()
+	e.CloseAllFiles()
 	e.ClearVars()
 	if e.program == nil {
 		e.program = &ast.Program{}
@@ -365,10 +383,19 @@ func (e *Environment) ClearVars() {
 	e.store = make(map[string]*variable)
 }
 
-// ClearFiles closes all open files
-func (e *Environment) ClearFiles() {
-	// ToDo: add support for files
-	// cause that would be trivial to do, NOT!!!
+// CloseAllFiles closes all open files
+func (e *Environment) CloseAllFiles() {
+	e.files = make(map[int16]*aFile)
+}
+
+// CloseFile closes a file based on its handle
+func (e *Environment) CloseFile(f int16) bool {
+	if e.files[f] == nil {
+		return false
+	}
+	e.files[f] = nil
+
+	return true
 }
 
 // ClearCommon variables

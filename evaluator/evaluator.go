@@ -50,7 +50,7 @@ func Eval(node ast.Node, code *ast.Code, env *object.Environment) object.Object 
 		evalClearCommand(node, code, env)
 
 	case *ast.CloseStatement:
-		evalCloseStatement(node, code, env)
+		return evalCloseStatement(node, code, env)
 
 	case *ast.ClsStatement:
 		evalClsStatement(node, code, env)
@@ -501,13 +501,26 @@ func evalChDirStatement(chdir *ast.ChDirStatement, code *ast.Code, env *object.E
 // clear all variables and close all files
 func evalClearCommand(clear *ast.ClearCommand, code *ast.Code, env *object.Environment) {
 	env.ClearVars() // environment handles all the details
-	env.ClearFiles()
+	env.CloseAllFiles()
 	env.ClearCommon()
 }
 
 // close one or more files
-func evalCloseStatement(close *ast.CloseStatement, code *ast.Code, env *object.Environment) {
+func evalCloseStatement(close *ast.CloseStatement, code *ast.Code, env *object.Environment) object.Object {
+	for _, fnum := range close.Files {
+		rc := evalExpressionNode(fnum.Numbr, code, env)
+		switch val := rc.(type) {
+		case *object.Integer:
+			if !env.CloseFile(val.Value) {
+				// file number was not open
+				return object.StdError(env, berrors.BadFileNum)
+			}
+		default:
+			return object.StdError(env, berrors.Syntax)
+		}
+	}
 
+	return nil
 }
 
 // just tell the termianl to clear the screen
@@ -949,7 +962,7 @@ func evalRunParse(rdr *bufio.Reader, run *ast.RunCommand, env *object.Environmen
 	// create a new program code space
 	env.NewProgram()
 	if !run.KeepOpen {
-		env.ClearFiles()
+		env.CloseAllFiles()
 	}
 
 	// parse the loaded file into an AST for evaluation
@@ -1128,7 +1141,7 @@ func allocArrayValue(typeid string) object.Object {
 
 // stop execution and close any open files
 func evalEndStatement(end *ast.EndStatement, code *ast.Code, env *object.Environment) object.Object {
-	env.ClearFiles()
+	env.CloseAllFiles()
 	return &object.HaltSignal{}
 }
 

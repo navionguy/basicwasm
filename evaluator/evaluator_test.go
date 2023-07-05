@@ -497,7 +497,7 @@ func Test_CloseStatement(t *testing.T) {
 	tests := []struct {
 		files []ast.FileNumber
 	}{
-		{},
+		{files: []ast.FileNumber{{Numbr: &ast.IntegerLiteral{Token: token.Token{Literal: "1"}}}}},
 	}
 
 	for _, tt := range tests {
