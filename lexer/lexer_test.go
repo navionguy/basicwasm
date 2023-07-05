@@ -4,14 +4,28 @@ import (
 	"testing"
 
 	"github.com/navionguy/basicwasm/token"
+	"github.com/stretchr/testify/assert"
 )
+
+func TestIllegalChar(t *testing.T) {
+
+	inp := " ⌘"
+
+	l := New(inp)
+
+	l.NextToken()
+	tk := l.NextToken()
+
+	exp := newToken(token.ILLEGAL, ' ')
+	assert.Equal(t, exp.Type, tk.Type, "failed to get illegal token")
+}
 
 func TestNextToken(t *testing.T) {
 
 	input := `10 REM let five = 5
 	20 let ten = 10
 	30 let add = fn(x, y) 	
-	40 let result = add(five, ten)
+	40 let result = add(five,. ten)
 	50 !-/*5 	5 < 10 >	if ( 5 < 10 ) 		return true	 else 		return false	
 	60 10 == 10	9 != 10	9 <= 10	10>=9	let result = "Hello there!" $%:[]+&<>
 	`
@@ -52,6 +66,7 @@ func TestNextToken(t *testing.T) {
 		{token.LPAREN, "("},
 		{token.IDENT, "five"},
 		{token.COMMA, ","},
+		{token.PERIOD, "."},
 		{token.IDENT, "ten"},
 		{token.RPAREN, ")"},
 		{token.EOL, "\n"},
@@ -119,6 +134,21 @@ func TestNextToken(t *testing.T) {
 			t.Fatalf("tests[%d] - literal wrong. expected=%q, got=%q", i, tt.expectedLiteral, tok.Literal)
 		}
 	}
+
+	assert.Zero(t, l.peekChar(), "peekChar failed to return zero")
+}
+
+func TestPassOnOff(t *testing.T) {
+	inp := "a test message"
+
+	l := New(inp)
+	l.PassOn()
+
+	assert.True(t, l.passWhite, "White space passing failed to enable")
+
+	l.PassOff()
+	assert.False(t, l.passWhite, "White space passing failed to disable")
+
 }
 
 func TestReadNumber(t *testing.T) {
@@ -128,7 +158,8 @@ func TestReadNumber(t *testing.T) {
 	}{
 		{"43.8", token.FIXED},
 		{"235.988E-7", token.FLOAT},
-		{"235.988D-12", token.FLOAT},
+		{"235D-12", token.FLOAT},
+		{"12#", token.INTD},
 	}
 
 	for _, tt := range tests {

@@ -4,7 +4,7 @@ import (
 	"github.com/navionguy/basicwasm/token"
 )
 
-//Lexer a lexical analyzer instance
+// Lexer a lexical analyzer instance
 type Lexer struct {
 	input        string
 	position     int  // current position in input (points to current char)
@@ -13,7 +13,7 @@ type Lexer struct {
 	passWhite    bool // do I let whitespace through to parser
 }
 
-//New create a new lexer object
+// New create a new lexer object
 func New(input string) *Lexer {
 	l := &Lexer{
 		input:     input,
@@ -33,12 +33,12 @@ func (l *Lexer) PassOff() {
 	l.passWhite = false
 }
 
-//NextToken scans for the next token
+// NextToken scans for the next token
 func (l *Lexer) NextToken() token.Token {
 	var tok token.Token
 
 	// detect startup
-	if -1 == l.position {
+	if l.position == -1 {
 		l.position++
 		l.readChar()
 		return newToken(token.EOL, '\n')
@@ -226,7 +226,7 @@ func (l *Lexer) chgType(curTok token.TokenType, ifTok token.TokenType, newTok to
 	return true, curTok
 }
 
-//peekChar - take a look at, but don't consume the next character
+// peekChar - take a look at, but don't consume the next character
 func (l *Lexer) peekChar() byte {
 	if l.readPosition >= len(l.input) {
 		return 0
