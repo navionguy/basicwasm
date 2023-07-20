@@ -1080,6 +1080,15 @@ func Test_NextStatement(t *testing.T) {
 	}
 }
 
+func Test_NoiseStatement(t *testing.T) {
+	noise := NoiseStatement{Token: token.Token{Literal: "Noise"}}
+
+	noise.statementNode()
+
+	assert.Equal(t, "Noise", noise.TokenLiteral(), "noise literal is just wrong")
+	assert.Equal(t, "Noise", noise.String(), "noise string is just wrong")
+}
+
 func Test_OffExpression(t *testing.T) {
 	off := OffExpression{Token: token.Token{Literal: "OFF"}}
 
@@ -1099,7 +1108,7 @@ func Test_OnExpression(t *testing.T) {
 }
 
 func Test_OpenStatement(t *testing.T) {
-	opn := OpenStatement{Token: token.Token{Type: token.OPEN, Literal: "OPEN"}, Params: []Node{&StringLiteral{Token: token.Token{Type: token.STRING}, Value: "filename"}}}
+	opn := OpenStatement{Token: token.Token{Type: token.OPEN, Literal: "OPEN"}, Noise: []NoiseStatement{{Token: token.Token{Literal: "filename"}}}}
 
 	opn.statementNode()
 

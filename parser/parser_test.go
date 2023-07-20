@@ -961,7 +961,7 @@ func TestIdentifierExpression(t *testing.T) {
 	}
 }
 
-func Test_NewCommand(t *testing.T) {
+func TestNewCommand(t *testing.T) {
 	inp := "new"
 	l := lexer.New(inp)
 	p := New(l)
@@ -971,7 +971,7 @@ func Test_NewCommand(t *testing.T) {
 	assert.Equal(t, 1, env.CmdLineIter().Len(), "NewCommand didn't create one command")
 }
 
-func Test_NextCommand(t *testing.T) {
+func TestNextCommand(t *testing.T) {
 	tests := []struct {
 		inp string
 		err bool
@@ -993,7 +993,29 @@ func Test_NextCommand(t *testing.T) {
 	}
 }
 
-func Test_OnStatement(t *testing.T) {
+func TestParseNoise(t *testing.T) {
+	tests := []struct {
+		inp string
+		exp string
+		len int
+	}{
+		{inp: "Buddy", exp: "EOF", len: 1},
+		{inp: "Buddy:REM", exp: ":", len: 1},
+		{inp: "Buddy,Neighbor:REM", exp: ":", len: 3},
+	}
+
+	for _, tt := range tests {
+		l := lexer.New(tt.inp)
+		p := New(l)
+		p.nextToken()
+		var noise []ast.NoiseStatement
+		p.parseNoise(&noise)
+
+		assert.Equal(t, tt.exp, p.peekToken.Literal, "Noise stopped for wrong reason")
+	}
+}
+
+func TestOnStatement(t *testing.T) {
 	// Currently support
 	// ON ERROR GOTO
 	// ON exp GOTO
@@ -1030,7 +1052,25 @@ func Test_OnStatement(t *testing.T) {
 	}
 }
 
-func Test_PaletteStatement(t *testing.T) {
+func TestOpenStatement(t *testing.T) {
+	tests := []struct {
+		inp string
+	}{
+		{inp: `10 open o`},
+		{inp: `20 open "test.out"`},
+		//{inp: `30 open o, #1, "test.out", 128`},
+		{inp: `40 open "test.out" FOR OUTPUT ACCESS WRITE SHARED AS #2, LEN = 128`},
+	}
+
+	for _, tt := range tests {
+		l := lexer.New(tt.inp)
+		p := New(l)
+		env := object.NewTermEnvironment(mocks.MockTerm{})
+		p.ParseProgram(env)
+	}
+}
+
+func TestPaletteStatement(t *testing.T) {
 	tests := []struct {
 		inp string
 		err bool

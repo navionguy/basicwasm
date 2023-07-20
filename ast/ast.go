@@ -961,6 +961,16 @@ func (hc *HexConstant) String() string {
 	return out.String()
 }
 
+// NoiseStatement holds stuff the parser couldn't make sense out of
+type NoiseStatement struct {
+	Token token.Token
+}
+
+func (nse *NoiseStatement) statementNode()       {}
+func (nse *NoiseStatement) TokenLiteral() string { return nse.Token.Literal }
+
+func (nse *NoiseStatement) String() string { return nse.Token.Literal }
+
 // OctalConstant has two forms &37 or &O37
 type OctalConstant struct {
 	Token token.Token
@@ -983,8 +993,14 @@ func (oc *OctalConstant) String() string {
 
 // OpenStatement opens a data file or com port
 type OpenStatement struct {
-	Token  token.Token // OPEN
-	Params []Node      // any and all parameters to the OPEN statement
+	Token       token.Token      // OPEN
+	FileName    string           // filename to open
+	FileNameSep string           // seperator before FileName
+	FileNumber  FileNumber       // file number associated with file
+	FileNumSep  string           // seperator before FileNum
+	Mode        string           // access mode, read, write append...
+	Noise       []NoiseStatement // Stuff I was unable to parse
+	Verbose     bool             // true means the long syntax version of open
 }
 
 func (opn *OpenStatement) statementNode()       {}
@@ -994,9 +1010,9 @@ func (opn *OpenStatement) String() string {
 	var out bytes.Buffer
 
 	out.WriteString(opn.Token.Literal)
-	for _, p := range opn.Params {
+	for _, p := range opn.Noise {
 		out.WriteString(" ")
-		out.WriteString(p.String())
+		out.WriteString(`"` + p.String() + `"`)
 	}
 
 	return out.String()

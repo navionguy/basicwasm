@@ -263,6 +263,8 @@ func (p *Parser) parseStatement() ast.Statement {
 		return p.parseNextStatement()
 	case token.ON:
 		return p.parseOnStatement()
+	case token.OPEN:
+		return p.parseOpenStatement()
 	case token.PALETTE:
 		return p.parsePaletteStatement()
 	case token.PRINT:
@@ -1004,7 +1006,9 @@ func (p *Parser) atEndOfStatement() bool {
 
 // returns true if the next token would put us at the end of a statement
 func (p *Parser) chkEndOfStatement() bool {
-	return p.peekTokenIs(token.COLON) || p.peekTokenIs(token.LINENUM) || p.peekTokenIs(token.EOF) || p.peekTokenIs(token.EOL) || p.peekTokenIs(token.REM)
+	rc := p.peekTokenIs(token.COLON) || p.peekTokenIs(token.LINENUM) || p.peekTokenIs(token.EOF) || p.peekTokenIs(token.EOL) || p.peekTokenIs(token.REM) || p.curTokenIs(token.EOF) || p.curTokenIs(token.EOL)
+
+	return rc
 }
 
 // parsing isn't making sense, just hoover up the rest of the statement
@@ -1206,6 +1210,20 @@ func (p *Parser) parseNextStatement() *ast.NextStatement {
 	return &nxt
 }
 
+// parser can't make sense of the input
+// just soak up all the tokens until the next statement
+func (p *Parser) parseNoise(noise *[]ast.NoiseStatement) {
+
+	for {
+		*noise = append(*noise, ast.NoiseStatement{Token: token.Token{Literal: p.curToken.Literal}})
+
+		if p.chkEndOfStatement() {
+			return
+		}
+		p.nextToken()
+	}
+}
+
 // parse OFF expression, parameter in statement meaning FALSE
 func (p *Parser) parseOffExpression() ast.Expression {
 	off := ast.OffExpression{}
@@ -1292,6 +1310,77 @@ func (p *Parser) parseOnExpressionStatement() ast.Statement {
 	// get the last one
 	stmt.Jumps = append(stmt.Jumps, p.parseExpression(LOWEST))
 	return &stmt
+}
+
+// establish i/o with a file or device
+func (p *Parser) parseOpenStatement() *ast.OpenStatement {
+	stmt := ast.OpenStatement{Token: p.curToken}
+
+	p.nextToken()
+	switch p.curToken.Type {
+	case token.IDENT:
+		stmt.Verbose = false
+		stmt.Mode = p.curToken.Literal
+		p.nextToken()
+		p.parseOpenStatementBrief(&stmt)
+	case token.STRING:
+		stmt.Verbose = true
+		stmt.FileName = p.curToken.Literal
+		p.nextToken()
+		p.parseOpenStatementVerbose(&stmt)
+	}
+	return &stmt
+}
+
+// open statement in the short form
+// short form looks like OPEN mode, [#]1, "Name.ext" [, reclen]
+// parseOpenStatement found the mode, so we move on from there
+func (p *Parser) parseOpenStatementBrief(stmt *ast.OpenStatement) {
+	// first, we look for the file number
+	for !p.chkEndOfStatement() {
+		switch p.curToken.Type {
+		case token.COMMA, token.IDENT:
+			stmt.FileNumSep = stmt.FileNumSep + p.curToken.Literal
+		case token.INT:
+			//stmt.FileNumber, _ = strconv.Atoi(p.curToken.Literal)
+		default:
+			p.parseNoise(&stmt.Noise)
+			return
+		}
+	}
+}
+
+// the long version of file open
+// long form looks like OPEN "test.out" [FOR mode] [ACCESS access] [lock] AS [#]2[, LEN = reclen]
+// parseOpenStatement found the filename, so I start looking for optional fields
+func (p *Parser) parseOpenStatementVerbose(stmt *ast.OpenStatement) {
+	stmt.Verbose = true
+
+	switch p.curToken.Literal {
+	case token.FOR:
+		p.nextToken()
+		p.parseVerboseMode(stmt)
+	case token.ACCESS:
+		p.parseVerboseAccess(stmt)
+	case token.AS:
+	default:
+		p.parseNoise(&stmt.Noise)
+	}
+}
+
+func (p *Parser) parseVerboseMode(stmt *ast.OpenStatement) {
+	switch p.curToken.Literal {
+	case token.APPEND, token.INPUT, token.OUTPUT, token.RANDOM:
+		stmt.Mode = p.curToken.Literal
+		p.nextToken()
+		p.parseVerboseAccess(stmt)
+	default:
+		p.parseNoise(&stmt.Noise)
+	}
+}
+
+func (p *Parser) parseVerboseAccess(stmt *ast.OpenStatement) {
+
 }
 
 // adjust the screen color palette as directed
