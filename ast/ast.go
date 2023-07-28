@@ -1010,11 +1010,27 @@ func (opn *OpenStatement) String() string {
 	var out bytes.Buffer
 
 	out.WriteString(opn.Token.Literal)
+
+	if opn.Verbose {
+		if len(opn.FileName) == 0 {
+			// no filename, parse failed early
+			return opn.openDrain(out)
+		}
+		out.WriteString(`"` + opn.FileName + `"`)
+	} else {
+		if len(opn.Mode) == 0 {
+			return opn.openDrain(out)
+		}
+	}
+
+	return out.String()
+}
+
+func (opn *OpenStatement) openDrain(out bytes.Buffer) string {
 	for _, p := range opn.Noise {
 		out.WriteString(" ")
 		out.WriteString(`"` + p.String() + `"`)
 	}
-
 	return out.String()
 }
 

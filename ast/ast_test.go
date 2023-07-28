@@ -1108,12 +1108,25 @@ func Test_OnExpression(t *testing.T) {
 }
 
 func Test_OpenStatement(t *testing.T) {
-	opn := OpenStatement{Token: token.Token{Type: token.OPEN, Literal: "OPEN"}, Noise: []NoiseStatement{{Token: token.Token{Literal: "filename"}}}}
+	//opn := OpenStatement{Token: token.Token{Type: token.OPEN, Literal: "OPEN"}, Noise: []NoiseStatement{{Token: token.Token{Literal: "filename"}}}}
 
-	opn.statementNode()
+	tests := []struct {
+		open OpenStatement
+		exp  string
+	}{
+		{open: OpenStatement{Token: token.Token{Literal: "OPEN"},
+			Noise: []NoiseStatement{{Token: token.Token{Literal: "filename"}}}},
+			exp: `OPEN "filename"`},
+		{open: OpenStatement{Token: token.Token{Literal: "OPEN"}, FileName: "real.dat"}, exp: `OPEN "real.dat"`},
+	}
 
-	assert.EqualValues(t, "OPEN", opn.TokenLiteral(), "OPEN literal is incorrect")
-	assert.EqualValues(t, `OPEN "filename"`, opn.String(), "OPEN string is incorrect")
+	for _, tt := range tests {
+		tt.open.statementNode()
+
+		assert.EqualValues(t, "OPEN", tt.open.TokenLiteral(), "OPEN literal is incorrect")
+		assert.EqualValues(t, tt.exp, tt.open.String(), "OPEN string is incorrect")
+
+	}
 }
 
 func Test_OctalConstant(t *testing.T) {
