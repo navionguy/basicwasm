@@ -1108,16 +1108,50 @@ func Test_OnExpression(t *testing.T) {
 }
 
 func Test_OpenStatement(t *testing.T) {
-	//opn := OpenStatement{Token: token.Token{Type: token.OPEN, Literal: "OPEN"}, Noise: []NoiseStatement{{Token: token.Token{Literal: "filename"}}}}
 
 	tests := []struct {
 		open OpenStatement
 		exp  string
 	}{
+		// test brief
 		{open: OpenStatement{Token: token.Token{Literal: "OPEN"},
-			Noise: []NoiseStatement{{Token: token.Token{Literal: "filename"}}}},
+			Verbose:    false,
+			Mode:       `R`,
+			FileNumSep: `#`,
+			FileNumber: FileNumber{Numbr: &IntegerLiteral{Value: 37}},
+			FileName:   `briefname`,
+			RecLen:     `256`},
+			exp: `OPEN R, #37, "briefname",256`,
+		},
+		{open: OpenStatement{Token: token.Token{Literal: "OPEN"},
+			Verbose:    false,
+			Mode:       `R`,
+			FileNumSep: `#`,
+			FileNumber: FileNumber{Numbr: &IntegerLiteral{Value: 37}},
+			FileName:   `noiseyname`,
+			RecLen:     `256`,
+			Noise:      []NoiseStatement{{Token: token.Token{Literal: "bad stuff"}}}},
+			exp: `OPEN R, #37, "noiseyname",256 bad stuff`,
+		},
+
+		// test verbose
+		/*{open: OpenStatement{Token: token.Token{Literal: "OPEN"},
+			Noise: []NoiseStatement{{Token: token.Token{Literal: "filename"}}}, Verbose: true},
 			exp: `OPEN "filename"`},
-		{open: OpenStatement{Token: token.Token{Literal: "OPEN"}, FileName: "real.dat"}, exp: `OPEN "real.dat"`},
+		{open: OpenStatement{Token: token.Token{Literal: "OPEN"},
+			FileName: "real.dat", Verbose: true},
+			exp: `OPEN "real.dat"`},*/
+		{open: OpenStatement{Token: token.Token{Literal: "OPEN"},
+			FileName:   "bubba.txt",
+			Mode:       `OUTPUT`,
+			Verbose:    true,
+			Access:     `READ WRITE`,
+			Lock:       `LOCK`,
+			FileNumSep: `#`,
+			FileNumber: FileNumber{Numbr: &IntegerLiteral{Value: 1}},
+			RecLen:     `128`},
+			exp: `OPEN "bubba.txt" FOR OUTPUT ACCESS READ WRITE LOCK AS #1 LEN=128`,
+		},
 	}
 
 	for _, tt := range tests {

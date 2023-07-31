@@ -971,6 +971,16 @@ func (nse *NoiseStatement) TokenLiteral() string { return nse.Token.Literal }
 
 func (nse *NoiseStatement) String() string { return nse.Token.Literal }
 
+func Noise(noises []NoiseStatement) string {
+	var out bytes.Buffer
+
+	for _, noise := range noises {
+		out.WriteString(` ` + noise.String())
+	}
+
+	return out.String()
+}
+
 // OctalConstant has two forms &37 or &O37
 type OctalConstant struct {
 	Token token.Token
@@ -992,15 +1002,22 @@ func (oc *OctalConstant) String() string {
 }
 
 // OpenStatement opens a data file or com port
+// comes in two flavors
+// OPEN filename [FOR mode][ACCESS access][lock] AS [#]file number [LEN=reclen]
+// OPEN mode,[#]file number,filename[,reclen]
+
 type OpenStatement struct {
-	Token       token.Token      // OPEN
-	FileName    string           // filename to open
-	FileNameSep string           // seperator before FileName
-	FileNumber  FileNumber       // file number associated with file
-	FileNumSep  string           // seperator before FileNum
-	Mode        string           // access mode, read, write append...
-	Noise       []NoiseStatement // Stuff I was unable to parse
-	Verbose     bool             // true means the long syntax version of open
+	Token    token.Token // OPEN
+	FileName string      // filename to open
+	//	FileNameSep string           // seperator before FileName
+	FileNumber FileNumber       // file number associated with file
+	FileNumSep string           // seperator before FileNum
+	Mode       string           // access mode, read, write append...
+	Access     string           //	read, write, or read/write
+	Lock       string           // access for other processes, share mode
+	Noise      []NoiseStatement // Stuff I was unable to parse
+	RecLen     string           // record length for fixed len records
+	Verbose    bool             // true means the long syntax version of open
 }
 
 func (opn *OpenStatement) statementNode()       {}
@@ -1012,25 +1029,51 @@ func (opn *OpenStatement) String() string {
 	out.WriteString(opn.Token.Literal)
 
 	if opn.Verbose {
-		if len(opn.FileName) == 0 {
-			// no filename, parse failed early
-			return opn.openDrain(out)
+		out.WriteString(` "` + opn.FileName + `"`)
+
+		if len(opn.Mode) > 0 {
+			out.WriteString(` FOR ` + opn.Mode)
 		}
-		out.WriteString(`"` + opn.FileName + `"`)
-	} else {
-		if len(opn.Mode) == 0 {
-			return opn.openDrain(out)
+
+		if len(opn.Access) > 0 {
+			out.WriteString(` ACCESS ` + opn.Access)
+		}
+
+		if len(opn.Lock) > 0 {
+			out.WriteString(` ` + opn.Lock)
+		}
+
+		if len(opn.FileNumber.String()) > 0 {
+			out.WriteString(` AS ` + opn.FileNumSep + opn.FileNumber.String())
+		}
+
+		if len(opn.RecLen) > 0 {
+			out.WriteString(` LEN=` + opn.RecLen)
+		}
+	} else { // non verbose form
+		if len(opn.Mode) > 0 {
+			out.WriteString(` ` + opn.Mode)
+		}
+
+		if len(opn.FileNumSep) > 0 {
+			out.WriteString(`, ` + opn.FileNumSep)
+		}
+
+		if len(opn.FileNumber.String()) > 0 {
+			out.WriteString(opn.FileNumber.String())
+		}
+
+		if len(opn.FileName) > 0 {
+			out.WriteString(`, "` + opn.FileName + `"`)
+		}
+
+		if len(opn.RecLen) > 0 {
+			out.WriteString(`,` + opn.RecLen)
 		}
 	}
 
-	return out.String()
-}
-
-func (opn *OpenStatement) openDrain(out bytes.Buffer) string {
-	for _, p := range opn.Noise {
-		out.WriteString(" ")
-		out.WriteString(`"` + p.String() + `"`)
-	}
+	// if there was any noise tokens, print them
+	out.WriteString(Noise(opn.Noise))
 	return out.String()
 }
 
