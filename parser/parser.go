@@ -1215,7 +1215,9 @@ func (p *Parser) parseNextStatement() *ast.NextStatement {
 func (p *Parser) parseNoise(noise *[]ast.NoiseStatement) {
 
 	for {
-		*noise = append(*noise, ast.NoiseStatement{Token: token.Token{Literal: p.curToken.Literal}})
+		if !p.atEndOfStatement() {
+			*noise = append(*noise, ast.NoiseStatement{Token: token.Token{Literal: p.curToken.Literal}})
+		}
 
 		if p.chkEndOfStatement() {
 			return
@@ -1336,18 +1338,39 @@ func (p *Parser) parseOpenStatement() *ast.OpenStatement {
 // short form looks like OPEN mode, [#]1, "Name.ext" [, reclen]
 // parseOpenStatement found the mode, so we move on from there
 func (p *Parser) parseOpenStatementBrief(stmt *ast.OpenStatement) {
-	// first, we look for the file number
-	for !p.chkEndOfStatement() {
-		switch p.curToken.Type {
-		case token.COMMA, token.IDENT:
-			stmt.FileNumSep = stmt.FileNumSep + p.curToken.Literal
-		case token.INT:
-			//stmt.FileNumber, _ = strconv.Atoi(p.curToken.Literal)
-		default:
-			p.parseNoise(&stmt.Noise)
-			return
-		}
+
+	if !strings.EqualFold(p.curToken.Literal, token.COMMA) {
+		p.parseNoise(&stmt.Noise)
+		return
 	}
+	p.nextToken()
+
+	if strings.EqualFold(p.curToken.Literal, token.HASHTAG) {
+		stmt.FileNumSep = p.curToken.Literal
+		p.nextToken()
+	}
+
+	stmt.FileNumber = ast.FileNumber{Token: p.curToken}
+	p.nextToken()
+
+	if !strings.EqualFold(p.curToken.Literal, token.COMMA) {
+		p.parseNoise(&stmt.Noise)
+		return
+	}
+	p.nextToken()
+
+	// filename
+
+	stmt.FileName = p.curToken.Literal
+	p.nextToken()
+
+	if !strings.EqualFold(p.curToken.Literal, token.COMMA) {
+		p.parseNoise(&stmt.Noise)
+		return
+	}
+
+	p.nextToken()
+	stmt.RecLen = p.curToken.Literal
 }
 
 // the long version of file open
@@ -1356,31 +1379,65 @@ func (p *Parser) parseOpenStatementBrief(stmt *ast.OpenStatement) {
 func (p *Parser) parseOpenStatementVerbose(stmt *ast.OpenStatement) {
 	stmt.Verbose = true
 
-	switch p.curToken.Literal {
-	case token.FOR:
+	if strings.EqualFold(p.curToken.Literal, token.FOR) {
 		p.nextToken()
-		p.parseVerboseMode(stmt)
-	case token.ACCESS:
-		p.parseVerboseAccess(stmt)
-	case token.AS:
-	default:
-		p.parseNoise(&stmt.Noise)
-	}
-}
-
-func (p *Parser) parseVerboseMode(stmt *ast.OpenStatement) {
-	switch p.curToken.Literal {
-	case token.APPEND, token.INPUT, token.OUTPUT, token.RANDOM:
 		stmt.Mode = p.curToken.Literal
 		p.nextToken()
-		p.parseVerboseAccess(stmt)
-	default:
-		p.parseNoise(&stmt.Noise)
 	}
+
+	p.parseVerboseAccess(stmt)
 }
 
 func (p *Parser) parseVerboseAccess(stmt *ast.OpenStatement) {
+	if strings.EqualFold(p.curToken.Literal, token.ACCESS) {
+		p.nextToken()
+		stmt.Access = p.curToken.Literal
+		p.nextToken()
+	}
 
+	p.parseVerboseLock(stmt)
+}
+
+func (p *Parser) parseVerboseLock(stmt *ast.OpenStatement) {
+	if !strings.EqualFold(p.curToken.Literal, token.AS) {
+		stmt.Lock = p.curToken.Literal
+		p.nextToken()
+	}
+
+	if strings.EqualFold(p.curToken.Literal, token.AS) {
+		p.nextToken()
+
+		if strings.EqualFold(p.curToken.Literal, token.HASHTAG) {
+			stmt.FileNumSep = p.curToken.Literal
+			p.nextToken()
+		}
+
+		stmt.FileNumber.Token = p.curToken
+		p.nextToken()
+	}
+
+	p.parseVerboseLen(stmt)
+}
+
+// parseVerboseLen looks for a "LEN=nnn" modifier on the open
+// it then calls parseNoise to hoover up any left over tokens
+func (p *Parser) parseVerboseLen(stmt *ast.OpenStatement) {
+	// if there is a length parameter, consume it
+	if strings.EqualFold(p.curToken.Literal, token.LEN) {
+		p.nextToken()
+
+		if !strings.EqualFold(p.curToken.Literal, `=`) {
+			stmt.Noise = append(stmt.Noise, ast.NoiseStatement{Token: token.Token{Type: token.LEN}})
+			p.parseNoise(&stmt.Noise)
+			return
+		}
+		p.nextToken()
+		stmt.RecLen = p.curToken.Literal
+		p.nextToken()
+	}
+
+	// call parseNoise to consume any left over tokens in the statement
+	p.parseNoise(&stmt.Noise)
 }
 
 // adjust the screen color palette as directed

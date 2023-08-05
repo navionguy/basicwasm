@@ -1055,11 +1055,19 @@ func TestOnStatement(t *testing.T) {
 func TestOpenStatement(t *testing.T) {
 	tests := []struct {
 		inp string
+		exp string
 	}{
-		{inp: `10 open o`},
-		{inp: `20 open "test.out"`},
-		//{inp: `30 open o, #1, "test.out", 128`},
-		{inp: `40 open "test.out" FOR OUTPUT ACCESS WRITE SHARED AS #2, LEN = 128`},
+		{inp: `10 open o,1,"test.out",128`,
+			exp: `open o, 1, "test.out",128`},
+		{inp: `20 open o, #2, "test.out",128`,
+			exp: `open o, #2, "test.out",128`},
+		{inp: `30 open o #3, "test.out",128`,
+			exp: `open o,  # 3 , test.out , 128`},
+		// brief to verbose
+		{inp: `40 open "test.out" FOR OUTPUT ACCESS WRITE SHARED AS #1 LEN = 128`,
+			exp: `open "test.out" FOR OUTPUT ACCESS WRITE SHARED AS #1 LEN = 128`},
+		{inp: `50 open "test2.out" FOR OUTPUT ACCESS WRITE SHARED AS #2 LEN = 128 FOR`,
+			exp: `open "test2.out" FOR OUTPUT ACCESS WRITE SHARED AS #2 LEN = 128 FOR`},
 	}
 
 	for _, tt := range tests {
@@ -1067,6 +1075,12 @@ func TestOpenStatement(t *testing.T) {
 		p := New(l)
 		env := object.NewTermEnvironment(mocks.MockTerm{})
 		p.ParseProgram(env)
+
+		// go get the second statement in program
+		itr := env.StatementIter()
+		itr.Next()
+
+		assert.Equal(t, tt.exp, itr.Value().String(), "testOpens")
 	}
 }
 

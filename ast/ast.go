@@ -1048,7 +1048,7 @@ func (opn *OpenStatement) String() string {
 		}
 
 		if len(opn.RecLen) > 0 {
-			out.WriteString(` LEN=` + opn.RecLen)
+			out.WriteString(` LEN = ` + opn.RecLen)
 		}
 	} else { // non verbose form
 		if len(opn.Mode) > 0 {
@@ -1057,6 +1057,8 @@ func (opn *OpenStatement) String() string {
 
 		if len(opn.FileNumSep) > 0 {
 			out.WriteString(`, ` + opn.FileNumSep)
+		} else {
+			out.WriteString(`, `)
 		}
 
 		if len(opn.FileNumber.String()) > 0 {
