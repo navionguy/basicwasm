@@ -9,6 +9,7 @@ go test ./fileserv -coverprofile=fileserv.out
 go test ./gwtoken -coverprofile=gwtoken.out
 go test ./keybuffer -coverprofile=keybuffer.out
 go test ./lexer -coverprofile=lexer.out
+go test ./localFiles -coverprofile=localFiles.out
 go test ./object -coverprofile=object.out
 go test ./parser -coverprofile=parser.out
 go test ./token -coverprofile=token.out

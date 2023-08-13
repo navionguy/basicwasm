@@ -96,6 +96,7 @@ const (
 	LIST    = "LIST"
 	LOAD    = "LOAD"
 	LOCATE  = "LOCATE"
+	LOCK    = "LOCK"
 	MERGE   = "MERGE"
 	MOD     = "MOD"
 	NEW     = "NEW"
@@ -114,6 +115,7 @@ const (
 	RETURN  = "RETURN"
 	RUN     = "RUN"
 	SCREEN  = "SCREEN"
+	SHARED  = "SHARED"
 	STOP    = "STOP"
 	THEN    = "THEN"
 	TO      = "TO"
@@ -122,6 +124,7 @@ const (
 	TRUE    = "TRUE"
 	USING   = "USING"
 	VIEW    = "VIEW"
+	WRITE   = "WRITE"
 )
 
 type Token struct {

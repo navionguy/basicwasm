@@ -155,6 +155,9 @@ func Eval(node ast.Node, code *ast.Code, env *object.Environment) object.Object 
 	case *ast.OnGoStatement:
 		return evalOnGoStatement(node, code, env)
 
+	case *ast.OpenStatement:
+		return evalOpenStatement(node, code, env)
+
 	case *ast.PrintStatement:
 		return evalPrintStatement(node, code, env)
 
@@ -1898,6 +1901,14 @@ func evalOnGoJump(ind int32, node *ast.OnGoStatement, code *ast.Code, env *objec
 		return Eval(&ast.GosubStatement{Gosub: []token.Token{{Type: token.INT, Literal: strconv.Itoa(int(jmp))}}}, code, env)
 	}
 	return object.StdError(env, berrors.Syntax)
+}
+
+// opens a data file
+// todo: support open device
+func evalOpenStatement(node *ast.OpenStatement, code *ast.Code, env *object.Environment) object.Object {
+	// get the target file name ()
+	fileserv.BuildFullPath(node.FileName, env)
+	return nil
 }
 
 // Build the default Palette struct

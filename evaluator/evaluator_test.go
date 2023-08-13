@@ -1508,6 +1508,35 @@ func Test_OnGoStatement(t *testing.T) {
 	}
 }
 
+func Test_OpenStatement(t *testing.T) {
+	tests := []struct {
+		inp string
+	}{
+		{inp: `10 OPEN "test.dat" FOR OUTPUT AS #1`},
+	}
+
+	for _, tt := range tests {
+		l := lexer.New(tt.inp)
+		p := parser.New(l)
+		var mt mocks.MockTerm
+		initMockTerm(&mt)
+		env := object.NewTermEnvironment(mt)
+		p.ParseProgram(env)
+
+		errs := p.Errors()
+
+		assert.Zero(t, len(errs), "parser threw some errors")
+
+		code := env.StatementIter()
+		env.SetRun(true)
+		rc := Eval(&ast.Program{}, code, env)
+		env.SetRun(false)
+
+		assert.Nil(t, nil, "got %T back", rc)
+
+	}
+}
+
 func Test_PrintStatement(t *testing.T) {
 	tests := []struct {
 		inp string

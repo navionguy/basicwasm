@@ -1057,17 +1057,21 @@ func TestOpenStatement(t *testing.T) {
 		inp string
 		exp string
 	}{
+		// brief syntax
 		{inp: `10 open o,1,"test.out",128`,
 			exp: `open o, 1, "test.out",128`},
 		{inp: `20 open o, #2, "test.out",128`,
 			exp: `open o, #2, "test.out",128`},
 		{inp: `30 open o #3, "test.out",128`,
 			exp: `open o,  # 3 , test.out , 128`},
-		// brief to verbose
+		// verbose syntax
 		{inp: `40 open "test.out" FOR OUTPUT ACCESS WRITE SHARED AS #1 LEN = 128`,
 			exp: `open "test.out" FOR OUTPUT ACCESS WRITE SHARED AS #1 LEN = 128`},
 		{inp: `50 open "test2.out" FOR OUTPUT ACCESS WRITE SHARED AS #2 LEN = 128 FOR`,
 			exp: `open "test2.out" FOR OUTPUT ACCESS WRITE SHARED AS #2 LEN = 128 FOR`},
+		// this next one would eval to a syntax error
+		{inp: `60 open "test3.out" FOR OUTPUT ACCESS WRITE LOCK READ AS #3 LEN = 128`,
+			exp: `open "test3.out" FOR OUTPUT ACCESS WRITE LOCK READ AS # 3 LEN = 128`},
 	}
 
 	for _, tt := range tests {

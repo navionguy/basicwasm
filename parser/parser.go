@@ -1314,7 +1314,7 @@ func (p *Parser) parseOnExpressionStatement() ast.Statement {
 	return &stmt
 }
 
-// establish i/o with a file or device
+// establish i/o with a file or device[ToDo]
 func (p *Parser) parseOpenStatement() *ast.OpenStatement {
 	stmt := ast.OpenStatement{Token: p.curToken}
 
@@ -1339,17 +1339,21 @@ func (p *Parser) parseOpenStatement() *ast.OpenStatement {
 // parseOpenStatement found the mode, so we move on from there
 func (p *Parser) parseOpenStatementBrief(stmt *ast.OpenStatement) {
 
+	// if the mode parameter isn't followed by a comma
+	// it all becomes noise
 	if !strings.EqualFold(p.curToken.Literal, token.COMMA) {
 		p.parseNoise(&stmt.Noise)
 		return
 	}
 	p.nextToken()
 
+	// # before file number is optional
 	if strings.EqualFold(p.curToken.Literal, token.HASHTAG) {
 		stmt.FileNumSep = p.curToken.Literal
 		p.nextToken()
 	}
 
+	// evalutor will figure out if filenum is vlaid
 	stmt.FileNumber = ast.FileNumber{Token: p.curToken}
 	p.nextToken()
 
@@ -1364,11 +1368,14 @@ func (p *Parser) parseOpenStatementBrief(stmt *ast.OpenStatement) {
 	stmt.FileName = p.curToken.Literal
 	p.nextToken()
 
+	// if no comma, I'm either at end of statement
+	// or it is all noise
 	if !strings.EqualFold(p.curToken.Literal, token.COMMA) {
 		p.parseNoise(&stmt.Noise)
 		return
 	}
 
+	// pick up record length
 	p.nextToken()
 	stmt.RecLen = p.curToken.Literal
 }
@@ -1388,6 +1395,7 @@ func (p *Parser) parseOpenStatementVerbose(stmt *ast.OpenStatement) {
 	p.parseVerboseAccess(stmt)
 }
 
+// check for access mode
 func (p *Parser) parseVerboseAccess(stmt *ast.OpenStatement) {
 	if strings.EqualFold(p.curToken.Literal, token.ACCESS) {
 		p.nextToken()
@@ -1398,6 +1406,8 @@ func (p *Parser) parseVerboseAccess(stmt *ast.OpenStatement) {
 	p.parseVerboseLock(stmt)
 }
 
+// check for a lock mode, if the next token is the AS keyword
+// there is no lock mode
 func (p *Parser) parseVerboseLock(stmt *ast.OpenStatement) {
 	if !strings.EqualFold(p.curToken.Literal, token.AS) {
 		stmt.Lock = p.curToken.Literal
