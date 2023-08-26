@@ -993,7 +993,7 @@ func TestNextCommand(t *testing.T) {
 	}
 }
 
-func TestParseNoise(t *testing.T) {
+func TestParseTrash(t *testing.T) {
 	tests := []struct {
 		inp string
 		exp string
@@ -1008,10 +1008,10 @@ func TestParseNoise(t *testing.T) {
 		l := lexer.New(tt.inp)
 		p := New(l)
 		p.nextToken()
-		var noise []ast.NoiseStatement
-		p.parseNoise(&noise)
+		var Trash []ast.TrashStatement
+		p.parseTrash(&Trash)
 
-		assert.Equal(t, tt.exp, p.peekToken.Literal, "Noise stopped for wrong reason")
+		assert.Equal(t, tt.exp, p.peekToken.Literal, "Trash stopped for wrong reason")
 	}
 }
 

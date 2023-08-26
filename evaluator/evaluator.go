@@ -26,6 +26,13 @@ import (
 // Eval evaluates the current node in the AST.  It generally returns nil, but
 // it can return an error object or a halt object.
 func Eval(node ast.Node, code *ast.Code, env *object.Environment) object.Object {
+
+	trash := checkForTrash(node, env)
+	if trash != nil {
+		return trash
+	}
+
+	// node parsed correctly, evaluate it
 	switch node := node.(type) {
 	// Statements
 	case *ast.Program:
@@ -692,6 +699,7 @@ func evalStatements(code *ast.Code, env *object.Environment) object.Object {
 	ok := t > 0
 	// loop until you run out of code
 	for halt := false; ok && !halt; {
+
 		if code.Value() != nil {
 			rc = Eval(code.Value(), code, env)
 		} else {
@@ -1907,7 +1915,18 @@ func evalOnGoJump(ind int32, node *ast.OnGoStatement, code *ast.Code, env *objec
 // todo: support open device
 func evalOpenStatement(node *ast.OpenStatement, code *ast.Code, env *object.Environment) object.Object {
 	// get the target file name ()
-	fileserv.BuildFullPath(node.FileName, env)
+	//fullPath := fileserv.BuildFullPath(node.FileName, env)
+
+	if node.Verbose {
+		return evalVerboseOpen(node, code, env)
+	}
+	return nil
+}
+
+// it's gwbasic, so they have two statement formats to open a file
+// this is the verbose form
+func evalVerboseOpen(node *ast.OpenStatement, code *ast.Code, env *object.Environment) object.Object {
+	// any missing parameters, fill in the defaults
 	return nil
 }
 
@@ -2673,5 +2692,27 @@ func evalViewPrintRange(low, high int16, env *object.Environment) object.Object 
 }
 
 func evalViewStatement(stmt *ast.ViewStatement, code *ast.Code, env *object.Environment) object.Object {
+	return nil
+}
+
+// checkForTrash checks to see if the node has any trash
+func checkForTrash(node ast.Node, env *object.Environment) object.Object {
+
+	// get the actual node object
+	switch node := node.(type) {
+	default:
+		// does he have a TrashCan
+		tc, ok := node.(ast.TrashCan)
+		if ok {
+			// if there is trash in the can
+			// the node failed to parse correctly
+			if tc.HasTrash() {
+
+				// return a syntax error rather than try to execute the statement
+				return object.StdError(env, berrors.Syntax)
+			}
+		}
+	}
+
 	return nil
 }

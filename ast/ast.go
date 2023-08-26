@@ -28,6 +28,13 @@ type Expression interface {
 	expressionNode()
 }
 
+// TrashCan defines interface for all nodes that store parser trash
+// This allows the evaluation loop to catch when ast.Node has trash
+// and simply return a syntax error.
+type TrashCan interface {
+	HasTrash() bool
+}
+
 // AutoCommand turns on automatic line numbering during entry
 // it comes in two forms
 // AUTO [line number][,[increment]]
@@ -961,21 +968,21 @@ func (hc *HexConstant) String() string {
 	return out.String()
 }
 
-// NoiseStatement holds stuff the parser couldn't make sense out of
-type NoiseStatement struct {
+// TrashStatement holds stuff the parser couldn't make sense out of
+type TrashStatement struct {
 	Token token.Token
 }
 
-func (nse *NoiseStatement) statementNode()       {}
-func (nse *NoiseStatement) TokenLiteral() string { return nse.Token.Literal }
+func (nse *TrashStatement) statementNode()       {}
+func (nse *TrashStatement) TokenLiteral() string { return nse.Token.Literal }
 
-func (nse *NoiseStatement) String() string { return nse.Token.Literal }
+func (nse *TrashStatement) String() string { return nse.Token.Literal }
 
-func Noise(noises []NoiseStatement) string {
+func Trash(Trashes []TrashStatement) string {
 	var out bytes.Buffer
 
-	for _, noise := range noises {
-		out.WriteString(` ` + noise.String())
+	for _, Trash := range Trashes {
+		out.WriteString(` ` + Trash.String())
 	}
 
 	return out.String()
@@ -1007,21 +1014,23 @@ func (oc *OctalConstant) String() string {
 // OPEN mode,[#]file number,filename[,reclen]
 
 type OpenStatement struct {
-	Token    token.Token // OPEN
-	FileName string      // filename to open
+	Token      token.Token // OPEN
+	FileName   string      // filename to open
+	FQFileName string      // fully qualified filename
 	//	FileNameSep string           // seperator before FileName
 	FileNumber FileNumber       // file number associated with file
 	FileNumSep string           // seperator before FileNum
 	Mode       string           // access mode, read, write append...
 	Access     string           //	read, write, or read/write
 	Lock       string           // access for other processes, share mode
-	Noise      []NoiseStatement // Stuff I was unable to parse
+	Trash      []TrashStatement // Stuff I was unable to parse
 	RecLen     string           // record length for fixed len records
 	Verbose    bool             // true means the long syntax version of open
 }
 
 func (opn *OpenStatement) statementNode()       {}
 func (opn *OpenStatement) TokenLiteral() string { return opn.Token.Literal }
+func (opn *OpenStatement) HasTrash() bool       { return len(opn.Trash) > 0 }
 
 func (opn *OpenStatement) String() string {
 	var out bytes.Buffer
@@ -1074,8 +1083,8 @@ func (opn *OpenStatement) String() string {
 		}
 	}
 
-	// if there was any noise tokens, print them
-	out.WriteString(Noise(opn.Noise))
+	// if there was any Trash tokens, print them
+	out.WriteString(Trash(opn.Trash))
 	return out.String()
 }
 

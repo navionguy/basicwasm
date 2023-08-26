@@ -1511,8 +1511,12 @@ func Test_OnGoStatement(t *testing.T) {
 func Test_OpenStatement(t *testing.T) {
 	tests := []struct {
 		inp string
+		exp object.Object
 	}{
 		{inp: `10 OPEN "test.dat" FOR OUTPUT AS #1`},
+		// test his trash detection
+		{inp: `60 open "test3.out" FOR OUTPUT ACCESS WRITE LOCK READ AS #3 LEN = 128`,
+			exp: &object.Error{Message: "Syntax error in 60", Code: 2}},
 	}
 
 	for _, tt := range tests {
@@ -1532,7 +1536,11 @@ func Test_OpenStatement(t *testing.T) {
 		rc := Eval(&ast.Program{}, code, env)
 		env.SetRun(false)
 
-		assert.Nil(t, nil, "got %T back", rc)
+		if tt.exp == nil {
+			assert.Nil(t, rc, "got %T back", rc)
+		} else {
+			assert.Equal(t, rc, tt.exp)
+		}
 
 	}
 }

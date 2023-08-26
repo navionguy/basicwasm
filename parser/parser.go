@@ -1212,11 +1212,11 @@ func (p *Parser) parseNextStatement() *ast.NextStatement {
 
 // parser can't make sense of the input
 // just soak up all the tokens until the next statement
-func (p *Parser) parseNoise(noise *[]ast.NoiseStatement) {
+func (p *Parser) parseTrash(Trash *[]ast.TrashStatement) {
 
 	for {
 		if !p.atEndOfStatement() {
-			*noise = append(*noise, ast.NoiseStatement{Token: token.Token{Literal: p.curToken.Literal}})
+			*Trash = append(*Trash, ast.TrashStatement{Token: token.Token{Literal: p.curToken.Literal}})
 		}
 
 		if p.chkEndOfStatement() {
@@ -1340,9 +1340,9 @@ func (p *Parser) parseOpenStatement() *ast.OpenStatement {
 func (p *Parser) parseOpenStatementBrief(stmt *ast.OpenStatement) {
 
 	// if the mode parameter isn't followed by a comma
-	// it all becomes noise
+	// it all becomes Trash
 	if !strings.EqualFold(p.curToken.Literal, token.COMMA) {
-		p.parseNoise(&stmt.Noise)
+		p.parseTrash(&stmt.Trash)
 		return
 	}
 	p.nextToken()
@@ -1358,7 +1358,7 @@ func (p *Parser) parseOpenStatementBrief(stmt *ast.OpenStatement) {
 	p.nextToken()
 
 	if !strings.EqualFold(p.curToken.Literal, token.COMMA) {
-		p.parseNoise(&stmt.Noise)
+		p.parseTrash(&stmt.Trash)
 		return
 	}
 	p.nextToken()
@@ -1369,9 +1369,9 @@ func (p *Parser) parseOpenStatementBrief(stmt *ast.OpenStatement) {
 	p.nextToken()
 
 	// if no comma, I'm either at end of statement
-	// or it is all noise
+	// or it is all Trash
 	if !strings.EqualFold(p.curToken.Literal, token.COMMA) {
-		p.parseNoise(&stmt.Noise)
+		p.parseTrash(&stmt.Trash)
 		return
 	}
 
@@ -1430,15 +1430,15 @@ func (p *Parser) parseVerboseLock(stmt *ast.OpenStatement) {
 }
 
 // parseVerboseLen looks for a "LEN=nnn" modifier on the open
-// it then calls parseNoise to hoover up any left over tokens
+// it then calls parseTrash to hoover up any left over tokens
 func (p *Parser) parseVerboseLen(stmt *ast.OpenStatement) {
 	// if there is a length parameter, consume it
 	if strings.EqualFold(p.curToken.Literal, token.LEN) {
 		p.nextToken()
 
 		if !strings.EqualFold(p.curToken.Literal, `=`) {
-			stmt.Noise = append(stmt.Noise, ast.NoiseStatement{Token: token.Token{Type: token.LEN}})
-			p.parseNoise(&stmt.Noise)
+			stmt.Trash = append(stmt.Trash, ast.TrashStatement{Token: token.Token{Type: token.LEN}})
+			p.parseTrash(&stmt.Trash)
 			return
 		}
 		p.nextToken()
@@ -1446,8 +1446,8 @@ func (p *Parser) parseVerboseLen(stmt *ast.OpenStatement) {
 		p.nextToken()
 	}
 
-	// call parseNoise to consume any left over tokens in the statement
-	p.parseNoise(&stmt.Noise)
+	// call parseTrash to consume any left over tokens in the statement
+	p.parseTrash(&stmt.Trash)
 }
 
 // adjust the screen color palette as directed

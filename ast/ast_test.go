@@ -1080,13 +1080,13 @@ func Test_NextStatement(t *testing.T) {
 	}
 }
 
-func Test_NoiseStatement(t *testing.T) {
-	noise := NoiseStatement{Token: token.Token{Literal: "Noise"}}
+func Test_TrashStatement(t *testing.T) {
+	trash := TrashStatement{Token: token.Token{Literal: "Trash"}}
 
-	noise.statementNode()
+	trash.statementNode()
 
-	assert.Equal(t, "Noise", noise.TokenLiteral(), "noise literal is just wrong")
-	assert.Equal(t, "Noise", noise.String(), "noise string is just wrong")
+	assert.Equal(t, "Trash", trash.TokenLiteral(), "trash literal is just wrong")
+	assert.Equal(t, "Trash", trash.String(), "trash string is just wrong")
 }
 
 func Test_OffExpression(t *testing.T) {
@@ -1128,24 +1128,24 @@ func Test_OpenStatement(t *testing.T) {
 			Mode:       `R`,
 			FileNumSep: `#`,
 			FileNumber: FileNumber{Numbr: &IntegerLiteral{Value: 37}},
-			FileName:   `noiseyname`,
+			FileName:   `trashyname`,
 			RecLen:     `256`,
-			Noise:      []NoiseStatement{{Token: token.Token{Literal: "bad stuff"}}}},
-			exp: `OPEN R, #37, "noiseyname",256 bad stuff`,
+			Trash:      []TrashStatement{{Token: token.Token{Literal: "bad stuff"}}}},
+			exp: `OPEN R, #37, "trashyname",256 bad stuff`,
 		},
 		{open: OpenStatement{Token: token.Token{Literal: "OPEN"},
 			Verbose:    false,
 			Mode:       `R`,
 			FileNumber: FileNumber{Numbr: &IntegerLiteral{Value: 38}},
-			FileName:   `noiseyname`,
+			FileName:   `trashyname`,
 			RecLen:     `256`,
-			Noise:      []NoiseStatement{{Token: token.Token{Literal: "bad stuff"}}}},
-			exp: `OPEN R, 38, "noiseyname",256 bad stuff`,
+			Trash:      []TrashStatement{{Token: token.Token{Literal: "bad stuff"}}}},
+			exp: `OPEN R, 38, "trashyname",256 bad stuff`,
 		},
 
 		// test verbose
 		{open: OpenStatement{Token: token.Token{Literal: "OPEN"},
-			Noise: []NoiseStatement{{Token: token.Token{Literal: "filename"}}}, Verbose: true},
+			Trash: []TrashStatement{{Token: token.Token{Literal: "filename"}}}, Verbose: true},
 			exp: `OPEN "" filename`},
 		{open: OpenStatement{Token: token.Token{Literal: "OPEN"},
 			FileName: "real.dat", Verbose: true},
@@ -1165,6 +1165,12 @@ func Test_OpenStatement(t *testing.T) {
 
 	for _, tt := range tests {
 		tt.open.statementNode()
+
+		if len(tt.open.Trash) > 0 {
+			assert.Truef(t, tt.open.HasTrash(), "incorrectly reported trash", tt.exp)
+		} else {
+			assert.Falsef(t, tt.open.HasTrash(), "incorrectly reported no trash", tt.exp)
+		}
 
 		assert.EqualValues(t, "OPEN", tt.open.TokenLiteral(), "OPEN literal is incorrect")
 		assert.EqualValues(t, tt.exp, tt.open.String(), "OPEN string is incorrect")

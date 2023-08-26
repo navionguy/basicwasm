@@ -90,8 +90,9 @@ const (
 
 // in-memory implementation of data files
 type aFile struct {
-	mode int          // access mode for file
-	data bytes.Buffer // the local storage for the file
+	fullpath string       // full url for requesting the file
+	mode     int          // access mode for file
+	data     bytes.Buffer // the local storage for the file
 }
 
 // Environment holds my variables and possibly an outer environment
@@ -99,7 +100,7 @@ type Environment struct {
 	ForLoops []ForBlock           // any For Loops that are active
 	store    map[string]*variable // variables and other program data
 	common   map[string]*variable // variables that live through a CHAIN
-	files    map[int16]*aFile     // currently open files
+	files    map[int16]*aFile     // currently open files by file number
 	dir      map[string]*aFile    // locally cached files by full name
 	settings map[string]ast.Node  // environment settings
 	readOnly map[string]bool      // my read only environment variables
@@ -132,6 +133,7 @@ func NewEnclosedEnvironment(outer *Environment) *Environment {
 func newEnvironment() *Environment {
 	e := &Environment{settings: make(map[string]ast.Node)}
 	e.dir = make(map[string]*aFile)
+	e.files = make(map[int16]*aFile)
 	e.ClearCommon()
 	e.CloseAllFiles()
 	e.ClearVars()
