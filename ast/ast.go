@@ -1014,9 +1014,8 @@ func (oc *OctalConstant) String() string {
 // OPEN mode,[#]file number,filename[,reclen]
 
 type OpenStatement struct {
-	Token      token.Token // OPEN
-	FileName   string      // filename to open
-	FQFileName string      // fully qualified filename
+	Token    token.Token // OPEN
+	FileName string      // filename to open
 	//	FileNameSep string           // seperator before FileName
 	FileNumber FileNumber       // file number associated with file
 	FileNumSep string           // seperator before FileNum

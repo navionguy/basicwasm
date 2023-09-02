@@ -1,7 +1,6 @@
 package object
 
 import (
-	"bytes"
 	"math/rand"
 	"net/http"
 	"strings"
@@ -87,13 +86,6 @@ const (
 	rndFile
 	apndFile
 )
-
-// in-memory implementation of data files
-type aFile struct {
-	fullpath string       // full url for requesting the file
-	mode     int          // access mode for file
-	data     bytes.Buffer // the local storage for the file
-}
 
 // Environment holds my variables and possibly an outer environment
 type Environment struct {

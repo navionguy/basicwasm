@@ -163,7 +163,7 @@ func Eval(node ast.Node, code *ast.Code, env *object.Environment) object.Object 
 		return evalOnGoStatement(node, code, env)
 
 	case *ast.OpenStatement:
-		return evalOpenStatement(node, code, env)
+		return evalOpenStatement(*node, code, env)
 
 	case *ast.PrintStatement:
 		return evalPrintStatement(node, code, env)
@@ -1913,12 +1913,12 @@ func evalOnGoJump(ind int32, node *ast.OnGoStatement, code *ast.Code, env *objec
 
 // opens a data file
 // todo: support open device
-func evalOpenStatement(node *ast.OpenStatement, code *ast.Code, env *object.Environment) object.Object {
+func evalOpenStatement(node ast.OpenStatement, code *ast.Code, env *object.Environment) object.Object {
 	// get the target file name ()
-	//fullPath := fileserv.BuildFullPath(node.FileName, env)
+	node.FileName = fileserv.BuildFullPath(node.FileName, env)
 
 	if node.Verbose {
-		return evalVerboseOpen(node, code, env)
+		return evalVerboseOpen(&node, code, env)
 	}
 	return nil
 }
@@ -1927,6 +1927,33 @@ func evalOpenStatement(node *ast.OpenStatement, code *ast.Code, env *object.Envi
 // this is the verbose form
 func evalVerboseOpen(node *ast.OpenStatement, code *ast.Code, env *object.Environment) object.Object {
 	// any missing parameters, fill in the defaults
+	if len(node.Mode) == 0 {
+		node.Mode = token.RANDOM
+	}
+
+	if len(node.Access) == 0 {
+		node.Access = token.READ + " " + token.WRITE
+	}
+
+	if len(node.RecLen) == 0 {
+		node.RecLen = "128"
+	}
+	return nil
+}
+
+// fill in defaults as need for concise form of open
+func evalConciseOpen(node *ast.OpenStatement, code *ast.Code, env *object.Environment) object.Object {
+	// any missing parameters, fill in the defaults
+	if len(node.Mode) == 0 {
+		node.Mode = "R"
+	}
+
+	node.Access = token.READ + " " + token.WRITE
+
+	if len(node.RecLen) == 0 {
+		node.RecLen = "128"
+	}
+
 	return nil
 }
 
@@ -2707,7 +2734,6 @@ func checkForTrash(node ast.Node, env *object.Environment) object.Object {
 			// if there is trash in the can
 			// the node failed to parse correctly
 			if tc.HasTrash() {
-
 				// return a syntax error rather than try to execute the statement
 				return object.StdError(env, berrors.Syntax)
 			}
