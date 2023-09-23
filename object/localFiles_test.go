@@ -3,6 +3,7 @@ package object
 import (
 	"testing"
 
+	"github.com/navionguy/basicwasm/mocks"
 	"github.com/stretchr/testify/assert"
 )
 
@@ -14,23 +15,34 @@ func Test_CreateFileStore(t *testing.T) {
 
 func Test_OpenFile(t *testing.T) {
 	tests := []struct {
-		inp  string
-		inp2 string
-		exp  bool
+		inp   string
+		inp2  string
+		lock2 bool
+		fail  bool
 	}{
-		{inp: "driveC/data.txt", inp2: "driveC/data.txt", exp: true},
-		{inp: "driveC/data.txt", exp: false},
+		{inp: "driveC/data.txt", inp2: "driveC/data.txt"},
+		{inp: "driveC/data.txt", inp2: "driveC/data.txt", lock2: true},
+		{inp: "driveC/data.txt", fail: true},
 	}
 
 	for _, tt := range tests {
 		lf := CreateFileStore()
 
 		if len(tt.inp2) > 0 {
-			af := aFile{}
+			af := aFile{locked: tt.lock2}
 			lf.localFiles[tt.inp2] = &af
 		}
 
-		assert.Equal(t, tt.exp, lf.CheckLocal(tt.inp))
+		var mt mocks.MockTerm
+		//initMockTerm(&mt)
+		env := NewTermEnvironment(mt)
+		file, _ := lf.OpenLocalReadOnly(tt.inp, env)
+
+		if tt.fail {
+			assert.Nil(t, file, "OpenFile didn't fail")
+		} else {
+			assert.NotNil(t, file, "OpenFile didn't succeed")
+		}
 
 	}
 }

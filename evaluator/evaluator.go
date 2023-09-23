@@ -1938,6 +1938,7 @@ func evalVerboseOpen(node *ast.OpenStatement, code *ast.Code, env *object.Enviro
 	if len(node.RecLen) == 0 {
 		node.RecLen = "128"
 	}
+
 	return nil
 }
 
