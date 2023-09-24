@@ -166,6 +166,7 @@ func TestAutoCommand(t *testing.T) {
 		{inp: "AUTO ., 20", strt: ast.DblIntegerLiteral{Value: 10}, step: ast.DblIntegerLiteral{Value: 20}},
 		{inp: "AUTO 10, 20, 50", err: true},
 		{inp: "AUTO 10.5, 20", strt: ast.DblIntegerLiteral{Value: 11}, step: ast.DblIntegerLiteral{Value: 20}},
+		{inp: "AUTO 32770,20", strt: ast.DblIntegerLiteral{Value: 32770}, step: ast.DblIntegerLiteral{Value: 20}},
 	}
 
 	for _, tt := range tests {
@@ -406,6 +407,32 @@ func Test_ChDirStatement(t *testing.T) {
 		if len(tt.rpath) > 0 {
 			assert.EqualValues(t, tt.rpath, ts.Requests[0], "Server request badly formed!")
 		}
+	}
+}
+
+func Test_coerceDblInteger(t *testing.T) {
+	tests := []struct {
+		obj object.Object
+		res int32
+		err object.Object
+	}{
+		{obj: &object.Integer{Value: 32765}, res: 32765},
+		{obj: &object.IntDbl{Value: 32770}, res: 32770},
+		{obj: &object.Fixed{Value: decimal.NewFromInt32(100)}, res: 100},
+		{obj: &object.FloatSgl{Value: 32766.8}, res: 32767},
+		{obj: &object.FloatDbl{Value: 32766.8}, res: 32767},
+		{obj: &object.String{Value: "error"}, err: &object.Error{Message: "Syntax error", Code: 2}},
+	}
+
+	for _, tt := range tests {
+		var mt mocks.MockTerm
+		initMockTerm(&mt)
+		env := object.NewTermEnvironment(mt)
+
+		res, err := coerceDblInteger(tt.obj, env)
+
+		assert.Equal(t, tt.err, err, "coerceDblInteger returned unexpected error")
+		assert.Equal(t, tt.res, res, "coerceDblInteger returned wrong result")
 	}
 }
 

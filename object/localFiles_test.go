@@ -17,11 +17,11 @@ func Test_OpenFile(t *testing.T) {
 	tests := []struct {
 		inp   string
 		inp2  string
-		lock2 bool
+		lock2 LockMode
 		fail  bool
 	}{
 		{inp: "driveC/data.txt", inp2: "driveC/data.txt"},
-		{inp: "driveC/data.txt", inp2: "driveC/data.txt", lock2: true},
+		{inp: "driveC/data.txt", inp2: "driveC/data.txt", lock2: LockRead},
 		{inp: "driveC/data.txt", fail: true},
 	}
 

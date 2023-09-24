@@ -2530,6 +2530,8 @@ func coerceDblInteger(idx object.Object, env *object.Environment) (int32, object
 	switch fx := idx.(type) {
 	case *object.Integer:
 		return int32(fx.Value), nil
+	case *object.IntDbl:
+		return fx.Value, nil
 	case *object.Fixed:
 		fx2 := fx.Value.Round(0)
 		ti := fx2.IntPart()
