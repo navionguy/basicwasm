@@ -2,8 +2,6 @@ package object
 
 import (
 	"io"
-
-	"github.com/navionguy/basicwasm/berrors"
 )
 
 type LockMode int
@@ -45,9 +43,14 @@ type LocalFiles struct {
 	localFiles map[string]*aFile // maps the FQ filename to an aFile struct
 }
 
+var lf LocalFiles // files stored in locally and open local files
+
 // CreateFileStore initializes all of his internal data
 func CreateFileStore() *LocalFiles {
-	lf := LocalFiles{}
+	// if already created, return it
+	if lf.openFiles != nil {
+		return &lf
+	}
 
 	// create my two maps
 	lf.openFiles = make(map[int]*aFile)
@@ -56,40 +59,38 @@ func CreateFileStore() *LocalFiles {
 	return &lf
 }
 
-// Give the execution layer read only access to the files data
-func (lf *LocalFiles) OpenLocalReadOnly(FQFilename string, env *Environment) (io.ByteReader, Object) {
-	ofl, err := lf.OpenLocal(FQFilename, env)
-
-	if err != nil {
-		return nil, err
-	}
-
-	return ofl, nil
+// Give the fileserve layer read only access to the files data
+// If the file has not been fetched from the server
+func (lf *LocalFiles) OpenLocalReadOnly(FQFilename string, env *Environment) io.ByteReader {
+	return lf.OpenLocal(FQFilename, env)
 }
 
-func (lf *LocalFiles) OpenLocalWriteOnly(FQFilename string, env *Environment) (io.ByteWriter, Object) {
-	ofl, err := lf.OpenLocal(FQFilename, env)
-
-	if err != nil {
-		return nil, err
-	}
-
-	return ofl, nil
+// Give the fileserve layer write only access to the files data
+func (lf *LocalFiles) OpenLocalWriteOnly(FQFilename string, env *Environment) io.ByteWriter {
+	return lf.OpenLocal(FQFilename, env)
 }
 
 // OpenLocal takes a filename and if successful returns an oFile object
 // if not successful, returns an Error object
 // if the file is not currently local, it will try to download it from
 // our server and push it into the local store
-func (lf *LocalFiles) OpenLocal(FQFilename string, env *Environment) (*oFile, Object) {
+func (lf *LocalFiles) OpenLocal(FQFilename string, env *Environment) *oFile {
 	fl := lf.localFiles[FQFilename]
 
 	if fl != nil {
 		of := oFile{file: fl}
-		return &of, nil
+		return &of
 	}
 
-	return nil, StdError(env, berrors.FileNotFound)
+	return nil
+}
+
+// FetchFile calls out to the backend server and tries to download
+// the requested file.
+// If the fetch fails, he returns an error object.
+// Otherwise, returns a pointer to the open file.
+func (lf *LocalFiles) fetchFile(name string, env *Environment) Object {
+	return nil
 }
 
 // CloseFile close the file indicated by the file number

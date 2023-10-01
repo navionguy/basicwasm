@@ -102,10 +102,11 @@ func (fs *fileSource) wrapSource(rtr *mux.Router, path string, mimetype string) 
 
 // Since the gorilla mux doesn't support wildcard routes I have to map
 // all the possibilities independantly.
-// 		http://hostname:port/driveC
-// 		http://hostname:port/driveC/
-// 		http://hostname:port/driveC/program
-// 		http://hostname:port/driveC/program.ext
+//
+//	http://hostname:port/driveC
+//	http://hostname:port/driveC/
+//	http://hostname:port/driveC/program
+//	http://hostname:port/driveC/program.ext
 func (fs *fileSource) fullyWrapSource(rtr *mux.Router, path string) {
 	fs.wrapSource(rtr, path, "text/plain; charset=ASCII")
 	fs.wrapSource(rtr, path+"/", "text/plain; charset=ASCII")
@@ -115,7 +116,6 @@ func (fs *fileSource) fullyWrapSource(rtr *mux.Router, path string) {
 
 // After wrapping a directory, I want to wrap any sub-directories
 // he might have.
-//
 func (fs *fileSource) wrapSubDirs(rtr *mux.Router, dir string, path string) {
 	hfile, err := fs.src.Open("/")
 
@@ -141,7 +141,6 @@ func (fs *fileSource) wrapSubDirs(rtr *mux.Router, dir string, path string) {
 // loops through filenames looking for directories
 // wraps the directories and then calls wrapSubDirs on them
 // to understand recursion, you must understand recursion
-//
 func (fs fileSource) wrapADir(rtr *mux.Router, dir string, path string, files []os.FileInfo) {
 	for _, finfo := range files {
 		if containsDotFile(finfo.Name()) {
@@ -175,7 +174,6 @@ func (fs fileSource) wrapADir(rtr *mux.Router, dir string, path string, files []
 }
 
 // serveFile opens up the file and sends its contents
-//
 func (fs fileSource) serveFile(w http.ResponseWriter, r *http.Request, fname string, mimetype string) {
 	//fmt.Printf("serveFile %s\n", fname)
 	if len(fname) == 0 {
@@ -291,7 +289,7 @@ func (f dotFileHidingFile) Readdir(n int) (fis []os.FileInfo, err error) {
 // Functions below here are used in the interpreter to request files from the file handlers defined above
 // and to work with the files to process them
 
-// GetFile fetches
+// GetFile fetches a file from the remote server
 func GetFile(file string, env *object.Environment) (*bufio.Reader, object.Object) {
 	rq := buildRequestURL(file, env)
 	t := env.Terminal()
@@ -414,9 +412,12 @@ func SetCWD(path string, env *object.Environment) object.Object {
 }
 
 // convert from:
-//		C:\DIRNAME\FILENAME.EXT
+//
+//	C:\DIRNAME\FILENAME.EXT
+//
 // to
-//		driveC/DIRNAME/FILENAME.EXT
+//
+//	driveC/DIRNAME/FILENAME.EXT
 func convertDrive(target, cwd string) string {
 	if len(target) == 0 {
 		cwd = strings.ReplaceAll(cwd, `\`, "/")

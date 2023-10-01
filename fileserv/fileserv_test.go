@@ -20,6 +20,153 @@ import (
 	"github.com/stretchr/testify/assert"
 )
 
+func Test_ContainsDotFile(t *testing.T) {
+	tests := []struct {
+		name   string
+		expect bool
+	}{
+		{name: "menu.bas", expect: false},
+		{name: ".gitignore", expect: true},
+		{name: "html/../main.html", expect: true},
+	}
+
+	for _, tt := range tests {
+		if containsDotFile(tt.name) != tt.expect {
+			t.Fatalf("%s should have gotten %T but got %T\n", tt.name, tt.expect, containsDotFile(tt.name))
+		}
+	}
+}
+
+func Test_Open(t *testing.T) {
+	tests := []struct {
+		name string
+		want string
+		fail bool
+	}{
+		{name: ".gitignore", fail: true},
+		{name: "menu", want: "menu", fail: false},
+		{name: "menu", want: "hello", fail: true},
+	}
+
+	for _, tt := range tests {
+		ifs := mocks.MockFS{File: tt.want}
+		ifs.Events = make(map[string]bool)
+
+		fs := fileSource{src: ifs}
+
+		_, err := fs.Open(tt.name)
+		if (err != nil) != tt.fail {
+			t.Fatalf("Open(%s) should have gotten %T but got %T\n", tt.name, tt.fail, (err != nil))
+		}
+	}
+}
+
+func Test_SendDirectory(t *testing.T) {
+	tests := []struct {
+		files []string
+		want  string
+		mtype string
+		res   int
+	}{
+		{files: []string{"hello.bas", "menu.bas"}, want: "", res: 404},
+		{files: []string{"hello.bas", ".gitignore", "menu.bas"}, want: `[{"name":"hello.bas","isdir":false},{"name":"menu.bas","isdir":false}]`, res: 200},
+		{files: []string{"hello.bas", "menu.bas"}, want: `[{"name":"hello.bas","isdir":false},{"name":"menu.bas","isdir":false}]`, res: 200},
+	}
+
+	for _, tt := range tests {
+		fs := mocks.MockFS{Err: tt.res}
+		fs.Events = make(map[string]bool)
+		for _, tf := range tt.files {
+			fs.Names = append(fs.Names, tf)
+		}
+		ffs := fileSource{}
+		df := dotFileHidingFile{fs}
+		rr := httptest.NewRecorder()
+
+		ffs.sendDirectory(df, rr)
+
+		bufstr := validateResult(t, rr, tt.res, tt.mtype)
+		assert.EqualValues(t, bufstr, tt.want, "got result %s\n wanted %s\n", bufstr, tt.want)
+	}
+}
+
+func Test_ServeFile(t *testing.T) {
+	tests := []struct {
+		testid  string
+		fname   string
+		ftext   string
+		mtype   string
+		res     int
+		want    string
+		statErr bool
+		readErr bool
+		files   []string
+	}{
+		{testid: "read fail", fname: "hello.bas", mtype: "text/plain; charset=ASCII", res: 503, want: "", readErr: true},
+		{testid: "dir", fname: "/", mtype: "application/json", res: 200,
+			want:  `[{"name":"hello.bas","isdir":false},{"name":"test.bas","isdir":false},{"name":"menu.bas","isdir":false}]`,
+			ftext: `[{"name":"hello.bas","isdir":false},{"name":"test.bas","isdir":false},{"name":"menu.bas","isdir":false}]`,
+			files: []string{"hello.bas", "test.bas", "menu.bas"}},
+		{testid: "stat Error", fname: "hello.bas", res: 500, want: "", statErr: true},
+		{testid: "file not found", fname: "hello.bas", res: 404, want: ""},
+		{testid: "read from root", fname: "/", res: 200, mtype: "text/plain; charset=ASCII", want: "/", ftext: "/"},
+		{testid: "read file", fname: "hello.bas", mtype: "text/plain; charset=ASCII", res: 200, want: "hello.bas", ftext: "hello.bas"},
+		{testid: "read prog", fname: `hello.bas`, mtype: "text/plain; charset=ASCII", res: 200, want: `10 PRINT "Hello"`, ftext: `10 PRINT "Hello"`},
+	}
+
+	for _, tt := range tests {
+		fs := mocks.MockFS{File: tt.fname, Err: tt.res, StatErr: tt.statErr, ReadErr: &tt.readErr, Content: tt.ftext}
+		fs.Events = make(map[string]bool)
+		for _, name := range tt.files {
+			fs.Names = append(fs.Names, name)
+		}
+		// setup certain errors
+		if len(tt.fname) == 0 {
+			fs.File = tt.fname // empty name should be treated as root
+		}
+		if tt.res == 404 {
+			fs.File = "" // no known files throws an error
+		}
+
+		rr := httptest.NewRecorder()
+		src := fileSource{src: fs}
+		req, err := http.NewRequest("GET", tt.fname, nil)
+		assert.Nilf(t, err, "Build rqst failed")
+		src.serveFile(rr, req, tt.fname, tt.mtype)
+
+		if rr.Result().StatusCode != tt.res {
+			t.Fatalf("got status %d wanted %d\n", rr.Result().StatusCode, tt.res)
+		}
+
+		bufstr := validateResult(t, rr, tt.res, tt.mtype)
+
+		if strings.Compare(bufstr, tt.want) != 0 {
+			t.Fatalf("got result: %s\nwanted : %s\n", bufstr, tt.want)
+		}
+	}
+}
+
+func validateResult(t *testing.T, rr *httptest.ResponseRecorder, rc int, mtype string) string {
+	if rr.Result().StatusCode != rc {
+		t.Fatalf("got status %d wanted %d\n", rr.Result().StatusCode, rc)
+	}
+
+	if rr.Body.Len() == 0 {
+		return ""
+	}
+
+	buf := make([]byte, rr.Body.Len())
+	_, err := io.ReadFull(rr.Body, buf)
+
+	assert.Nil(t, err, "validate result got an error trying to read body\n")
+
+	if len(mtype) > 0 {
+		assert.Equal(t, mtype, rr.HeaderMap.Get("content-type"), "expected mime type %s, got %s", mtype, rr.HeaderMap.Get("content-type"))
+	}
+
+	return string(buf)
+}
+
 func Test_WrapSource(t *testing.T) {
 	rt := mux.NewRouter()
 	fs := fileSource{src: http.Dir("../source")}
@@ -91,153 +238,6 @@ func Test_WrapFileSources(t *testing.T) {
 	}
 }
 
-func Test_ContainsDotFile(t *testing.T) {
-	tests := []struct {
-		name   string
-		expect bool
-	}{
-		{name: "menu.bas", expect: false},
-		{name: ".gitignore", expect: true},
-		{name: "html/../main.html", expect: true},
-	}
-
-	for _, tt := range tests {
-		if containsDotFile(tt.name) != tt.expect {
-			t.Fatalf("%s should have gotten %T but got %T\n", tt.name, tt.expect, containsDotFile(tt.name))
-		}
-	}
-}
-
-func Test_Open(t *testing.T) {
-	tests := []struct {
-		name string
-		want string
-		fail bool
-	}{
-		{name: ".gitignore", fail: true},
-		{name: "menu", want: "menu", fail: false},
-		{name: "menu", want: "hello", fail: true},
-	}
-
-	for _, tt := range tests {
-		ifs := mocks.MockFS{File: tt.want}
-		ifs.Events = make(map[string]bool)
-
-		fs := fileSource{src: ifs}
-
-		_, err := fs.Open(tt.name)
-		if (err != nil) != tt.fail {
-			t.Fatalf("Open(%s) should have gotten %T but got %T\n", tt.name, tt.fail, (err != nil))
-		}
-	}
-}
-
-func Test_SendDirectory(t *testing.T) {
-	tests := []struct {
-		files []string
-		want  string
-		mtype string
-		res   int
-	}{
-		{files: []string{"hello.bas", "menu.bas"}, want: "", res: 404},
-		{files: []string{"hello.bas", ".gitignore", "menu.bas"}, want: `[{"name":"hello.bas","isdir":false},{"name":"menu.bas","isdir":false}]`, res: 200},
-		{files: []string{"hello.bas", "menu.bas"}, want: `[{"name":"hello.bas","isdir":false},{"name":"menu.bas","isdir":false}]`, res: 200},
-	}
-
-	for _, tt := range tests {
-		fs := mocks.MockFS{Err: tt.res}
-		fs.Events = make(map[string]bool)
-		for _, tf := range tt.files {
-			fs.Names = append(fs.Names, tf)
-		}
-		ffs := fileSource{}
-		df := dotFileHidingFile{fs}
-		rr := httptest.NewRecorder()
-
-		ffs.sendDirectory(df, rr)
-
-		bufstr := validateResult(t, rr, tt.res, tt.mtype)
-		assert.EqualValues(t, bufstr, tt.want, "got result %s\n wanted %s\n", bufstr, tt.want)
-	}
-}
-
-func validateResult(t *testing.T, rr *httptest.ResponseRecorder, rc int, mtype string) string {
-	if rr.Result().StatusCode != rc {
-		t.Fatalf("got status %d wanted %d\n", rr.Result().StatusCode, rc)
-	}
-
-	if rr.Body.Len() == 0 {
-		return ""
-	}
-
-	buf := make([]byte, rr.Body.Len())
-	_, err := io.ReadFull(rr.Body, buf)
-
-	assert.Nil(t, err, "validate result got an error trying to read body\n")
-
-	if len(mtype) > 0 {
-		assert.Equal(t, mtype, rr.HeaderMap.Get("content-type"), "expected mime type %s, got %s", mtype, rr.HeaderMap.Get("content-type"))
-	}
-
-	return string(buf)
-}
-
-func Test_ServeFile(t *testing.T) {
-	tests := []struct {
-		testid  string
-		fname   string
-		ftext   string
-		mtype   string
-		res     int
-		want    string
-		statErr bool
-		readErr bool
-		files   []string
-	}{
-		{testid: "read fail", fname: "hello.bas", mtype: "text/plain; charset=ASCII", res: 503, want: "", readErr: true},
-		{testid: "dir", fname: "/", mtype: "application/json", res: 200,
-			want:  `[{"name":"hello.bas","isdir":false},{"name":"test.bas","isdir":false},{"name":"menu.bas","isdir":false}]`,
-			ftext: `[{"name":"hello.bas","isdir":false},{"name":"test.bas","isdir":false},{"name":"menu.bas","isdir":false}]`,
-			files: []string{"hello.bas", "test.bas", "menu.bas"}},
-		{testid: "stat Error", fname: "hello.bas", res: 500, want: "", statErr: true},
-		{testid: "file not found", fname: "hello.bas", res: 404, want: ""},
-		{testid: "read from root", fname: "/", res: 200, mtype: "text/plain; charset=ASCII", want: "/", ftext: "/"},
-		{testid: "read file", fname: "hello.bas", mtype: "text/plain; charset=ASCII", res: 200, want: "hello.bas", ftext: "hello.bas"},
-		{testid: "read prog", fname: `hello.bas`, mtype: "text/plain; charset=ASCII", res: 200, want: `10 PRINT "Hello"`, ftext: `10 PRINT "Hello"`},
-	}
-
-	for _, tt := range tests {
-		fs := mocks.MockFS{File: tt.fname, Err: tt.res, StatErr: tt.statErr, ReadErr: &tt.readErr, Content: tt.ftext}
-		fs.Events = make(map[string]bool)
-		for _, name := range tt.files {
-			fs.Names = append(fs.Names, name)
-		}
-		// setup certain errors
-		if len(tt.fname) == 0 {
-			fs.File = tt.fname // empty name should be treated as root
-		}
-		if tt.res == 404 {
-			fs.File = "" // no known files throws an error
-		}
-
-		rr := httptest.NewRecorder()
-		src := fileSource{src: fs}
-		req, err := http.NewRequest("GET", tt.fname, nil)
-		assert.Nilf(t, err, "Build rqst failed")
-		src.serveFile(rr, req, tt.fname, tt.mtype)
-
-		if rr.Result().StatusCode != tt.res {
-			t.Fatalf("got status %d wanted %d\n", rr.Result().StatusCode, tt.res)
-		}
-
-		bufstr := validateResult(t, rr, tt.res, tt.mtype)
-
-		if strings.Compare(bufstr, tt.want) != 0 {
-			t.Fatalf("got result: %s\nwanted : %s\n", bufstr, tt.want)
-		}
-	}
-}
-
 func Test_Readdir(t *testing.T) {
 
 	tests := []struct {
@@ -270,6 +270,29 @@ func Test_Readdir(t *testing.T) {
 }
 
 // testing client side routines
+
+func Test_BuildFullPath(t *testing.T) {
+	tests := []struct {
+		path string
+		cwd  string
+		exp  string
+	}{
+		{path: "database", cwd: "C:\\", exp: "c:\\database\\"},
+		{path: "c:\\database", cwd: "C:\\", exp: "c:\\database\\"},
+		{path: "\\database", cwd: "C:\\", exp: "c:\\database\\"},
+	}
+
+	for _, tt := range tests {
+		var trm object.Console
+		env := object.NewTermEnvironment(trm)
+
+		env.SaveSetting(settings.WorkDrive, &ast.StringLiteral{Value: tt.cwd})
+
+		res := BuildFullPath(tt.path, env)
+
+		assert.Equal(t, tt.exp, res, "BFP failed")
+	}
+}
 
 func Test_SetDirTag(t *testing.T) {
 	tests := []struct {
@@ -383,8 +406,8 @@ func Test_GetCWD(t *testing.T) {
 		cwd string
 		exp string
 	}{
-		{"", `c:\`},
-		{`D:\menu`, `d:\menu`},
+		{cwd: "", exp: `c:\`},
+		{cwd: `D:\menu`, exp: `d:\menu`},
 	}
 
 	for _, tt := range tests {
@@ -393,6 +416,8 @@ func Test_GetCWD(t *testing.T) {
 
 		if len(tt.cwd) > 0 {
 			env.SaveSetting(settings.WorkDrive, &ast.StringLiteral{Value: tt.cwd})
+		} else {
+			env.SaveSetting(settings.WorkDrive, nil)
 		}
 
 		res := GetCWD(env)
@@ -418,6 +443,7 @@ func Test_SetCWD(t *testing.T) {
 		var trm object.Console
 		env := object.NewTermEnvironment(trm)
 		clnt := mocks.MockClient{Contents: "HELLO.BAS", Url: tt.url, StatusCode: tt.scode}
+
 		if len(tt.errMsg) > 0 {
 			clnt.Err = errors.New(tt.errMsg)
 		}

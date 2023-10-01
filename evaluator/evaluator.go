@@ -1920,7 +1920,8 @@ func evalOpenStatement(node ast.OpenStatement, code *ast.Code, env *object.Envir
 	if node.Verbose {
 		return evalVerboseOpen(&node, code, env)
 	}
-	return nil
+
+	return evalConciseOpen(&node, code, env)
 }
 
 // it's gwbasic, so they have two statement formats to open a file

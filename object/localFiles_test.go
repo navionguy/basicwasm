@@ -13,7 +13,7 @@ func Test_CreateFileStore(t *testing.T) {
 	assert.NotNil(t, lf, "CreateFileStore returned nil")
 }
 
-func Test_OpenFile(t *testing.T) {
+func Test_OpenLocalReadOnly(t *testing.T) {
 	tests := []struct {
 		inp   string
 		inp2  string
@@ -36,14 +36,26 @@ func Test_OpenFile(t *testing.T) {
 		var mt mocks.MockTerm
 		//initMockTerm(&mt)
 		env := NewTermEnvironment(mt)
-		file, _ := lf.OpenLocalReadOnly(tt.inp, env)
+		fileR := lf.OpenLocalReadOnly(tt.inp, env)
 
 		if tt.fail {
-			assert.Nil(t, file, "OpenFile didn't fail")
+			assert.Nil(t, fileR, "OpenLocalReadOnly didn't fail")
 		} else {
-			assert.NotNil(t, file, "OpenFile didn't succeed")
+			assert.NotNil(t, fileR, "OpenFile didn't succeed")
 		}
 
+		fileW := lf.OpenLocalWriteOnly(tt.inp, env)
+
+		if tt.fail {
+			assert.Nil(t, fileW, "OpenFile didn't fail")
+		} else {
+			assert.NotNil(t, fileW, "OpenFile didn't succeed")
+		}
+
+		// if I faked a local file, remove it
+		if len(tt.inp2) > 0 {
+			lf.localFiles[tt.inp2] = nil
+		}
 	}
 }
 
