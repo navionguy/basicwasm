@@ -10,6 +10,7 @@ sed -e 1d fileserv.out >> coverage.out
 sed -e 1d gwtoken.out >> coverage.out  
 sed -e 1d keybuffer.out >>coverage.out
 sed -e 1d lexer.out >>coverage.out
+sed -e 1d localfiles.out >>coverage.out
 sed -e 1d object.out >>coverage.out
 sed -e 1d parser.out >>coverage.out
 sed -e 1d token.out >>coverage.out
