@@ -2,6 +2,7 @@
 		./filelist/filelist.go \
         ./fileserv/fileserv.go \
 		./webmodules/gwbasic.wasm \
+		./assets/wasm/gwbasic.wasm \
 		./assets/js/wasm_exec.js \
 		./assets/css/xterm.css \
 		./assets/js/xterm.js \
@@ -35,7 +36,7 @@
 			./token/token.go \
 			./terminal/terminal.go \
 #	tinygo build -no-debug -o ./webmodules/gwbasic.wasm -target=wasm ./webmodules/src/gwbasic/gwbasic.go
-	GOOS=js GOARCH=wasm go1.18 build -ldflags "-s -w" -o ./webmodules/gwbasic.wasm ./webmodules/src/gwbasic/gwbasic.go
+	GOOS=js GOARCH=wasm go build -ldflags "-s -w" -o ./webmodules/gwbasic.wasm ./webmodules/src/gwbasic/gwbasic.go
 
 ./assets/js/wasm_exec.js : /usr/local/go/misc/wasm/wasm_exec.js
 	cp /usr/local/go/misc/wasm/wasm_exec.js ./assets/js/wasm_exec.js
@@ -57,3 +58,8 @@
 
 ./assets/js/xterm-addon-fit.js.map : ~/node_modules/xterm-addon-fit/lib/xterm-addon-fit.js.map
 	cp ~/node_modules/xterm-addon-fit/lib/xterm-addon-fit.js.map ./assets/js/xterm-addon-fit.js.map
+
+./localFiles/localFiles.go:
+
+./assets/wasm/gwbasic.wasm:
+	cp ./webmodules/gwbasic.wasm ./assets/wasm/gwbasic.wasm

@@ -20,7 +20,7 @@ type Terminal struct {
 func New(t js.Value) *Terminal {
 	env := &Terminal{term: t, kbuff: keybuffer.GetKeyBuffer()}
 
-	t.Call("setOption", "scrollback", 0)
+	// t.Call("setOption", "scrollback", 0)
 	return env
 }
 

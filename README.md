@@ -16,3 +16,24 @@ But that was going to take a lot of **very repetitive** coding.  Isn't that what
 That is when I decided that instead of writing an interpreter for Monkey, a fine language in its own right, but not really useful for me.  I was going to write an interpreter for basic.  Specifically, GWBasic.  An interpreter that compiled down to web assembly so it can run in your browser.
 
 At this point, only a small portion of the language is supported.  I have included an Excel spreadsheet that I am filling to show which language elements have been implemented and any limitations of the implementation.
+
+### Building from source
+
+Prerequestives: Golang build toolkit, `make`, `npm`.
+
+```sh
+git clone https://github.com/navionguy/basicwasm
+cd basicwasm
+npm install --prefix=$HOME xterm xterm-addon-fit
+
+make basicwasm
+```
+
+#### Testing GUI in browser
+
+Start simple HTTP server to serve content from `assets` directory:
+
+```sh
+cp assets/html/gwbasic.html assets/index.html
+python3 -m http.server --directory assets
+```
