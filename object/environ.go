@@ -7,6 +7,7 @@ import (
 
 	"github.com/navionguy/basicwasm/ast"
 	"github.com/navionguy/basicwasm/berrors"
+	"github.com/navionguy/basicwasm/gwtypes"
 	"github.com/navionguy/basicwasm/keybuffer"
 	"github.com/navionguy/basicwasm/settings"
 	"golang.org/x/text/encoding/charmap"
@@ -79,26 +80,18 @@ type HttpClient interface {
 	Get(url string) (*http.Response, error)
 }
 
-// file access modes
-const (
-	inputFile = 1
-	outputFile
-	rndFile
-	apndFile
-)
-
 // Environment holds my variables and possibly an outer environment
 type Environment struct {
-	ForLoops []ForBlock           // any For Loops that are active
-	store    map[string]*variable // variables and other program data
-	common   map[string]*variable // variables that live through a CHAIN
-	files    map[int16]*aFile     // currently open files by file number
-	dir      map[string]*aFile    // locally cached files by full name
-	settings map[string]ast.Node  // environment settings
-	readOnly map[string]bool      // my read only environment variables
-	outer    *Environment         // possibly a tempory containing environment
-	program  *ast.Program         // current Abstract Syntax Tree
-	term     Console              // the terminal console object
+	ForLoops []ForBlock                    // any For Loops that are active
+	store    map[string]*variable          // variables and other program data
+	common   map[string]*variable          // variables that live through a CHAIN
+	files    map[int16]gwtypes.AnOpenFile  // currently open files by file number
+	dir      map[string]gwtypes.AnOpenFile // locally cached files by full name
+	settings map[string]ast.Node           // environment settings
+	readOnly map[string]bool               // my read only environment variables
+	outer    *Environment                  // possibly a temporary containing environment, or nil
+	program  *ast.Program                  // current Abstract Syntax Tree
+	term     Console                       // the terminal console object
 
 	// The following hold "state" information controlled by commands/statements
 	client  HttpClient     // for making server requests
@@ -124,8 +117,8 @@ func NewEnclosedEnvironment(outer *Environment) *Environment {
 // NewEnvironment creates a place to store variables and settings
 func newEnvironment() *Environment {
 	e := &Environment{settings: make(map[string]ast.Node)}
-	e.dir = make(map[string]*aFile)
-	e.files = make(map[int16]*aFile)
+	e.dir = make(map[string]gwtypes.AnOpenFile)
+	e.files = make(map[int16]gwtypes.AnOpenFile)
 	e.ClearCommon()
 	e.CloseAllFiles()
 	e.ClearVars()
@@ -337,7 +330,7 @@ func (e *Environment) GetSetting(name string) ast.Node {
 	return e.settings[name]
 }
 
-// Save a runtime settting
+// Save a runtime setting
 func (e *Environment) SaveSetting(name string, obj ast.Node) {
 	e.settings[name] = obj
 
@@ -375,21 +368,6 @@ func (e *Environment) Pop() *ast.RetPoint {
 // ClearVars empties the map of environment objects
 func (e *Environment) ClearVars() {
 	e.store = make(map[string]*variable)
-}
-
-// CloseAllFiles closes all open files
-func (e *Environment) CloseAllFiles() {
-	e.files = make(map[int16]*aFile)
-}
-
-// CloseFile closes a file based on its handle
-func (e *Environment) CloseFile(f int16) bool {
-	if e.files[f] == nil {
-		return false
-	}
-	e.files[f] = nil
-
-	return true
 }
 
 // ClearCommon variables

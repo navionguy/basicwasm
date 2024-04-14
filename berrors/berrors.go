@@ -57,8 +57,7 @@ const (
 	_
 	_
 	_
-	_
-	_
+	DeviceIOError
 	_
 	_
 	_ // 60
@@ -90,6 +89,8 @@ func TextForError(err int) string {
 		return "Division by zero"
 	case FileNotFound:
 		return "File not found"
+	case DeviceIOError:
+		return "Device I/O Error"
 	case IllegalDirect:
 		return "Illegal direct"
 	case IllegalFuncCallErr:
@@ -110,6 +111,8 @@ func TextForError(err int) string {
 		return "Undefined user function"
 	case UnDefinedLineNumber:
 		return "Undefined line number"
+	case PermissionDenied:
+		return "Permission Denied"
 	case PathNotFound:
 		return "Path not found"
 	case ServerError:

@@ -317,20 +317,20 @@ func GetFile(file string, env *object.Environment) (*bufio.Reader, object.Object
 func sendRequest(rq string, env *object.Environment) (*http.Response, object.Object) {
 	res, err := env.GetClient().Get(rq)
 
-	if err != nil {
-		if res == nil {
-			er := object.Error{Message: err.Error()}
-			return nil, &er
-		}
-
-		switch res.StatusCode {
-		case http.StatusNotFound:
-			return nil, object.StdError(env, berrors.FileNotFound)
-		default:
-			return nil, object.StdError(env, berrors.ServerError)
-		}
+	if res == nil {
+		return nil, object.StdError(env, berrors.PathNotFound)
 	}
-	return res, nil
+
+	if res.StatusCode == http.StatusNotFound {
+		return nil, object.StdError(env, berrors.FileNotFound)
+	}
+
+	// if no error, just send back the result
+	if err == nil {
+		return res, nil
+	}
+
+	return nil, object.StdError(env, berrors.ServerError)
 }
 
 // build up a URL for addressing the target file

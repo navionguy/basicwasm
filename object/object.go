@@ -29,6 +29,7 @@ const (
 	AUTO_OBJ       = "AUTO"
 	BSTR_OBJ       = "BSTR"
 	BUILTIN_OBJ    = "BUILTIN"
+	FILE_OBJ       = "FILE"
 	FIXED_OBJ      = "FIXED"
 	FLOATSGL_OBJ   = "FLOATSGL"
 	FLOATDBL_OBJ   = "FLOATDBL"

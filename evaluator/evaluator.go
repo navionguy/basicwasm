@@ -17,6 +17,7 @@ import (
 	"github.com/navionguy/basicwasm/filelist"
 	"github.com/navionguy/basicwasm/fileserv"
 	"github.com/navionguy/basicwasm/lexer"
+	"github.com/navionguy/basicwasm/localfiles"
 	"github.com/navionguy/basicwasm/object"
 	"github.com/navionguy/basicwasm/parser"
 	"github.com/navionguy/basicwasm/settings"
@@ -163,7 +164,7 @@ func Eval(node ast.Node, code *ast.Code, env *object.Environment) object.Object 
 		return evalOnGoStatement(node, code, env)
 
 	case *ast.OpenStatement:
-		return evalOpenStatement(*node, code, env)
+		return evalOpenStatement(*node, env)
 
 	case *ast.PrintStatement:
 		return evalPrintStatement(node, code, env)
@@ -1913,20 +1914,29 @@ func evalOnGoJump(ind int32, node *ast.OnGoStatement, code *ast.Code, env *objec
 
 // opens a data file
 // todo: support open device
-func evalOpenStatement(node ast.OpenStatement, code *ast.Code, env *object.Environment) object.Object {
-	// get the target file name ()
+// note: node is a *copy* of the OpenStatement in the AST, not a pointer to it.
+//
+//	this way, I can modify the fields for the current environment and not
+//	affect later evaluations of the statement.
+func evalOpenStatement(node ast.OpenStatement, env *object.Environment) object.Object {
+	if len(node.Trash) > 0 {
+		return object.StdError(env, berrors.Syntax)
+	}
+
+	// get the target file name and build a fully qualified file name
+	// based on current virtual drive and directory
 	node.FileName = fileserv.BuildFullPath(node.FileName, env)
 
 	if node.Verbose {
-		return evalVerboseOpen(&node, code, env)
+		return evalVerboseOpen(&node, env)
 	}
 
-	return evalConciseOpen(&node, code, env)
+	return evalConciseOpen(&node, env)
 }
 
 // it's gwbasic, so they have two statement formats to open a file
 // this is the verbose form
-func evalVerboseOpen(node *ast.OpenStatement, code *ast.Code, env *object.Environment) object.Object {
+func evalVerboseOpen(node *ast.OpenStatement, env *object.Environment) object.Object {
 	// any missing parameters, fill in the defaults
 	if len(node.Mode) == 0 {
 		node.Mode = token.RANDOM
@@ -1940,11 +1950,20 @@ func evalVerboseOpen(node *ast.OpenStatement, code *ast.Code, env *object.Enviro
 		node.RecLen = "128"
 	}
 
-	return nil
+	return evalGetFile(node, env)
+}
+
+// evalGetFile checks if the file is held in the local file system
+// if not, it tries to pull the file from the file server
+// once the file is local, it proceeds to open it
+func evalGetFile(node *ast.OpenStatement, env *object.Environment) object.Object {
+	aFile := localfiles.Open(node.FileName, env)
+
+	return aFile
 }
 
 // fill in defaults as need for concise form of open
-func evalConciseOpen(node *ast.OpenStatement, code *ast.Code, env *object.Environment) object.Object {
+func evalConciseOpen(node *ast.OpenStatement, env *object.Environment) object.Object {
 	// any missing parameters, fill in the defaults
 	if len(node.Mode) == 0 {
 		node.Mode = "R"
@@ -1956,7 +1975,7 @@ func evalConciseOpen(node *ast.OpenStatement, code *ast.Code, env *object.Enviro
 		node.RecLen = "128"
 	}
 
-	return nil
+	return evalGetFile(node, env)
 }
 
 // Build the default Palette struct

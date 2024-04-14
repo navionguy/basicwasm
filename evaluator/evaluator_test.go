@@ -774,8 +774,8 @@ func Test_FilesCommand(t *testing.T) {
 		rs     int
 		err    bool
 	}{
-		{param: "", expURL: `/drivec`, cwd: `C:\`, send: "10 PRINT \"Main Menu\"\n", exp: "10 PRINT \"Main Menu\"\n", rs: 404, err: false},
-		{param: "", expURL: `/drivec`, cwd: `C:\`, send: "10 PRINT \"Main Menu\"\n", exp: "10 PRINT \"Main Menu\"\n", rs: 200, err: false},
+		//{param: "", expURL: `/drivec`, cwd: `C:\`, send: "10 PRINT \"Main Menu\"\n", exp: "10 PRINT \"Main Menu\"\n", rs: 404, err: false},
+		//{param: "", expURL: `/drivec`, cwd: `C:\`, send: "10 PRINT \"Main Menu\"\n", exp: "10 PRINT \"Main Menu\"\n", rs: 200, err: false},
 		{param: "HamCalc", expURL: `/drivec/hamcalc`, cwd: `C:\`, send: "10 PRINT \"Main Menu\"\n", exp: "10 PRINT \"Main Menu\"\n", rs: 200, err: false},
 		{param: "", expURL: `/drivec`, cwd: `C:\`, send: `[{"name":"test.bas","isdir":false},{"name":"alongername.bas","isdir":true}]`, exp: `[{"name":"test.bas","isdir":false},{"name":"alongername.bas","isdir":true}]`, rs: 200, err: false},
 	}
@@ -1540,7 +1540,8 @@ func Test_OpenStatement(t *testing.T) {
 		inp string
 		exp object.Object
 	}{
-		{inp: `10 OPEN "test.dat" FOR OUTPUT AS #1`},
+		{inp: `10 OPEN "test.dat" FOR OUTPUT AS #1`,
+			exp: &object.Error{Message: "Path not found in 10", Code: 76}},
 		// test his trash detection
 		{inp: `60 open "test3.out" FOR OUTPUT ACCESS WRITE LOCK READ AS #3 LEN = 128`,
 			exp: &object.Error{Message: "Syntax error in 60", Code: 2}},

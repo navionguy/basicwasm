@@ -599,3 +599,7 @@ func Test_ParseFile(t *testing.T) {
 		}
 	}
 }
+
+func Test_SendRequest(t *testing.T) {
+
+}

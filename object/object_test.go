@@ -7,12 +7,43 @@ import (
 	"github.com/navionguy/basicwasm/ast"
 	"github.com/navionguy/basicwasm/berrors"
 	"github.com/navionguy/basicwasm/decimal"
+	"github.com/navionguy/basicwasm/gwtypes"
 	"github.com/navionguy/basicwasm/keybuffer"
 	"github.com/navionguy/basicwasm/mocks"
 	"github.com/navionguy/basicwasm/settings"
 	"github.com/navionguy/basicwasm/token"
 	"github.com/stretchr/testify/assert"
 )
+
+func Test_AddOpenFile(t *testing.T) {
+	f1 := mocks.MockAnOpenFile("Data.txt")
+	f2 := mocks.MockAnOpenFile("MoreData.bin")
+
+	tests := []struct {
+		files []gwtypes.AnOpenFile
+		num   []int16
+		fail  int16
+	}{
+		{files: []gwtypes.AnOpenFile{&f1, &f2}, num: []int16{1, 5}, fail: 3},
+	}
+
+	for _, tt := range tests {
+		var mt mocks.MockTerm
+		env := NewTermEnvironment(mt)
+
+		for i, f := range tt.files {
+			env.AddOpenFile(tt.num[i], f)
+
+			af := env.files[tt.num[i]]
+
+			assert.NotNil(t, af, "env.files[i] returned nil")
+			assert.EqualValues(t, tt.files[i].FQFN(), af.FQFN(), "env.files[i] filename didn't match")
+		}
+
+		assert.Equal(t, len(tt.num), len(env.files))
+		assert.Nil(t, env.files[tt.fail], "fail file num worked")
+	}
+}
 
 func Test_Array(t *testing.T) {
 	arr := Array{}
@@ -71,23 +102,32 @@ func Test_CloseAllFiles(t *testing.T) {
 }
 
 func Test_CloseFile(t *testing.T) {
+	f1 := mocks.MockAnOpenFile("Data.txt")
+	f2 := mocks.MockAnOpenFile("MoreData.bin")
+
 	tests := []struct {
-		num int16
-		ok  bool
+		files []gwtypes.AnOpenFile
+		num   []int16
+		fail  int16
 	}{
-		{num: 1},
-		{num: 2, ok: true},
+		{files: []gwtypes.AnOpenFile{&f1, &f2}, num: []int16{1, 5}, fail: 3},
 	}
 
 	for _, tt := range tests {
-		env := newEnvironment()
-		if tt.ok {
-			f := aFile{}
-			env.files[tt.num] = &f
-		}
-		rc := env.CloseFile(tt.num)
+		var mt mocks.MockTerm
+		env := NewTermEnvironment(mt)
 
-		assert.Equalf(t, tt.ok, rc, "CloseFile(%d) returned %t/n", tt.num, rc)
+		for i, f := range tt.files {
+			env.AddOpenFile(tt.num[i], f)
+		}
+
+		for i := range tt.num {
+			rc := env.CloseFile(tt.num[i])
+
+			assert.True(t, rc, "CloseFile failed")
+		}
+
+		assert.False(t, env.CloseFile(tt.fail), "CloseFile should have failed")
 	}
 }
 
@@ -188,6 +228,35 @@ func Test_DefaultKeys(t *testing.T) {
 
 	for _, tt := range tests {
 		assert.EqualValuesf(t, tt.val, kys.Keys[tt.key], "DefaultKeys expected %s, got %s", tt.val, kys.Keys[tt.key])
+	}
+}
+
+func Test_FindOpenFiles(t *testing.T) {
+	f1 := mocks.MockAnOpenFile("Data.txt")
+	f2 := mocks.MockAnOpenFile("MoreData.bin")
+
+	tests := []struct {
+		files []gwtypes.AnOpenFile
+		num   []int16
+		seek  string
+		exp   []int16
+	}{
+		{},
+		{files: []gwtypes.AnOpenFile{&f1}, num: []int16{5}, seek: "file"},
+		{files: []gwtypes.AnOpenFile{&f1, &f2}, num: []int16{12, 5}, seek: "Data.txt", exp: []int16{12}},
+		{files: []gwtypes.AnOpenFile{&f1, &f2, &f1}, num: []int16{12, 5, 6}, seek: "Data.txt", exp: []int16{12, 6}},
+	}
+
+	for _, tt := range tests {
+		var mt mocks.MockTerm
+		env := NewTermEnvironment(mt)
+
+		for i, f := range tt.files {
+			env.AddOpenFile(tt.num[i], f)
+		}
+		rc := env.FindOpenFiles(tt.seek)
+
+		assert.EqualValues(t, len(tt.exp), len(rc))
 	}
 }
 
