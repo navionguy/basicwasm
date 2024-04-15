@@ -803,7 +803,7 @@ func Test_FloatSingleLiteral(t *testing.T) {
 }
 
 func Test_ForStatement(t *testing.T) {
-	four := ForStatment{Token: token.Token{Type: token.FOR, Literal: "FOR"}, Init: &LetStatement{
+	four := ForStatement{Token: token.Token{Type: token.FOR, Literal: "FOR"}, Init: &LetStatement{
 		Token: token.Token{Type: token.LET, Literal: ""},
 		Name: &Identifier{
 			Token: token.Token{Type: token.IDENT, Literal: "myVar"},

@@ -155,8 +155,8 @@ func StdError(env *Environment, err int) *Error {
 }
 
 type ForBlock struct {
-	Code ast.RetPoint     // the location in the AST of the FOR statement
-	Four *ast.ForStatment // the actual statment
+	Code ast.RetPoint      // the location in the AST of the FOR statement
+	Four *ast.ForStatement // the actual statement
 }
 
 // String values
@@ -260,6 +260,4 @@ type TypedVar struct {
 }
 
 func (tv *TypedVar) Type() ObjectType { return ObjectType(tv.TypeID) }
-func (tv *TypedVar) Inspect() string {
-	return tv.Value.Inspect()
-}
+func (tv *TypedVar) Inspect() string  { return tv.Value.Inspect() }

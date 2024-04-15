@@ -431,16 +431,16 @@ func (fls *FilesCommand) String() string {
 	return strings.Trim(fc, " ")
 }
 
-type ForStatment struct {
+type ForStatement struct {
 	Token token.Token
 	Init  *LetStatement // assigns starting value
 	Final []Expression  // loop ends when this value reached
 	Step  []Expression  // value to increment /decrement
 }
 
-func (four *ForStatment) statementNode()       {}
-func (four *ForStatment) TokenLiteral() string { return four.Token.Literal }
-func (four *ForStatment) String() string {
+func (four *ForStatement) statementNode()       {}
+func (four *ForStatement) TokenLiteral() string { return four.Token.Literal }
+func (four *ForStatement) String() string {
 	var out bytes.Buffer
 
 	out.WriteString("FOR")

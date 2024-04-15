@@ -707,9 +707,9 @@ func (p *Parser) parseFileNumber() ast.FileNumber {
 }
 
 // parse the begining of a FOR loop
-func (p *Parser) parseForStatement() *ast.ForStatment {
+func (p *Parser) parseForStatement() *ast.ForStatement {
 	defer untrace(trace("parseForStatement"))
-	four := ast.ForStatment{Token: p.curToken}
+	four := ast.ForStatement{Token: p.curToken}
 	p.nextToken()
 
 	// get the starting assignment

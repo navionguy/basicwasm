@@ -102,7 +102,7 @@ func Eval(node ast.Node, code *ast.Code, env *object.Environment) object.Object 
 	case *ast.FilesCommand:
 		return evalFilesCommand(node, code, env)
 
-	case *ast.ForStatment:
+	case *ast.ForStatement:
 		return evalForStatement(node, code, env)
 
 	case *ast.GosubStatement:
@@ -1263,7 +1263,7 @@ type forStmtParams struct {
 }
 
 // FOR statement begins a for-loop
-func evalForStatement(four *ast.ForStatment, code *ast.Code, env *object.Environment) object.Object {
+func evalForStatement(four *ast.ForStatement, code *ast.Code, env *object.Environment) object.Object {
 	// check for obvious problems
 	if (four.Init == nil) || (len(four.Final) == 0) {
 		return object.StdError(env, berrors.Syntax)
@@ -1326,11 +1326,11 @@ func evalForStartLoop(fb object.ForBlock, code *ast.Code, env *object.Environmen
 
 // evalForSkipLoop initial condition exceeds final
 // just skip over statements until you find a NEXT
-func evalForSkipLoop(four *ast.ForStatment, code *ast.Code, env *object.Environment) object.Object {
+func evalForSkipLoop(four *ast.ForStatement, code *ast.Code, env *object.Environment) object.Object {
 	// iterate over the code until we find the next NEXT
 	for more := code.Next(); more == true; {
 		switch typ := code.Value().(type) {
-		case *ast.ForStatment:
+		case *ast.ForStatement:
 			// found an inner FOR loop, skip over it
 			rc := evalForSkipLoop(typ, code, env)
 			if rc != nil {
@@ -1808,7 +1808,7 @@ func evalNextStepSign(stepper object.Object, env *object.Environment) (bool, boo
 }
 
 // return possible err and keep going true/false
-func evalNextComplete(pos bool, cntr object.Object, four *ast.ForStatment, code *ast.Code, env *object.Environment) (object.Object, bool) {
+func evalNextComplete(pos bool, cntr object.Object, four *ast.ForStatement, code *ast.Code, env *object.Environment) (object.Object, bool) {
 	// compute the final value
 	fnl := evalExpressions(four.Final, code, env)
 

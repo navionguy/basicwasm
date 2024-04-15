@@ -928,7 +928,7 @@ func Test_ForSkip(t *testing.T) {
 		itr := env.StatementIter()
 		itr.Next()
 		itr.Next()
-		four := &ast.ForStatment{Init: &ast.LetStatement{Name: &ast.Identifier{Value: tt.id}}}
+		four := &ast.ForStatement{Init: &ast.LetStatement{Name: &ast.Identifier{Value: tt.id}}}
 		evalForSkipLoop(four, itr, env)
 
 		if !tt.err {
