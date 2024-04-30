@@ -1083,7 +1083,6 @@ func (p *Parser) parseKeyStatement() *ast.KeyStatement {
 }
 
 func (p *Parser) parseLetStatement() *ast.LetStatement {
-	defer untrace(trace("parseLetStatement"))
 
 	p.curToken.Literal = strings.ToUpper(p.curToken.Literal)
 	stmt := &ast.LetStatement{Token: p.curToken}
@@ -1096,12 +1095,8 @@ func (p *Parser) parseLetStatement() *ast.LetStatement {
 }
 
 func (p *Parser) parseImpliedLetStatement(id string) *ast.LetStatement {
-	defer untrace(trace("parseImpliedLetStatement"))
-	tk := token.Token{
-		Type:    token.LookupIdent("let"),
-		Literal: "",
-	}
-	stmt := &ast.LetStatement{Token: tk}
+
+	stmt := &ast.LetStatement{Token: token.Token{Type: token.LET, Literal: ""}}
 	stmt.Name = p.innerParseIdentifier()
 
 	if p.checkForFuncCall() {
@@ -1694,43 +1689,70 @@ func (p *Parser) parseStopStatement() *ast.StopStatement {
 
 // start parsing an Identifier
 func (p *Parser) parseIdentifier() ast.Expression {
-	defer untrace(trace("parseIdentifier"))
 	exp := p.innerParseIdentifier()
 
 	return exp
 }
 
-// innerParseIdentifier is called from many other statements consume identifiers
+// innerParseIdentifier will check an identifier for the following, optional,
+// modifiers to the Identifier:
+//  1. Ends with one of {$%!#} which specify string, Integer, Single precision, Double precision respectively
+//  2. Is a built in function
+//  3. Is a call to a user defined function
+//  4. Is an array
+//
+// innerParseIdentifier is called from many other statements consuming identifiers
 func (p *Parser) innerParseIdentifier() *ast.Identifier {
-	defer untrace(trace("innerParseIdentifier"))
 	exp := &ast.Identifier{Token: p.curToken, Value: strings.ToUpper(p.curToken.Literal)}
 
+	// check if there is a type specifier
 	if strings.ContainsAny(p.peekToken.Literal, "$%!#") {
-		p.nextToken()
-		exp.Token.Literal = exp.Token.Literal + p.curToken.Literal
-		exp.Value = exp.Value + p.curToken.Literal
-		exp.Type = p.curToken.Literal
+		p.parseTypeDeclaration(exp)
 	}
 
 	// check if expression is a call to a built in function
 	_, ok := builtins.Builtins[exp.Value]
 	if ok {
+		// built in call
 		return exp
 	}
 
 	// check if it is a call to a user defined function
-	if (len(exp.Value) > 2) && (strings.EqualFold(exp.Value[0:2], "FN")) {
-		// it is a function call
-		return exp
+	p.parseCheckForUserFunc(exp)
+
+	return exp
+}
+
+// parseTypeDeclaration - figure out the declared type add to the Expression
+func (p *Parser) parseTypeDeclaration(exp *ast.Identifier) {
+
+	p.nextToken()
+
+	exp.Token.Literal = exp.Token.Literal + p.curToken.Literal
+	exp.Value = exp.Value + p.curToken.Literal
+	exp.Type = p.curToken.Literal
+}
+
+// parseCheckForUserFunc - see if this is a call to a user defined function
+func (p *Parser) parseCheckForUserFunc(exp *ast.Identifier) {
+
+	// to be a function call it has to start with "FN"
+	if (len(exp.Value) <= 2) || !strings.EqualFold(exp.Value[0:2], "FN") {
+		// it is not a user defined function, it *might* have an array index
+		p.parseCheckForArrayIndex(exp)
 	}
+}
+
+func (p *Parser) parseCheckForArrayIndex(exp *ast.Identifier) {
 
 	if strings.ContainsAny(p.peekToken.Literal, "[(") {
 		p.nextToken()
-		if p.curTokenIs(")") {
-			return exp
+		expectClose := "]"
+		if p.curTokenIs("(") {
+			expectClose = ")"
 		}
 		exp.Token.Literal = exp.Token.Literal + p.curToken.Literal
-		exp.Value = exp.Value + "["
+		exp.Value = exp.Value + "[" // hidden from the user, I always use brackets to evaluate
 		exp.Array = true
 		exp.Index = make([]*ast.IndexExpression, 0)
 
@@ -1740,11 +1762,15 @@ func (p *Parser) innerParseIdentifier() *ast.Identifier {
 			}
 			p.nextToken()
 		}
+
+		// if user wrote A[5) = 5, let's call that an error
+		if p.curToken.Literal != expectClose {
+			exp.Trash = append(exp.Trash, ast.TrashStatement{Token: token.Token{Literal: p.curToken.Literal}})
+		}
+
 		exp.Token.Literal = exp.Token.Literal + p.curToken.Literal
 		exp.Value = exp.Value + "]"
 	}
-
-	return exp
 }
 
 // true if curToken has same type as t
@@ -1988,6 +2014,11 @@ func (p *Parser) innerParseIndexExpression(left ast.Expression) *ast.IndexExpres
 func (p *Parser) parseExpressionStatement() *ast.ExpressionStatement {
 	stmt := &ast.ExpressionStatement{Token: p.curToken}
 	stmt.Expression = p.parseExpression(LOWEST)
+
+	// if he did not consume the entire statement, there is trash
+	if !p.chkEndOfStatement() && !p.atEndOfStatement() {
+		p.parseTrash(&stmt.Trash)
+	}
 	return stmt
 }
 

@@ -1567,7 +1567,7 @@ func Test_OpenStatement(t *testing.T) {
 		if tt.exp == nil {
 			assert.Nil(t, rc, "got %T back", rc)
 		} else {
-			assert.Equal(t, rc, tt.exp)
+			assert.Equal(t, tt.exp, rc)
 		}
 
 	}
@@ -1666,8 +1666,8 @@ func TestFunctionExecution(t *testing.T) {
 		vbl string
 	}{
 		{inp: `10 DEF FNMUL(x,y)= x * y : Y = FNMUL(2,5)`, res: &object.Integer{Value: 10}, vbl: "Y"},
-		{inp: `10 DEF FNSKIP(x)= x + 2 : Y = FNSKIP(1)`, res: &object.Integer{Value: 3}, vbl: "Y"},
-		{inp: `10 DEF FNSKIP(x)= x + 2 : Y = FNSKIP(1)`, res: &object.Function{}, vbl: "FNSKIP"},
+		{inp: `20 DEF FNSKIP(x)= x + 2 : Y = FNSKIP(1)`, res: &object.Integer{Value: 3}, vbl: "Y"},
+		{inp: `30 DEF FNSKIP(x)= x + 2 : Y = FNSKIP(1)`, res: &object.Function{}, vbl: "FNSKIP"},
 	}
 
 	for _, tt := range tests {
@@ -2637,6 +2637,44 @@ func Test_BuiltinFunctionMissing(t *testing.T) {
 	if err, ok := rc.(*object.Error); ok {
 		assert.Equal(t, "Syntax error", err.Message, "Builtin Foobar, didn't get an")
 	}
+}
+
+func Test_UnsupportedStatement(t *testing.T) {
+	tests := []struct {
+		inp string
+		err object.Object
+		exp []string
+	}{
+		{inp: `CALLIBRATE PORT 10`, err: &object.Error{Message: "Syntax error", Code: 2}},
+	}
+
+	for _, tt := range tests {
+		l := lexer.New(tt.inp)
+		p := parser.New(l)
+		var mt mocks.MockTerm
+		initMockTerm(&mt)
+		if len(tt.exp) != 0 {
+			exp := &mocks.Expector{}
+			exp.Exp = append(exp.Exp, tt.exp...)
+			mt.ExpMsg = exp
+		}
+		env := object.NewTermEnvironment(mt)
+
+		p.ParseCmd(env)
+
+		rc := Eval(&ast.Program{}, env.CmdLineIter(), env)
+
+		if tt.err == nil {
+			assert.Nilf(t, rc, "%s returned %T", tt.inp, rc)
+		} else {
+			assert.Equalf(t, tt.err, rc, "%s returned %T", tt.inp, rc)
+		}
+
+		if len(tt.exp) != 0 {
+			assert.Falsef(t, mt.ExpMsg.Failed, "%s didn't get %s", tt.inp, tt.exp)
+		}
+	}
+
 }
 
 func Test_UsingStatement(t *testing.T) {

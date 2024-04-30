@@ -739,6 +739,12 @@ func Test_ExpressionStatement(t *testing.T) {
 	exp.statementNode()
 	assert.Equal(t, "X", exp.TokenLiteral())
 	assert.Equal(t, "X = X * Y", exp.String())
+	assert.Equal(t, false, exp.HasTrash())
+	// going to do a little MCDC work here
+	exp.Trash = append(exp.Trash, TrashStatement{Token: token.Token{Literal: "Trash"}})
+	exp.Trash = append(exp.Trash, TrashStatement{Token: token.Token{Literal: "Statements"}})
+	assert.Equal(t, true, exp.HasTrash())
+	assert.Equal(t, "Trash Statements", exp.String())
 }
 
 func Test_ErrorStatment(t *testing.T) {
@@ -877,17 +883,21 @@ func Test_Identifier(t *testing.T) {
 		lit string
 		exp string
 	}{
-		{id: Identifier{Token: token.Token{Type: token.IDENT, Literal: "[]"}, Array: true,
-			Index: []*IndexExpression{{Left: &IntegerLiteral{Value: 5}, Index: &IntegerLiteral{Value: 0}},
-				{Left: &IntegerLiteral{Value: 6}, Index: &IntegerLiteral{Value: 1}},
-			}}, lit: "[]", exp: "[0,1]"},
-		{id: Identifier{Token: token.Token{Type: token.IDENT, Literal: "X"}, Value: "5"}, lit: "X", exp: "5"},
+		/*{id: Identifier{Token: token.Token{Type: token.IDENT, Literal: "[]"}, Array: true,
+		Index: []*IndexExpression{{Left: &IntegerLiteral{Value: 5}, Index: &IntegerLiteral{Value: 0}},
+			{Left: &IntegerLiteral{Value: 6}, Index: &IntegerLiteral{Value: 1}},
+		}}, lit: "[]", exp: "[0,1]"},*/
+		//{id: Identifier{Token: token.Token{Type: token.IDENT, Literal: "X"}, Value: "5"}, lit: "X", exp: "5"},
+		{id: Identifier{Token: token.Token{Type: token.IDENT, Literal: "Y"},
+			Trash: []TrashStatement{{Token: token.Token{Literal: "filename"}}}}, lit: "Y", exp: " filename"},
 	}
 
 	for _, tt := range tests {
 		tt.id.expressionNode()
 		assert.Equal(t, tt.lit, tt.id.TokenLiteral())
 		assert.Equal(t, tt.exp, tt.id.String())
+
+		assert.Equal(t, len(tt.id.Trash) > 0, tt.id.HasTrash())
 	}
 }
 

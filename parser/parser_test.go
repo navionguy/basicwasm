@@ -643,6 +643,7 @@ func Test_LetStatementImplied(t *testing.T) {
 		exp []string
 	}{
 		{inp: `10 X = 5: Y = 20`, exp: []string{` X = 5`, ` Y = 20`}},
+		{inp: `20 CALIBRATE PORT 10`, exp: []string{`CALIBRATE PORT 10`}},
 	}
 
 	for _, tt := range tests {
@@ -1336,29 +1337,40 @@ func Test_StopStatement(t *testing.T) {
 }
 
 func Test_StringLiteralExpression(t *testing.T) {
-	input := `10 "hello world"`
-	l := lexer.New(input)
-	p := New(l)
-	env := object.NewTermEnvironment(mocks.MockTerm{})
-	p.ParseProgram(env)
-
-	checkParserErrors(t, p)
-	iter := env.StatementIter()
-
-	iter.Next()
-	step := iter.Value()
-	stmt, ok := step.(*ast.ExpressionStatement)
-	if !ok {
-		t.Fatalf("exp not *ast.StringLiteral. got=%T", step)
-	}
-	literal, ok := stmt.Expression.(*ast.StringLiteral)
-
-	if !ok {
-		t.Fatalf("program.Statements[1] is not an ast.StringLiteral.  got=%T", step)
+	tests := []struct {
+		inp  string
+		outp string
+		exp  ast.Statement
+	}{
+		{inp: `10 "Hello World!"`, outp: `Hello World!`, exp: &ast.ExpressionStatement{Expression: &ast.StringLiteral{Value: `Hello World!`}}},
+		//{inp: `20 CALIBRATE PORT 10`},
 	}
 
-	if literal.Value != "hello world" {
-		t.Errorf("literal.Value not %q. got=%q", "hello world", literal.Value)
+	for _, tt := range tests {
+		input := tt.inp
+		l := lexer.New(input)
+		p := New(l)
+		env := object.NewTermEnvironment(mocks.MockTerm{})
+		p.ParseProgram(env)
+
+		checkParserErrors(t, p)
+		iter := env.StatementIter()
+
+		iter.Next()
+		step := iter.Value()
+		stmt, ok := step.(*ast.ExpressionStatement)
+		if !ok {
+			t.Fatalf("exp not *ast.StringLiteral. got=%T", step)
+		}
+		literal, ok := stmt.Expression.(*ast.StringLiteral)
+
+		if !ok {
+			t.Fatalf("program.Statements[1] is not an ast.StringLiteral.  got=%T", step)
+		}
+
+		if literal.Value != tt.outp {
+			t.Errorf("literal.Value not %q. got=%q", tt.outp, literal.Value)
+		}
 	}
 }
 

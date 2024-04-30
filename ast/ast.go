@@ -763,20 +763,30 @@ func (og *OnGoStatement) String() string {
 
 // ExpressionStatement holds an expression
 type ExpressionStatement struct {
-	Token      token.Token // the first token of the expression
-	Expression Expression
+	Token      token.Token      // the first token of the expression
+	Expression Expression       // the parsed expression
+	Trash      []TrashStatement // Stuff that could not be parsed
 }
 
-func (es *ExpressionStatement) statementNode() {}
-
-// TokenLiteral returns my literal
-func (es *ExpressionStatement) TokenLiteral() string {
-	return strings.ToUpper(es.Token.Literal)
-}
+func (es *ExpressionStatement) statementNode()       {}
+func (es *ExpressionStatement) TokenLiteral() string { return strings.ToUpper(es.Token.Literal) }
+func (es *ExpressionStatement) HasTrash() bool       { return len(es.Trash) > 0 }
 
 // String returns text version of my expression
 func (es *ExpressionStatement) String() string {
 	var out bytes.Buffer
+
+	// expression statement handles trash a little differently
+	if len(es.Trash) > 0 {
+		for i, tr := range es.Trash {
+			if i > 0 {
+				out.WriteString(" ")
+			}
+			out.WriteString(tr.String())
+		}
+
+		return out.String()
+	}
 
 	if es.Token.Literal != "" {
 		out.WriteString(es.Token.Literal)
@@ -849,10 +859,12 @@ type Identifier struct {
 	Type  string
 	Index []*IndexExpression
 	Array bool
+	Trash []TrashStatement
 }
 
 func (i *Identifier) expressionNode()      {}
 func (i *Identifier) TokenLiteral() string { return strings.ToUpper(i.Token.Literal) }
+func (i *Identifier) HasTrash() bool       { return len(i.Trash) > 0 }
 func (i *Identifier) String() string {
 	var out bytes.Buffer
 
@@ -868,6 +880,10 @@ func (i *Identifier) String() string {
 		out.WriteString(i.Token.Literal[len(i.Token.Literal)-1:])
 	} else {
 		out.WriteString(i.Value)
+	}
+
+	if len(i.Trash) > 0 {
+		out.WriteString(Trash(i.Trash))
 	}
 
 	return out.String()

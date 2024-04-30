@@ -131,7 +131,7 @@ func (rdr *progRdr) readProg(env *object.Environment) {
 		if rdr.linenum == 0 {
 			return
 		}
-		rdr.readLine(env)
+		rdr.readLine()
 
 		l := lexer.New(rdr.lineInp)
 		p := parser.New(l)
@@ -140,14 +140,13 @@ func (rdr *progRdr) readProg(env *object.Environment) {
 }
 
 // reads tokens until I get back nothing
-func (rdr *progRdr) readLine(env *object.Environment) {
+func (rdr *progRdr) readLine() {
 	rdr.lineInp = fmt.Sprintf("%d ", rdr.linenum)
 
 	for val := "tmp"; val != ""; {
 		val = rdr.readToken()
 		rdr.lineInp = rdr.lineInp + val
 	}
-	//rdr.readInt()
 }
 
 // reads one token and uses a (really large) switch stmt
