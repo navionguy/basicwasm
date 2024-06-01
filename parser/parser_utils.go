@@ -7,7 +7,7 @@ import (
 )
 
 // parse a comma seperated series of expressions
-func (p *Parser) parseCommaSperatedExpressions() []ast.Expression {
+func (p *Parser) parseCommaSeparatedExpressions() []ast.Expression {
 	var exp []ast.Expression
 	done := false
 	for ; !done; p.nextToken() {

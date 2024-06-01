@@ -33,7 +33,7 @@ const (
 	GWBrtWhite         // 15
 )
 
-// XTermjs color directives,https://xtermjs.org/docs/api/vtfeatures/
+// XTerm.js color directives,https://xtermjs.org/docs/api/vtfeatures/
 const (
 	//	XBlack   = iota + 90 // 90
 	XRed     = iota + 91 // 91
@@ -44,6 +44,51 @@ const (
 	XCyan                // 96
 	XWhite               // 97
 	XBlack   = 30
+)
+
+// XTerm.js directives I use
+
+const (
+	ESC      = "\x1B"
+	CSI      = ESC + "["
+	OSC      = ESC + "]"
+	SGRReset = CSI + "0m" // Select Graphic Rendition, reset
+	// Screen colors
+	SgrFgrBlack   = CSI + "30m" // set foreground color to black
+	SgrFgrRed     = CSI + "31m" // set foreground color to red
+	SgrFgrGreen   = CSI + "32m" // set green
+	SgrFgrYellow  = CSI + "33m" // set yellow
+	SgrFgrBlue    = CSI + "34m"
+	SgrFgrMagenta = CSI + "35m"
+	SgrFgrCyan    = CSI + "36m"
+	SgrFgrWhite   = CSI + "37m"
+	SgrFgrBrown   = CSI + "38;2;150;75;0m"
+	SgrBgrBlack   = CSI + "40m" // set background color to black
+	SgrBgrRed     = CSI + "41m"
+	SgrBgrGreen   = CSI + "42m"
+	SgrBgrYellow  = CSI + "43m"
+	SgrBgrBlue    = CSI + "44m"
+	SgrBgrMagenta = CSI + "45m"
+	SgrBgrCyan    = CSI + "46m"
+	SgrBgrWhite   = CSI + "47m"
+	SgrBgrBrown   = CSI + "48;2;150;75;0m"
+	// the bright colors
+	SgrFgrBrtBlack   = CSI + "90m" // set foreground color to bright black (grey)
+	SgrFgrBrtRed     = CSI + "91m" // set foreground color to bright red
+	SgrFgrBrtGreen   = CSI + "92m"
+	SgrFgrBrtYellow  = CSI + "93m"
+	SgrFgrBrtBlue    = CSI + "94m"
+	SgrFgrBrtMagenta = CSI + "95m"
+	SgrFgrBrtCyan    = CSI + "96m"
+	SgrFgrBrtWhite   = CSI + "97m"
+	SgrBgrBrtBlack   = CSI + "100m" // set background color to bright black (grey)
+	SgrBgrBrtRed     = CSI + "101m"
+	SgrBgrBrtGreen   = CSI + "102m"
+	SgrBgrBrtYellow  = CSI + "103m"
+	SgrBgrBrtBlue    = CSI + "104m"
+	SgrBgrBrtMagenta = CSI + "105m"
+	SgrBgrBrtCyan    = CSI + "106m"
+	SgrBgrBrtWhite   = CSI + "107m"
 )
 
 // size of arrays that haven't been DIM'd
@@ -82,16 +127,18 @@ type HttpClient interface {
 
 // Environment holds my variables and possibly an outer environment
 type Environment struct {
-	ForLoops []ForBlock                    // any For Loops that are active
-	store    map[string]*variable          // variables and other program data
-	common   map[string]*variable          // variables that live through a CHAIN
-	files    map[int16]gwtypes.AnOpenFile  // currently open files by file number
-	dir      map[string]gwtypes.AnOpenFile // locally cached files by full name
-	settings map[string]ast.Node           // environment settings
-	readOnly map[string]bool               // my read only environment variables
-	outer    *Environment                  // possibly a temporary containing environment, or nil
-	program  *ast.Program                  // current Abstract Syntax Tree
-	term     Console                       // the terminal console object
+	ForLoops  []ForBlock                    // any For Loops that are active
+	store     map[string]*variable          // variables and other program data
+	common    map[string]*variable          // variables that live through a CHAIN
+	files     map[int16]gwtypes.AnOpenFile  // currently open files by file number
+	dir       map[string]gwtypes.AnOpenFile // locally cached files by full name
+	settings  map[string]ast.Node           // environment settings
+	readOnly  map[string]bool               // my read only environment variables
+	outer     *Environment                  // possibly a temporary containing environment, or nil
+	program   *ast.Program                  // current Abstract Syntax Tree
+	term      Console                       // the terminal console object
+	fgrColors map[int]string                // foreground terminal colors
+	bgrColors map[int]string                // background terminal colors
 
 	// The following hold "state" information controlled by commands/statements
 	client  HttpClient     // for making server requests
@@ -128,6 +175,7 @@ func newEnvironment() *Environment {
 	e.program.New()
 	e.setDefaults()
 	e.setReadOnlys()
+	e.setColorMap()
 
 	// initialize my random number generator
 	e.rnd = rand.New(rand.NewSource(37))
@@ -179,6 +227,50 @@ func (e *Environment) setReadOnlys() {
 	e.readOnly["ERL"] = true
 	e.readOnly["ERR"] = true
 	e.readOnly["INKEY$"] = true
+}
+
+// setup screen color mappings
+func (e *Environment) setColorMap() {
+	// build the two maps
+	e.bgrColors = make(map[int]string)
+	e.fgrColors = make(map[int]string)
+
+	// setup the background colors
+	e.bgrColors[0] = SgrBgrBlack
+	e.bgrColors[1] = SgrBgrBlue
+	e.bgrColors[2] = SgrBgrGreen
+	e.bgrColors[3] = SgrBgrCyan
+	e.bgrColors[4] = SgrBgrRed
+	e.bgrColors[5] = SgrBgrMagenta
+	e.bgrColors[6] = SgrBgrYellow
+	e.bgrColors[7] = SgrBgrWhite
+	e.bgrColors[8] = SgrBgrBrtBlack
+	e.bgrColors[9] = SgrBgrBrtBlue
+	e.bgrColors[10] = SgrBgrBrtGreen
+	e.bgrColors[11] = SgrBgrBrtCyan
+	e.bgrColors[12] = SgrBgrBrtRed
+	e.bgrColors[13] = SgrBgrBrtMagenta
+	e.bgrColors[14] = SgrBgrBrtYellow
+	e.bgrColors[15] = SgrBgrBrtWhite
+
+	// setup the foreground colors
+	e.fgrColors[0] = SgrBgrBlack
+	e.fgrColors[1] = SgrBgrBlue
+	e.fgrColors[2] = SgrBgrGreen
+	e.fgrColors[3] = SgrBgrCyan
+	e.fgrColors[4] = SgrBgrRed
+	e.fgrColors[5] = SgrBgrMagenta
+	e.fgrColors[6] = SgrBgrYellow
+	e.fgrColors[7] = SgrBgrWhite
+	e.fgrColors[8] = SgrBgrBrtBlack
+	e.fgrColors[9] = SgrBgrBrtBlue
+	e.fgrColors[10] = SgrBgrBrtGreen
+	e.fgrColors[11] = SgrBgrBrtCyan
+	e.fgrColors[12] = SgrBgrBrtRed
+	e.fgrColors[13] = SgrBgrBrtMagenta
+	e.fgrColors[14] = SgrBgrBrtYellow
+	e.fgrColors[15] = SgrBgrBrtWhite
+
 }
 
 // preserve a variable across a chain

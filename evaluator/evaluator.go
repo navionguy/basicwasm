@@ -61,7 +61,8 @@ func Eval(node ast.Node, code *ast.Code, env *object.Environment) object.Object 
 		return evalCloseStatement(node, code, env)
 
 	case *ast.ClsStatement:
-		evalClsStatement(node, code, env)
+		// just tell the terminal to clear the screen
+		env.Terminal().Cls()
 
 	case *ast.ColorStatement:
 		return evalColorStatement(node, code, env)
@@ -534,22 +535,17 @@ func evalCloseStatement(close *ast.CloseStatement, code *ast.Code, env *object.E
 	return nil
 }
 
-// just tell the termianl to clear the screen
-func evalClsStatement(cls *ast.ClsStatement, code *ast.Code, env *object.Environment) {
-	env.Terminal().Cls()
-}
-
 // change screen foreground/background color
 func evalColorStatement(color *ast.ColorStatement, code *ast.Code, env *object.Environment) object.Object {
 	// get the current screen mode
 	scr := evalColorMode(env)
 
-	plt := evalColorPalette(scr, env)
+	evalColorPalette(scr, env)
 
 	// TODO this will one day support more modes
 	switch scr.Settings[ast.ScrnMode] {
 	case ast.ScrnModeMDA, ast.ScrnModeCGA: // Text mode only
-		return evalColorScreen0(color, plt.CurPalette, code, env)
+		return evalColorScreen0(color, code, env)
 	default:
 		return object.StdError(env, berrors.IllegalFuncCallErr)
 	}
@@ -573,19 +569,18 @@ func evalColorMode(env *object.Environment) *ast.ScreenStatement {
 
 // for screen mode 0, the three parameters are foreground, background, border
 // ToDo: actually support border color if I ever see it used
-func evalColorScreen0(color *ast.ColorStatement, plt ast.ColorPalette, code *ast.Code, env *object.Environment) object.Object {
+func evalColorScreen0(color *ast.ColorStatement, code *ast.Code, env *object.Environment) object.Object {
 	// reset to normal video mode
 	// TODO preserve foreground color
-	env.Terminal().Print("\x1B[0m")
+	env.Terminal().Print(object.SGRReset)
+
+	// TODO check for error from evalExpressions
+
 	// go evaluate all my parameters
 	parms := evalExpressions(color.Parms, code, env)
 
 	// apply all them parameters
 	for i, p := range parms {
-		// I ignore border colors for now
-		if i == 2 {
-			return nil
-		}
 
 		// convert it to an int16
 		ind, err := coerceIndex(p, env)
@@ -594,40 +589,49 @@ func evalColorScreen0(color *ast.ColorStatement, plt ast.ColorPalette, code *ast
 			return err
 		}
 
-		// currently only does foreground and background
-		evalColorSet((ind & 0x0f), (i == 1), plt, env)
+		switch i {
+		case 0:
+			evalColorSet(ind, false, env)
+		case 1:
+			evalColorSet(ind, true, env)
+		}
 	}
 
 	return nil
 }
 
 // use the map to calculate  final output
-func evalColorSet(color int16, bkGrnd bool, plt ast.ColorPalette, env *object.Environment) {
-	rc := plt[color]
+func evalColorSet(color int16, bkGrnd bool, env *object.Environment) object.Object {
 
+	// get the color settings
+	pltSet, ok := env.GetSetting(settings.Palette).(*ast.PaletteStatement)
+
+	if !ok {
+		return object.StdError(env, berrors.UnprintableErr)
+	}
+
+	var colorSeq string
 	if bkGrnd {
-		rc += 10 // move into background range
+		colorSeq = pltSet.Background[color]
+	} else {
+		colorSeq = pltSet.Foreground[color]
 	}
 
-	// set the color
-	if rc != 40 {
-		env.Terminal().Print(fmt.Sprintf("\x1B[%dm", rc))
-	}
+	env.Terminal().Print(colorSeq)
+
+	return nil
 }
 
-func evalColorPalette(scr *ast.ScreenStatement, env *object.Environment) *ast.PaletteStatement {
+func evalColorPalette(scr *ast.ScreenStatement, env *object.Environment) {
 	// fetch the current palette settings
-	pset := env.GetSetting(settings.Palette)
+	paletteSet := env.GetSetting(settings.Palette)
 
 	// if no settings are saved, get the default values
-	if pset == nil {
+	if paletteSet == nil {
 		// go build default palette and save it
 		plt := evalPaletteDefault(scr.Settings[0])
 		env.SaveSetting(settings.Palette, plt)
-		return plt
 	}
-
-	return pset.(*ast.PaletteStatement)
 }
 
 // common statement allows data to survive across a chain
@@ -1981,29 +1985,48 @@ func evalConciseOpen(node *ast.OpenStatement, env *object.Environment) object.Ob
 // Build the default Palette struct
 func evalPaletteDefault(scrmode int) *ast.PaletteStatement {
 	plt := ast.PaletteStatement{}
-	plt.BasePalette = make(map[int16]int)
+	plt.BaseForeground = make(map[int16]string)
+	plt.BaseBackground = make(map[int16]string)
 
 	switch scrmode {
 	case 0, 1: // just load the standard colors
-		plt.BasePalette[object.GWBlack] = object.XBlack // [0]90
-		plt.BasePalette[object.GWBlue] = object.XBlue
-		plt.BasePalette[object.GWGreen] = object.XGreen
-		plt.BasePalette[object.GWCyan] = object.XCyan
-		plt.BasePalette[object.GWRed] = object.XRed
-		plt.BasePalette[object.GWMagenta] = object.XMagenta
-		plt.BasePalette[object.GWBrown] = object.XYellow
-		plt.BasePalette[object.GWWhite] = object.XWhite - 60 // [7]37
-		plt.BasePalette[object.GWGray] = object.XBlack - 60  // [0]30
-		plt.BasePalette[object.GWLtBlue] = object.XBlue - 60
-		plt.BasePalette[object.GWLtGreen] = object.XGreen - 60
-		plt.BasePalette[object.GWLtCyan] = object.XCyan - 60
-		plt.BasePalette[object.GWLtRed] = object.XRed - 60
-		plt.BasePalette[object.GWLtMagenta] = object.XMagenta - 60
-		plt.BasePalette[object.GWYellow] = object.XYellow - 60
-		plt.BasePalette[object.GWBrtWhite] = object.XWhite // [15]97
+		plt.BaseForeground[object.GWBlack] = object.SgrFgrBlack
+		plt.BaseForeground[object.GWBlue] = object.SgrFgrBlue
+		plt.BaseForeground[object.GWGreen] = object.SgrFgrGreen
+		plt.BaseForeground[object.GWCyan] = object.SgrFgrCyan
+		plt.BaseForeground[object.GWRed] = object.SgrFgrRed
+		plt.BaseForeground[object.GWMagenta] = object.SgrFgrMagenta
+		plt.BaseForeground[object.GWBrown] = object.SgrFgrBrown
+		plt.BaseForeground[object.GWWhite] = object.SgrFgrWhite
+		plt.BaseForeground[object.GWGray] = object.SgrFgrBrtBlack
+		plt.BaseForeground[object.GWLtBlue] = object.SgrFgrBrtBlue
+		plt.BaseForeground[object.GWLtGreen] = object.SgrFgrBrtGreen
+		plt.BaseForeground[object.GWLtCyan] = object.SgrFgrBrtCyan
+		plt.BaseForeground[object.GWLtRed] = object.SgrFgrBrtRed
+		plt.BaseForeground[object.GWLtMagenta] = object.SgrFgrBrtMagenta
+		plt.BaseForeground[object.GWYellow] = object.SgrFgrBrtYellow
+		plt.BaseForeground[object.GWBrtWhite] = object.SgrFgrBrtWhite
+		// then the background colors
+		plt.BaseBackground[object.GWBlack] = object.SgrBgrBlack
+		plt.BaseBackground[object.GWBlue] = object.SgrBgrBlue
+		plt.BaseBackground[object.GWGreen] = object.SgrBgrGreen
+		plt.BaseBackground[object.GWCyan] = object.SgrBgrCyan
+		plt.BaseBackground[object.GWRed] = object.SgrBgrRed
+		plt.BaseBackground[object.GWMagenta] = object.SgrBgrMagenta
+		plt.BaseBackground[object.GWBrown] = object.SgrBgrBrown
+		plt.BaseBackground[object.GWWhite] = object.SgrBgrWhite
+		plt.BaseBackground[object.GWGray] = object.SgrBgrBrtBlack
+		plt.BaseBackground[object.GWLtBlue] = object.SgrBgrBrtBlue
+		plt.BaseBackground[object.GWLtGreen] = object.SgrBgrBrtGreen
+		plt.BaseBackground[object.GWLtCyan] = object.SgrBgrBrtCyan
+		plt.BaseBackground[object.GWLtRed] = object.SgrBgrBrtRed
+		plt.BaseBackground[object.GWLtMagenta] = object.SgrBgrBrtMagenta
+		plt.BaseBackground[object.GWYellow] = object.SgrBgrBrtYellow
+		plt.BaseBackground[object.GWBrtWhite] = object.SgrBgrBrtWhite
 	}
 
-	plt.CurPalette = plt.BasePalette
+	plt.Foreground = plt.BaseForeground
+	plt.Background = plt.BaseBackground
 
 	return &plt
 }
@@ -2363,7 +2386,6 @@ func evalIfStatement(ie *ast.IfStatement, code *ast.Code, env *object.Environmen
 func evalExpressions(exps []ast.Expression, code *ast.Code, env *object.Environment) []object.Object {
 	var result []object.Object
 	for _, e := range exps {
-		//evaluated := Eval(e, code, env)
 		evaluated := evalExpressionNode(e, code, env)
 		if isError(evaluated) {
 			return []object.Object{evaluated}

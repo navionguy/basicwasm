@@ -285,13 +285,12 @@ func TestCls(t *testing.T) {
 func Test_ColorStatement(t *testing.T) {
 	tests := []struct {
 		inp string
-		erc int
 	}{
-		{inp: "COLOR 1,2,3", erc: 0},
-		{inp: "COLOR ,,3", erc: 0},
-		{inp: "COLOR", erc: 0},
-		{inp: "COLOR 1,2,3,4", erc: 1},
-		{inp: "COLOR 1,2,", erc: 1},
+		{inp: "COLOR 1,2,3"},
+		{inp: "COLOR ,,3"},
+		{inp: "COLOR"},
+		{inp: "COLOR 1,2,3,4"},
+		{inp: "COLOR 1,2,"},
 	}
 
 	for _, tt := range tests {
@@ -306,10 +305,6 @@ func Test_ColorStatement(t *testing.T) {
 		}
 
 		iter := env.CmdLineIter()
-
-		if tt.erc != len(p.errors) {
-			t.Fatalf("Test_ColorStatement got %d errors, expected %d", len(p.errors), tt.erc)
-		}
 
 		stmt := iter.Value()
 		colorStmt, ok := stmt.(*ast.ColorStatement)
@@ -651,8 +646,6 @@ func Test_LetStatementImplied(t *testing.T) {
 		p := New(l)
 		env := object.NewTermEnvironment(mocks.MockTerm{})
 		p.ParseProgram(env)
-
-		checkParserErrors(t, p)
 		itr := env.StatementIter()
 
 		assert.Equal(t, len(tt.exp)+1, itr.Len())

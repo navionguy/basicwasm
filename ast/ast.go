@@ -294,11 +294,13 @@ func (cls *ClsStatement) String() string {
 // ColorStatement changes foreground/background colors
 type ColorStatement struct {
 	Token token.Token
-	Parms []Expression // 1-3 parameter expressions
+	Parms []Expression     // 1-3 parameter expressions
+	Trash []TrashStatement // Stuff that could not be parsed
 }
 
 func (color *ColorStatement) statementNode()       {}
 func (color *ColorStatement) TokenLiteral() string { return strings.ToUpper(color.Token.Literal) }
+func (color *ColorStatement) HasTrash() bool       { return len(color.Trash) > 0 }
 func (color *ColorStatement) String() string {
 	var out bytes.Buffer
 
@@ -312,6 +314,11 @@ func (color *ColorStatement) String() string {
 		if e != nil {
 			out.WriteString(e.String())
 		}
+	}
+
+	for _, tr := range color.Trash {
+		out.WriteString(" ")
+		out.WriteString(tr.String())
 	}
 
 	tmp := out.String()
@@ -636,7 +643,7 @@ func (lct *LocateStatement) String() string {
 }
 
 // ColorPalette maps[GWBasicColor]XTermColor
-type ColorPalette map[int16]int
+type ColorPalette map[int16]string
 
 // user wants to change the color palette
 type PaletteStatement struct {
@@ -647,8 +654,10 @@ type PaletteStatement struct {
 	// values below will hold the active palette settings
 	// defaults are set in evaluator.evalPaletteDefault()
 	//
-	CurPalette  ColorPalette // current color mappings for screen
-	BasePalette ColorPalette // base mapping of basic colors to xterm colors
+	Foreground     ColorPalette // current color mappings for screen foreground
+	Background     ColorPalette // current color mappings for screen background
+	BaseForeground ColorPalette // base mapping of basic colors to xterm colors
+	BaseBackground ColorPalette // base mapping of basic background colors to xterm colors
 }
 
 func (plt *PaletteStatement) statementNode()       {}

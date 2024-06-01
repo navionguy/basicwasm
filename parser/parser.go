@@ -515,9 +515,8 @@ func (p *Parser) parseClsStatement() *ast.ClsStatement {
 	return &stmt
 }
 
-// parse th color statement
+// parse the color statement
 func (p *Parser) parseColorStatement() *ast.ColorStatement {
-	defer untrace(trace("parseColorStatement"))
 	stmt := ast.ColorStatement{Token: p.curToken}
 
 	if p.chkEndOfStatement() {
@@ -525,12 +524,7 @@ func (p *Parser) parseColorStatement() *ast.ColorStatement {
 	}
 	p.nextToken()
 
-	exp := p.parseCommaSperatedExpressions()
-
-	if len(exp) > 3 {
-		p.reportError(berrors.Syntax)
-		return &stmt
-	}
+	exp := p.parseCommaSeparatedExpressions()
 
 	stmt.Parms = exp
 	return &stmt
@@ -1665,7 +1659,7 @@ func (p *Parser) parseScreenCommand() *ast.ScreenStatement {
 func (p *Parser) parseScreenCommandParameters(stmt ast.ScreenStatement) *ast.ScreenStatement {
 	// load up all the parameters, max 4
 
-	stmt.Params = p.parseCommaSperatedExpressions()
+	stmt.Params = p.parseCommaSeparatedExpressions()
 
 	// check for too many params
 	if len(stmt.Params) > 4 {

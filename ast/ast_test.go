@@ -360,8 +360,10 @@ func Test_CodeJumpB4RC(t *testing.T) {
 
 func Test_ColorStatement(t *testing.T) {
 	tests := []struct {
-		prms []Expression
-		exp  string
+		prms  []Expression
+		exp   string
+		hasT  bool
+		trash []string
 	}{
 		{exp: "COLOR "},
 		{prms: []Expression{&IntegerLiteral{
@@ -384,13 +386,20 @@ func Test_ColorStatement(t *testing.T) {
 			Value: 2}, &IntegerLiteral{
 			Token: token.Token{Type: token.INT, Literal: "INT"},
 			Value: 3}}, exp: "COLOR ,2,3"},
+		{prms: []Expression{&IntegerLiteral{
+			Token: token.Token{Type: token.INT, Literal: "INT"},
+			Value: 1}}, exp: "COLOR 1 BLUE", hasT: true, trash: []string{"BLUE"}},
 	}
 
 	for _, tt := range tests {
 		stmt := ColorStatement{Token: token.Token{Type: token.LINENUM, Literal: "COLOR"}, Parms: tt.prms}
+		for _, tr := range tt.trash {
+			stmt.Trash = append(stmt.Trash, TrashStatement{Token: token.Token{Literal: tr}})
+		}
 
 		stmt.statementNode()
 
+		assert.Equal(t, tt.hasT, stmt.HasTrash(), "Color statement trash error")
 		assert.Equal(t, token.COLOR, stmt.TokenLiteral(), "Color statement returned wrong token")
 		assert.Equal(t, tt.exp, stmt.String(), "Color command didn't build string correctly")
 	}

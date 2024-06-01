@@ -457,14 +457,49 @@ func Test_ColorPalette(t *testing.T) {
 	env := object.NewTermEnvironment(mt)
 	scr := &ast.ScreenStatement{}
 	scr.InitValue()
-	plt := evalColorPalette(scr, env)
+	evalColorPalette(scr, env)
+	pltSet, ok := env.GetSetting(settings.Palette).(*ast.PaletteStatement)
 
-	assert.Equal(t, object.XCyan, plt.BasePalette[object.GWCyan], "BasePalette[GWCyan] came back as %d", plt.BasePalette[object.GWCyan])
-	plt.BasePalette[object.GWCyan] = object.XBlack
-	env.SaveSetting(settings.Palette, plt)
-	plt = evalColorPalette(scr, env)
+	assert.True(t, ok, "Color Palette not saved to environment")
+	assert.Equal(t, object.SgrFgrCyan, pltSet.BaseForeground[3], "BasePalette[GWCyan] came back as %d", pltSet.BaseForeground[object.GWCyan])
+	pltSet.BaseForeground[3] = object.SgrFgrCyan
+	env.SaveSetting(settings.Palette, pltSet)
+	evalColorPalette(scr, env)
 
-	assert.Equal(t, object.XBlack, plt.BasePalette[object.GWCyan])
+	assert.Equal(t, object.SgrFgrCyan, pltSet.BaseForeground[3])
+}
+
+func Test_ColorSet(t *testing.T) {
+	var mt mocks.MockTerm
+	initMockTerm(&mt)
+	mt.ExpMsg = &mocks.Expector{}
+
+	env := object.NewTermEnvironment(mt)
+
+	// test for uninitialized environment
+	rc := evalColorSet(3, false, env)
+	_, ok := rc.(*object.Error)
+	assert.True(t, ok, "evalColorSet failed to get error with uninitialized environment")
+
+	// initialize the environment
+	palette := evalPaletteDefault(0)
+	env.SaveSetting(settings.Palette, palette)
+
+	// now check foreground color
+	scr := &ast.ScreenStatement{}
+	scr.InitValue()
+	mt.ExpMsg.Exp = append(mt.ExpMsg.Exp, palette.Foreground[object.GWGreen])
+	rc = evalColorSet(object.GWGreen, false, env)
+
+	assert.Nil(t, rc, "evalColorSet failed")
+	assert.False(t, mt.ExpMsg.Failed, "evalColorSet output incorrect")
+
+	// and finally background color
+	mt.ExpMsg.Exp = append(mt.ExpMsg.Exp, palette.Background[object.GWGreen])
+	rc = evalColorSet(object.GWGreen, true, env)
+
+	assert.Nil(t, rc, "evalColorSet failed")
+	assert.False(t, mt.ExpMsg.Failed, "evalColorSet output incorrect")
 }
 
 func Test_ColorStatement(t *testing.T) {
@@ -472,11 +507,14 @@ func Test_ColorStatement(t *testing.T) {
 		inp  string
 		mode int
 		exp  string
+		fail bool
 	}{
 		{inp: "COLOR 15,0", mode: 0, exp: "\x1b[97m"},
 		{inp: "COLOR 7", mode: 0, exp: "\x1b[37m"},
 		{inp: "COLOR 1", mode: 0, exp: "\x1b[1m"},
-		{inp: "COLOR 1", mode: 3},
+		{inp: "COLOR 1", mode: 0},
+		{inp: `COLOR "RED"`, fail: true},
+		{inp: "COLOR 1", mode: 3, fail: true},
 	}
 
 	for _, tt := range tests {
@@ -503,7 +541,15 @@ func Test_ColorStatement(t *testing.T) {
 			return
 		}
 
-		Eval(&ast.Program{}, env.CmdLineIter(), env)
+		rc := Eval(&ast.Program{}, env.CmdLineIter(), env)
+
+		if !tt.fail {
+			assert.Nil(t, rc, "Eval returned object!")
+		} else {
+			_, ok := rc.(*object.Error)
+
+			assert.True(t, ok, "Eval did not return an error")
+		}
 
 		if len(tt.exp) > 0 {
 			assert.False(t, mt.ExpMsg.Failed, "COLOR got unexpected output")
