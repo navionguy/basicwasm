@@ -7,6 +7,7 @@ import (
 	"net/http/httptest"
 	"strings"
 
+	"github.com/navionguy/basicwasm/afile"
 	"github.com/navionguy/basicwasm/ast"
 	"github.com/navionguy/basicwasm/berrors"
 	"github.com/navionguy/basicwasm/decimal"
@@ -375,6 +376,7 @@ func Test_ChDirStatement(t *testing.T) {
 		exp   string // what the CWD should end up being
 		rpath string // request path the server should see
 		rc    int    // return code for mock server
+		fail  bool   // should eval fail
 	}{
 		{path: &ast.StringLiteral{Value: `D:\`}, rpath: `/drived`, exp: `d:\`, rc: 200},
 		{path: &ast.StringLiteral{Value: `D:\`}, rpath: `/drived`, exp: `c:\`, rc: 404},
@@ -382,6 +384,7 @@ func Test_ChDirStatement(t *testing.T) {
 		{path: &ast.StringLiteral{Value: `PROG`}, rpath: `/drivec/prog`, exp: `c:\`, rc: 404},
 		{path: &ast.IntegerLiteral{Value: 6}, exp: `c:\`},
 		{path: &ast.StringLiteral{Value: `\prog`}, rpath: `/drivec/prog`, exp: `c:\prog\`, rc: 200},
+		{fail: true},
 	}
 
 	for _, tt := range tests {
@@ -397,15 +400,21 @@ func Test_ChDirStatement(t *testing.T) {
 
 		env.SaveSetting(settings.ServerURL, &ast.StringLiteral{Value: ts.ExpURL})
 
-		Eval(&cd, env.CmdLineIter(), env)
+		rc := Eval(&cd, env.CmdLineIter(), env)
 
-		// make sure current working directory is what I expect
-		cwd := fileserv.GetCWD(env)
-		assert.Equal(t, tt.exp, cwd)
+		if tt.fail {
+			_, ok := rc.(*object.Error)
 
-		// make sure request looked correct
-		if len(tt.rpath) > 0 {
-			assert.EqualValues(t, tt.rpath, ts.Requests[0], "Server request badly formed!")
+			assert.True(t, ok, "CHDIR returned an non-error failure")
+		} else {
+			// make sure current working directory is what I expect
+			cwd := fileserv.GetCWD(env)
+			assert.Equal(t, tt.exp, cwd)
+
+			// make sure request looked correct
+			if len(tt.rpath) > 0 {
+				assert.EqualValues(t, tt.rpath, ts.Requests[0], "Server request badly formed!")
+			}
 		}
 	}
 }
@@ -569,8 +578,12 @@ func Test_ClearCommand(t *testing.T) {
 func Test_CloseStatement(t *testing.T) {
 	tests := []struct {
 		files []ast.FileNumber
+		open  int16
+		fail  bool
 	}{
-		{files: []ast.FileNumber{{Numbr: &ast.IntegerLiteral{Token: token.Token{Literal: "1"}}}}},
+		{files: []ast.FileNumber{{Numbr: &ast.IntegerLiteral{Token: token.Token{Literal: "1"}}}}, open: 1},
+		{files: []ast.FileNumber{{Numbr: &ast.IntegerLiteral{Token: token.Token{Literal: "1"}}}}, open: 2, fail: true},
+		{files: []ast.FileNumber{{Numbr: &ast.StringLiteral{Token: token.Token{Literal: "Fred"}, Value: "Fred"}}}, fail: true},
 	}
 
 	for _, tt := range tests {
@@ -580,8 +593,22 @@ func Test_CloseStatement(t *testing.T) {
 		var mt mocks.MockTerm
 		initMockTerm(&mt)
 		env := object.NewTermEnvironment(mt)
+		file, err := afile.OpenFile("d:\\data\\users.txt", ast.OpenStatement{FileName: "USERS.TXT", FileNumber: ast.FileNumber{Numbr: &ast.IntegerLiteral{Value: tt.open}}, Mode: "SHARED", Access: "RANDOM"}, env)
 
-		Eval(&stmt, env.CmdLineIter(), env)
+		assert.Nil(t, err, "file did not open")
+
+		env.AddOpenFile(tt.open, file)
+
+		//Eval(&stmt, env.CmdLineIter(), env)
+		rc := evalCloseStatement(&stmt, env.CmdLineIter(), env)
+
+		if tt.fail {
+			_, ok := rc.(*object.Error)
+
+			assert.True(t, ok, "Expected error, didn't get one")
+		} else {
+			assert.Nil(t, rc, "Close failed")
+		}
 	}
 }
 
@@ -1591,6 +1618,8 @@ func Test_OpenStatement(t *testing.T) {
 		// test his trash detection
 		{inp: `60 open "test3.out" FOR OUTPUT ACCESS WRITE LOCK READ AS #3 LEN = 128`,
 			exp: &object.Error{Message: "Syntax error in 60", Code: 2}},
+		// test brief form
+		{inp: `70 OPEN "I", #2, "TEST4.DAT`, exp: &object.Error{Message: "Path not found in 70", Code: 76}},
 	}
 
 	for _, tt := range tests {
@@ -2794,9 +2823,8 @@ func Test_ViewPrintStatement(t *testing.T) {
 		assert.Equal(t, tt.err, (rc != nil))
 
 		if tt.err && rc != nil {
-			if rc.Type() != object.ERROR_OBJ {
-
-			}
+			_, ok := rc.(*object.Error)
+			assert.True(t, ok, "failing VIEW PRINT did not return an error object")
 		}
 
 		if len(tt.exp) > 0 {

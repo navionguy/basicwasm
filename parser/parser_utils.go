@@ -39,3 +39,19 @@ func (p *Parser) parseNextExpression(exp []ast.Expression) ast.Expression {
 	// parse the expression to calculate the parameter
 	return p.parseExpression(LOWEST)
 }
+
+// parser can't make sense of the input
+// just soak up all the tokens until the next statement
+func (p *Parser) parseTrash(Trash *[]ast.TrashStatement) {
+
+	for {
+		if !p.atEndOfStatement() {
+			*Trash = append(*Trash, ast.TrashStatement{Token: token.Token{Type: p.curToken.Type, Literal: p.curToken.Literal}})
+		}
+
+		if p.chkEndOfStatement() {
+			return
+		}
+		p.nextToken()
+	}
+}

@@ -1199,22 +1199,6 @@ func (p *Parser) parseNextStatement() *ast.NextStatement {
 	return &nxt
 }
 
-// parser can't make sense of the input
-// just soak up all the tokens until the next statement
-func (p *Parser) parseTrash(Trash *[]ast.TrashStatement) {
-
-	for {
-		if !p.atEndOfStatement() {
-			*Trash = append(*Trash, ast.TrashStatement{Token: token.Token{Literal: p.curToken.Literal}})
-		}
-
-		if p.chkEndOfStatement() {
-			return
-		}
-		p.nextToken()
-	}
-}
-
 // parse OFF expression, parameter in statement meaning FALSE
 func (p *Parser) parseOffExpression() ast.Expression {
 	off := ast.OffExpression{}
@@ -1308,18 +1292,24 @@ func (p *Parser) parseOpenStatement() *ast.OpenStatement {
 	stmt := ast.OpenStatement{Token: p.curToken}
 
 	p.nextToken()
-	switch p.curToken.Type {
-	case token.IDENT:
-		stmt.Verbose = false
-		stmt.Mode = p.curToken.Literal
-		p.nextToken()
-		p.parseOpenStatementBrief(&stmt)
-	case token.STRING:
-		stmt.Verbose = true
-		stmt.FileName = p.curToken.Literal
-		p.nextToken()
-		p.parseOpenStatementVerbose(&stmt)
+
+	if p.curToken.Type != token.STRING {
+		// syntax error just hoover up the rest of the statement
+		p.parseTrash(&stmt.Trash)
+		return &stmt
 	}
+
+	param := p.curToken.Literal
+	p.nextToken()
+
+	if len(param) > 1 {
+		stmt.FileName = param
+		p.parseOpenStatementVerbose(&stmt)
+	} else {
+		stmt.Mode = param
+		p.parseOpenStatementBrief(&stmt)
+	}
+
 	return &stmt
 }
 

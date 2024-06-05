@@ -1007,7 +1007,14 @@ func Trash(Trashes []TrashStatement) string {
 	var out bytes.Buffer
 
 	for _, Trash := range Trashes {
-		out.WriteString(` ` + Trash.String())
+		switch Trash.Token.Type {
+		case token.COMMA, token.COLON:
+			out.WriteString(Trash.String())
+		case token.STRING:
+			out.WriteString(` "` + Trash.String() + `"`)
+		default:
+			out.WriteString(` ` + Trash.String())
+		}
 	}
 
 	return out.String()
@@ -1085,13 +1092,15 @@ func (opn *OpenStatement) String() string {
 		}
 	} else { // non verbose form
 		if len(opn.Mode) > 0 {
-			out.WriteString(` ` + opn.Mode)
+			out.WriteString(` "` + opn.Mode + `"`)
 		}
 
 		if len(opn.FileNumSep) > 0 {
 			out.WriteString(`, ` + opn.FileNumSep)
 		} else {
-			out.WriteString(`, `)
+			if len(opn.FileNumber.String()) > 0 {
+				out.WriteString(`, `)
+			}
 		}
 
 		if len(opn.FileNumber.String()) > 0 {

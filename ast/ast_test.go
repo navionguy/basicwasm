@@ -1100,12 +1100,28 @@ func Test_NextStatement(t *testing.T) {
 }
 
 func Test_TrashStatement(t *testing.T) {
-	trash := TrashStatement{Token: token.Token{Literal: "Trash"}}
+	tests := []struct {
+		testType    token.TokenType
+		testLiteral string
+		testString  string
+	}{
+		{testType: token.IDENT, testLiteral: "Trash", testString: " Trash"},
+		{testType: token.STRING, testLiteral: "Trash", testString: ` "Trash"`},
+		{testType: token.COMMA, testLiteral: ",", testString: ","},
+	}
 
-	trash.statementNode()
+	for _, tt := range tests {
+		trash := TrashStatement{Token: token.Token{Type: tt.testType, Literal: tt.testLiteral}}
+		var trashes []TrashStatement
 
-	assert.Equal(t, "Trash", trash.TokenLiteral(), "trash literal is just wrong")
-	assert.Equal(t, "Trash", trash.String(), "trash string is just wrong")
+		trashes = append(trashes, trash)
+
+		trash.statementNode()
+
+		assert.Equal(t, tt.testType, trash.Token.Type, "trash type is wrong")
+		assert.Equal(t, tt.testLiteral, trash.TokenLiteral(), "trash literal is just wrong")
+		assert.Equal(t, tt.testString, Trash(trashes), "trash string is just wrong")
+	}
 }
 
 func Test_OffExpression(t *testing.T) {
@@ -1140,7 +1156,7 @@ func Test_OpenStatement(t *testing.T) {
 			FileNumber: FileNumber{Numbr: &IntegerLiteral{Value: 37}},
 			FileName:   `briefname`,
 			RecLen:     `256`},
-			exp: `OPEN R, #37, "briefname",256`,
+			exp: `OPEN "R", #37, "briefname",256`,
 		},
 		{open: OpenStatement{Token: token.Token{Literal: "OPEN"},
 			Verbose:    false,
@@ -1150,7 +1166,7 @@ func Test_OpenStatement(t *testing.T) {
 			FileName:   `trashyname`,
 			RecLen:     `256`,
 			Trash:      []TrashStatement{{Token: token.Token{Literal: "bad stuff"}}}},
-			exp: `OPEN R, #37, "trashyname",256 bad stuff`,
+			exp: `OPEN "R", #37, "trashyname",256 bad stuff`,
 		},
 		{open: OpenStatement{Token: token.Token{Literal: "OPEN"},
 			Verbose:    false,
@@ -1159,7 +1175,7 @@ func Test_OpenStatement(t *testing.T) {
 			FileName:   `trashyname`,
 			RecLen:     `256`,
 			Trash:      []TrashStatement{{Token: token.Token{Literal: "bad stuff"}}}},
-			exp: `OPEN R, 38, "trashyname",256 bad stuff`,
+			exp: `OPEN "R", 38, "trashyname",256 bad stuff`,
 		},
 
 		// test verbose
