@@ -329,7 +329,7 @@ func evalAutoCommandParams(cmd *ast.AutoCommand, code *ast.Code, env *object.Env
 	return nil
 }
 
-// evalute the first parameter of the Auto Command
+// evaluate the first parameter of the Auto Command
 func evalAutoCommandParam1(auto, cmd *ast.AutoCommand, code *ast.Code, env *object.Environment) object.Object {
 	// if the first param is '.', then we use current line number
 
@@ -1130,13 +1130,13 @@ func allocArray(typeid string, dims []*ast.IndexExpression, code *ast.Code, env 
 	// create initial values for everybody
 
 	for j := range obj.Elements {
-		obj.Elements[j] = allocArrayValue(typeid)
+		obj.Elements[j] = allocArrayValue(typeid, env)
 	}
 
 	return &obj
 }
 
-func allocArrayValue(typeid string) object.Object {
+func allocArrayValue(typeid string, env *object.Environment) object.Object {
 	var obj object.Object
 
 	switch typeid {
@@ -1150,6 +1150,8 @@ func allocArrayValue(typeid string) object.Object {
 		obj = &object.FloatSgl{Value: 0}
 	case "FIXED":
 		obj = &object.Fixed{Value: decimal.Zero}
+	default:
+		obj = object.StdError(env, berrors.Syntax)
 	}
 
 	return obj
@@ -1673,7 +1675,7 @@ func evalLocateCursorMove(stmt *ast.LocateStatement, code *ast.Code, env *object
 		return nil
 	}
 
-	// calculte new row
+	// calculate new row
 	if stmt.Parms[0] != nil {
 		nr := evalExpressions(stmt.Parms[0:1], code, env)
 		newRow, err := coerceIndex(nr[0], env)

@@ -138,6 +138,29 @@ func compareObjects(inp string, evald object.Object, want interface{}, t *testin
 	}
 }
 
+func Test_AllocArrayValue(t *testing.T) {
+	tests := []struct {
+		id     string
+		expect object.Object
+	}{
+		{expect: &object.Integer{}},
+		{id: "%", expect: &object.Integer{}},
+		{id: "$", expect: &object.String{}},
+		{id: "#", expect: &object.FloatDbl{}},
+		{id: "!", expect: &object.FloatSgl{}},
+		{id: "FIXED", expect: &object.Fixed{}},
+		{id: "@", expect: &object.Error{}},
+	}
+
+	for _, tt := range tests {
+		var mt mocks.MockTerm
+		env := object.NewTermEnvironment(mt)
+		res := allocArrayValue(tt.id, env)
+
+		assert.Equal(t, tt.expect.Type(), res.Type(), "allocated incorrect type")
+	}
+}
+
 // TODO FULLY test applyFunction()
 func TestApplyFuncion(t *testing.T) {
 	fn := &object.Integer{}
@@ -847,10 +870,23 @@ func Test_FilesCommand(t *testing.T) {
 		rs     int
 		err    bool
 	}{
-		//{param: "", expURL: `/drivec`, cwd: `C:\`, send: "10 PRINT \"Main Menu\"\n", exp: "10 PRINT \"Main Menu\"\n", rs: 404, err: false},
-		//{param: "", expURL: `/drivec`, cwd: `C:\`, send: "10 PRINT \"Main Menu\"\n", exp: "10 PRINT \"Main Menu\"\n", rs: 200, err: false},
+		{param: "", expURL: `/drivec`, cwd: `C:\`, send: "10 PRINT \"Main Menu\"\n", exp: "10 PRINT \"Main Menu\"\n", rs: 404, err: false},
+		{param: "", expURL: `/drivec`, cwd: `C:\`, send: "10 PRINT \"Main Menu\"\n", exp: "10 PRINT \"Main Menu\"\n", rs: 200, err: false},
 		{param: "HamCalc", expURL: `/drivec/hamcalc`, cwd: `C:\`, send: "10 PRINT \"Main Menu\"\n", exp: "10 PRINT \"Main Menu\"\n", rs: 200, err: false},
 		{param: "", expURL: `/drivec`, cwd: `C:\`, send: `[{"name":"test.bas","isdir":false},{"name":"alongername.bas","isdir":true}]`, exp: `[{"name":"test.bas","isdir":false},{"name":"alongername.bas","isdir":true}]`, rs: 200, err: false},
+		{param: "", expURL: `/drivec`, cwd: `C:\`,
+			send: `[{"name":"test.bas","isdir":false},
+			{"name":"test2.bas","isdir":false},
+			{"name":"test3.bas","isdir":false},
+			{"name":"test4.bas","isdir":false},
+			{"name":"test5.bas","isdir":false},
+			{"name":"test6.bas","isdir":false}]`,
+			exp: `[{"name":"test.bas","isdir":false},
+			{"name":"test2.bas","isdir":false},
+			{"name":"test3.bas","isdir":false},
+			{"name":"test4.bas","isdir":false},
+			{"name":"test5.bas","isdir":false},
+			{"name":"test6.bas","isdir":false}]`, rs: 200, err: false},
 	}
 
 	for _, tt := range tests {
@@ -896,9 +932,11 @@ func Test_FilesCommand(t *testing.T) {
 
 func Test_FixedLiteral(t *testing.T) {
 	tests := []struct {
-		inp string
+		inp  string
+		fail bool
 	}{
 		{inp: `10 X = 12.5`},
+		{inp: `20 Y = 123456789123456789123456789123456789.123456789123456789.123456789123456789`, fail: true},
 	}
 
 	for _, tt := range tests {
@@ -910,6 +948,16 @@ func Test_FixedLiteral(t *testing.T) {
 		env := object.NewTermEnvironment(mt)
 
 		p.ParseProgram(env)
+		itr := env.StatementIter()
+		res := Eval(&ast.Program{}, itr, env)
+
+		if tt.fail {
+			_, ok := res.(*object.Error)
+
+			assert.True(t, ok, "FixedLiteral missed error")
+		} else {
+			assert.Nil(t, res, "FixedLiteral failed")
+		}
 	}
 }
 
@@ -1654,6 +1702,8 @@ func Test_PrintStatement(t *testing.T) {
 	}{
 		{inp: `10 PRINT TAB(30);"Hello World!"`},
 		{inp: `10 PRINT "x";USING "##.#";Z;:PRINT " ";A(5);  'comment`},
+		{inp: `30 PRINT 345692811`},
+		//{inp: `40 PRINT "x";USING "##.###########"; -1.09432123456798-06`},
 	}
 
 	for _, tt := range tests {
