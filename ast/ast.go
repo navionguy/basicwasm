@@ -167,38 +167,51 @@ func (ce *CallExpression) String() string {
 // ChainStatement loads a program file
 type ChainStatement struct {
 	Token  token.Token
-	Path   Expression // filespec for file to chain in
-	Line   Expression // line number to start execution
-	Range  Expression // range of line numbers to delete
-	All    bool       // signals keep all variable values
-	Delete bool       // specifies a range of lines deleted before Chaining to new overlay
-	Merge  bool       // overlays current program with called progarm, files stay open
+	Path   Expression       // filespec for file to chain in
+	Line   Expression       // line number to start execution
+	Range  Expression       // range of line numbers to delete
+	All    bool             // signals keep all variable values
+	Delete bool             // specifies a range of lines deleted before Chaining to new overlay
+	Merge  bool             // overlays current program with called program, files stay open
+	Trash  []TrashStatement // Stuff that could not be parsed
 }
 
 func (chn *ChainStatement) statementNode() {}
 
 // TokenLiteral returns my token literal
 func (chn *ChainStatement) TokenLiteral() string { return strings.ToUpper(chn.Token.Literal) }
+func (chn *ChainStatement) HasTrash() bool       { return len(chn.Trash) > 0 }
 
 func (chn *ChainStatement) String() string {
-	lit := "CHAIN "
+	var out bytes.Buffer
+
+	out.WriteString(chn.TokenLiteral() + " ")
+
 	if chn.Merge {
-		lit = lit + "MERGE "
+		out.WriteString("MERGE ")
 	}
-	lit = lit + chn.Path.String()
+	out.WriteString(chn.Path.String())
 	if chn.Line != nil {
-		lit = lit + ", " + chn.Line.String()
+		out.WriteString(", " + chn.Line.String())
 	}
+
 	if chn.All {
-		lit = lit + ", ALL"
+		out.WriteString(", ALL")
 	}
 	if chn.Delete {
-		lit = lit + ", DELETE "
+		out.WriteString(", DELETE")
 		if chn.Range != nil {
-			lit = lit + chn.Range.String()
+			out.WriteString(" " + chn.Range.String())
 		}
 	}
-	return lit
+
+	for i, t := range chn.Trash {
+		if i == 0 {
+			out.WriteString(" ")
+		}
+		out.WriteString(t.String())
+	}
+	return out.String()
 }
 
 type ChDirStatement struct {

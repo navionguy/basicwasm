@@ -120,15 +120,16 @@ func Test_BuiltinExpression(t *testing.T) {
 func Test_ChainStatement(t *testing.T) {
 	tests := []struct {
 		cmd    string // command to parse
+		exp    string
 		file   string // file name that should be in ChainCommand object
 		merge  bool
 		all    bool
 		delete bool
-		error  bool // I expect to get a parsing error
+		trash  bool // I expect to have trash
 	}{
-		{cmd: `CHAIN "C:\MENU\HCAL.BAS", 100,all,delete 100-1000`, file: `c:\menu\HCAL.BAS`, all: true, delete: true},
-		{cmd: `CHAIN MERGE "C:\MENU\HIWORLD.BAS"`, file: `c:\menu\HIWORLD.BAS`, merge: true},
-		{cmd: `CHAIN "C:\MENU\START.BAS", 100,fred`, file: `c:\menu\START.BAS`, error: true},
+		{cmd: `CHAIN "C:\MENU\HCAL.BAS", 100,all,delete 100-1000`, exp: `CHAIN "C:\MENU\HCAL.BAS", 100, ALL, DELETE 100 - 1000`, file: `c:\menu\HCAL.BAS`, all: true, delete: true},
+		{cmd: `CHAIN MERGE "C:\MENU\HIWORLD.BAS"`, exp: `CHAIN MERGE "C:\MENU\HIWORLD.BAS"`, file: `c:\menu\HIWORLD.BAS`, merge: true},
+		{cmd: `CHAIN "C:\MENU\START.BAS", 100,fred`, exp: `CHAIN "C:\MENU\START.BAS", 100 fred`, file: `c:\menu\START.BAS`, trash: true},
 	}
 
 	for _, tt := range tests {
@@ -137,12 +138,6 @@ func Test_ChainStatement(t *testing.T) {
 		env := object.NewTermEnvironment(mocks.MockTerm{})
 		p.ParseCmd(env)
 
-		if tt.error {
-			assert.NotEmpty(t, p.errors, "Cmd %s didn't signal an error", tt.cmd)
-			continue
-		}
-		checkParserErrors(t, p)
-
 		itr := env.CmdLineIter()
 
 		if itr.Len() != 1 {
@@ -150,20 +145,7 @@ func Test_ChainStatement(t *testing.T) {
 		}
 
 		stmt := itr.Value()
-
-		if stmt.TokenLiteral() != token.CHAIN {
-			t.Fatal("TestChainStatement didn't get an Chain Statement")
-		}
-
-		atc := stmt.(*ast.ChainStatement)
-
-		if atc == nil {
-			t.Fatal("TestChainStatement couldn't extract ChainStatement object")
-		} else {
-			assert.Equalf(t, tt.all, atc.All, "%s 'all' flag mismatch", tt.cmd)
-			assert.Equalf(t, tt.delete, atc.Delete, "%s 'delete' flag mismatch", tt.cmd)
-			assert.Equalf(t, tt.merge, atc.Merge, "%s 'merge' flag mismatch", tt.cmd)
-		}
+		assert.Equal(t, tt.exp, stmt.String(), "chain failed")
 	}
 }
 

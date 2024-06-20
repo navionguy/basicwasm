@@ -442,10 +442,15 @@ func (p *Parser) parseChainParameter(param int, chain *ast.ChainStatement) {
 	case 0: // start at linenum
 		chain.Line = p.parseExpression(LOWEST)
 	case 1: // ALL preserve variables
-		if !p.curTokenIs(token.ALL) {
-			p.reportError(berrors.Syntax)
+		if p.curTokenIs(token.ALL) {
+			chain.All = true
+			return
 		}
-		chain.All = true
+		if !p.peekTokenIs(token.COMMA) {
+			// syntax error just hoover up the rest of the statement
+			p.parseTrash(&chain.Trash)
+		}
+
 	case 2: // DELETE range of lines
 		chain.Delete = true
 		p.nextToken()

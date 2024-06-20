@@ -106,8 +106,9 @@ func TestStringAndToken(t *testing.T) {
 
 func Test_ChainStatement(t *testing.T) {
 	tests := []struct {
-		cmd ChainStatement
-		exp string
+		cmd   ChainStatement
+		exp   string
+		trash []string
 	}{
 		{cmd: ChainStatement{Token: token.Token{Type: token.CHAIN, Literal: "CHAIN"},
 			Path: &StringLiteral{Token: token.Token{Type: token.STRING, Literal: "HIWORLD.BAS"}, Value: "HIWORLD.BAS"}},
@@ -118,14 +119,24 @@ func Test_ChainStatement(t *testing.T) {
 			Range: &InfixExpression{Token: token.Token{Type: token.MINUS, Literal: "-"},
 				Left: &IntegerLiteral{Value: 100}, Operator: "-", Right: &IntegerLiteral{Value: 500}}},
 			exp: `CHAIN MERGE "HIWORLD.BAS", 100, ALL, DELETE 100 - 500`},
+		{cmd: ChainStatement{Token: token.Token{Type: token.CHAIN, Literal: "CHAIN"},
+			Path: &StringLiteral{Token: token.Token{Type: token.STRING, Literal: "GOODBYE.BAS"}, Value: "GOODBYE.BAS"},
+			Line: &IntegerLiteral{Value: 200}},
+			trash: []string{"OPEN"},
+			exp:   `CHAIN "GOODBYE.BAS", 200 OPEN`},
 	}
 
 	for _, tt := range tests {
 		tt.cmd.statementNode()
+		for _, tr := range tt.trash {
+			tt.cmd.Trash = append(tt.cmd.Trash, TrashStatement{Token: token.Token{Literal: tr}})
+		}
 
 		assert.Equal(t, tt.cmd.Token.Literal, tt.cmd.TokenLiteral(), "(%s) Token.Literal and TokenLiteral() mismatch", tt.exp, tt.cmd.Token.Literal, tt.cmd.TokenLiteral())
 
 		assert.Equal(t, tt.exp, tt.cmd.String(), "(%s) came back as %s", tt.exp, tt.cmd.String())
+
+		assert.Equal(t, (len(tt.trash) > 0), tt.cmd.HasTrash(), "HasTrash is wrong")
 	}
 }
 
