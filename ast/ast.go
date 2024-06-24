@@ -185,17 +185,24 @@ func (chn *ChainStatement) HasTrash() bool       { return len(chn.Trash) > 0 }
 func (chn *ChainStatement) String() string {
 	var out bytes.Buffer
 
-	out.WriteString(chn.TokenLiteral() + " ")
+	out.WriteString(chn.TokenLiteral())
 
 	if chn.Merge {
-		out.WriteString("MERGE ")
+		out.WriteString(" MERGE")
 	}
-	out.WriteString(chn.Path.String())
+
+	if chn.Path != nil {
+		out.WriteString(" " + chn.Path.String())
+	}
+
 	if chn.Line != nil {
 		out.WriteString(", " + chn.Line.String())
 	}
 
 	if chn.All {
+		if chn.Line == nil {
+			out.WriteString(",")
+		}
 		out.WriteString(", ALL")
 	}
 	if chn.Delete {

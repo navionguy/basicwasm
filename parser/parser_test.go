@@ -119,17 +119,21 @@ func Test_BuiltinExpression(t *testing.T) {
 
 func Test_ChainStatement(t *testing.T) {
 	tests := []struct {
-		cmd    string // command to parse
-		exp    string
-		file   string // file name that should be in ChainCommand object
-		merge  bool
-		all    bool
-		delete bool
-		trash  bool // I expect to have trash
+		cmd   string // command to parse
+		exp   string
+		trash bool // I expect to have trash
 	}{
-		{cmd: `CHAIN "C:\MENU\HCAL.BAS", 100,all,delete 100-1000`, exp: `CHAIN "C:\MENU\HCAL.BAS", 100, ALL, DELETE 100 - 1000`, file: `c:\menu\HCAL.BAS`, all: true, delete: true},
-		{cmd: `CHAIN MERGE "C:\MENU\HIWORLD.BAS"`, exp: `CHAIN MERGE "C:\MENU\HIWORLD.BAS"`, file: `c:\menu\HIWORLD.BAS`, merge: true},
-		{cmd: `CHAIN "C:\MENU\START.BAS", 100,fred`, exp: `CHAIN "C:\MENU\START.BAS", 100 fred`, file: `c:\menu\START.BAS`, trash: true},
+		{cmd: `CHAIN`, exp: ` CHAIN`, trash: true},
+		{cmd: `CHAIN MERGE`, exp: `CHAIN MERGE`, trash: true},
+		{cmd: `CHAIN "MENU.BAS"`, exp: `CHAIN "MENU.BAS"`},
+		{cmd: `CHAIN "MENUE.BAS", PRINT`, exp: `CHAIN "MENUE.BAS" PRINT`, trash: true},
+		{cmd: `CHAIN "MENU.BAS", 10`, exp: `CHAIN "MENU.BAS", 10`},
+		{cmd: `CHAIN "MENU.BAS",, all`, exp: `CHAIN "MENU.BAS",, ALL`},
+		{cmd: `CHAIN "MENU2.BAS",, all OPEN`, exp: `CHAIN "MENU2.BAS",, ALL OPEN`, trash: true},
+		{cmd: `CHAIN "C:\MENU\HCAL.BAS", 100,all,delete 100-1000`, exp: `CHAIN "C:\MENU\HCAL.BAS", 100, ALL, DELETE 100 - 1000`},
+		{cmd: `CHAIN "C:\MENU\HCAL.BAS", 100,all,delete 100-1000 PRINT`, exp: `CHAIN "C:\MENU\HCAL.BAS", 100, ALL, DELETE 100 - 1000 PRINT`, trash: true},
+		{cmd: `CHAIN MERGE "C:\MENU\HIWORLD.BAS"`, exp: `CHAIN MERGE "C:\MENU\HIWORLD.BAS"`},
+		{cmd: `CHAIN "C:\MENU\START.BAS", 100,fred`, exp: `CHAIN "C:\MENU\START.BAS", 100 fred`, trash: true},
 	}
 
 	for _, tt := range tests {
@@ -146,6 +150,12 @@ func Test_ChainStatement(t *testing.T) {
 
 		stmt := itr.Value()
 		assert.Equal(t, tt.exp, stmt.String(), "chain failed")
+
+		chain, ok := stmt.(*ast.ChainStatement)
+		assert.True(t, ok, "didn't get a chain statement")
+		if tt.trash {
+			assert.True(t, chain.HasTrash(), "expected to get trash")
+		}
 	}
 }
 

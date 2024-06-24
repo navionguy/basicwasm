@@ -395,66 +395,124 @@ func (p *Parser) parseBuiltinExpression() *ast.BuiltinExpression {
 }
 
 // parseChainStatement()
+//
+// CHAIN [MERGE] filename[,[line][,[ALL][,DELETE range]]]
 func (p *Parser) parseChainStatement() *ast.ChainStatement {
-	chain := ast.ChainStatement{Token: p.curToken}
+	chain := ast.ChainStatement{}
 
+	// make sure there are parameters
 	if p.chkEndOfStatement() {
-		p.nextToken()
+		// nope, this is all trash
+		p.parseTrash(&chain.Trash)
 		return &chain
 	}
 
+	//start parsing the chain command
+	chain.Token = p.curToken
 	p.nextToken()
+	p.parseChainMerge(&chain)
 
-	// check for merge option
-	if p.curTokenIs(token.MERGE) {
-		chain.Merge = true
-		p.nextToken()
+	return &chain
+}
+
+// check for the MERGE param
+func (p *Parser) parseChainMerge(chain *ast.ChainStatement) {
+	// if I don't have a merge token, move onto the path
+	if !p.curTokenIs(token.MERGE) {
+		p.parseChainPath(chain)
+		return
 	}
 
-	return p.parseChainPath(&chain)
+	// if peekToken is end of statement, that is an error
+	if p.chkEndOfStatement() {
+		p.parseTrash(&chain.Trash)
+		return
+	}
+
+	// set MERGE, then go get the path
+	chain.Merge = true
+	p.nextToken()
+	p.parseChainPath(chain)
 }
 
 // parse out the path for file to chain in
-func (p *Parser) parseChainPath(chain *ast.ChainStatement) *ast.ChainStatement {
+func (p *Parser) parseChainPath(chain *ast.ChainStatement) {
 	chain.Path = p.parseExpression(LOWEST)
 
-	if !p.peekTokenIs(token.COMMA) {
-		return chain
-	}
-
-	return p.parseChainParams(chain)
-}
-
-// parse any parameters to the chain statement
-func (p *Parser) parseChainParams(chain *ast.ChainStatement) *ast.ChainStatement {
-	for i := 0; p.peekTokenIs(token.COMMA); i++ {
+	// he may have a start line
+	if p.peekTokenIs(token.COMMA) {
 		p.nextToken()
-		p.parseChainParameter(i, chain)
+		p.parseChainStartLine(chain)
 	}
-	return chain
 }
 
-// parse the next chain statement parameter
-func (p *Parser) parseChainParameter(param int, chain *ast.ChainStatement) {
+// check for the line parameters
+// I check for an expression, if I find one, I save it as the line
+// If I don't, execution starts at the beginning of the file
+func (p *Parser) parseChainStartLine(chain *ast.ChainStatement) {
 	p.nextToken()
 
-	switch param {
-	case 0: // start at linenum
-		chain.Line = p.parseExpression(LOWEST)
-	case 1: // ALL preserve variables
-		if p.curTokenIs(token.ALL) {
-			chain.All = true
-			return
-		}
-		if !p.peekTokenIs(token.COMMA) {
-			// syntax error just hoover up the rest of the statement
-			p.parseTrash(&chain.Trash)
-		}
+	// if ",," no start line, either ALL or DELETE
+	if p.curTokenIs(token.COMMA) {
+		p.parseChainAll(chain)
+		return
+	}
 
-	case 2: // DELETE range of lines
+	// get the starting line number
+	chain.Line = p.parseExpression(LOWEST)
+
+	// make sure it parsed
+	if chain.Line == nil {
+		p.parseTrash(&chain.Trash)
+		return
+	}
+
+	p.nextToken()
+
+	// if more to statement, go check for ALL
+	if !p.atEndOfStatement() {
+		p.parseChainAll(chain)
+	}
+}
+
+// check for the ALL parameter
+func (p *Parser) parseChainAll(chain *ast.ChainStatement) {
+	if p.peekTokenIs(token.ALL) {
+		chain.All = true
+		p.nextToken()
+	}
+
+	// check if ware done with the statement
+	if p.chkEndOfStatement() {
+		return
+	}
+
+	// if there is a comma, we should have a DELETE range
+	if p.peekTokenIs(token.COMMA) {
+		p.nextToken()
+		p.parseChainDelete(chain)
+		return
+	}
+
+	// if there is something besides a comma, it is trash
+	p.nextToken()
+	p.parseTrash(&chain.Trash)
+	p.nextToken()
+}
+
+// check for the DELETE option
+func (p *Parser) parseChainDelete(chain *ast.ChainStatement) {
+	if p.peekTokenIs(token.DELETE) {
 		chain.Delete = true
 		p.nextToken()
+		p.nextToken()
 		chain.Range = p.parseExpression(LOWEST)
+	}
+
+	// check for trailing trash
+	if !p.chkEndOfStatement() {
+		p.nextToken()
+		p.parseTrash(&chain.Trash)
 	}
 }
 

@@ -79,6 +79,7 @@ const (
 	CSRLIN  = "CSRLIN"
 	DATA    = "DATA"
 	DEF     = "DEF"
+	DELETE  = "DELETE"
 	DIM     = "DIM"
 	ELSE    = "ELSE"
 	END     = "END"
@@ -133,8 +134,11 @@ type Token struct {
 }
 
 var keywords = map[string]TokenType{
+	"access":  ACCESS,
 	"all":     ALL,
+	"append":  APPEND,
 	"auto":    AUTO,
+	"as":      AS,
 	"beep":    BEEP,
 	"builtin": BUILTIN,
 	"chain":   CHAIN,
@@ -148,6 +152,7 @@ var keywords = map[string]TokenType{
 	"csrlin":  CSRLIN,
 	"data":    DATA,
 	"def":     DEF,
+	"delete":  DELETE,
 	"dim":     DIM,
 	"else":    ELSE,
 	"end":     END,
@@ -158,11 +163,14 @@ var keywords = map[string]TokenType{
 	"gosub":   GOSUB,
 	"goto":    GOTO,
 	"if":      IF,
+	"input":   INPUT,
 	"key":     KEY,
+	//"len":     LEN,
 	"let":     LET,
 	"list":    LIST,
 	"load":    LOAD,
 	"locate":  LOCATE,
+	"lock":    LOCK,
 	"merge":   MERGE,
 	"mod":     MOD,
 	"new":     NEW,
@@ -170,8 +178,10 @@ var keywords = map[string]TokenType{
 	"off":     OFF,
 	"on":      ON,
 	"open":    OPEN,
+	"output":  OUTPUT,
 	"palette": PALETTE,
 	"print":   PRINT,
+	"random":  RANDOM,
 	"read":    READ,
 	"rem":     REM,
 	"restore": RESTORE,
@@ -179,6 +189,7 @@ var keywords = map[string]TokenType{
 	"return":  RETURN,
 	"run":     RUN,
 	"screen":  SCREEN,
+	"shared":  SHARED,
 	"stop":    STOP,
 	"then":    THEN,
 	"to":      TO,
@@ -187,6 +198,7 @@ var keywords = map[string]TokenType{
 	"true":    TRUE,
 	"using":   USING,
 	"view":    VIEW,
+	"write":   WRITE,
 }
 
 // LookupIdent returns a TokenType object
