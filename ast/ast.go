@@ -922,15 +922,21 @@ func (i *Identifier) String() string {
 type IntegerLiteral struct {
 	Token token.Token
 	Value int16
+	Trash []TrashStatement
 }
 
-func (il *IntegerLiteral) expressionNode() {}
-
-// TokenLiteral returns literal value
+func (il *IntegerLiteral) expressionNode()      {}
 func (il *IntegerLiteral) TokenLiteral() string { return il.Token.Literal }
+func (il *IntegerLiteral) HasTrash() bool       { return len(il.Trash) > 0 }
 
 // String returns value as an integer
-func (il *IntegerLiteral) String() string { return fmt.Sprintf("%d", il.Value) }
+func (il *IntegerLiteral) String() string {
+	if !il.HasTrash() {
+		return fmt.Sprintf("%d", il.Value)
+	}
+
+	return Trash(il.Trash)
+}
 
 // DblIntegerLiteral holds a 32bit integer
 type DblIntegerLiteral struct {

@@ -497,7 +497,6 @@ func (p *Parser) parseChainAll(chain *ast.ChainStatement) {
 	// if there is something besides a comma, it is trash
 	p.nextToken()
 	p.parseTrash(&chain.Trash)
-	p.nextToken()
 }
 
 // check for the DELETE option
@@ -801,6 +800,7 @@ func (p *Parser) parseIntegerLiteral() ast.Expression {
 
 	// what ever that was, just return it
 	if err != nil {
+		lit.Trash = append(lit.Trash, ast.TrashStatement{Token: token.Token{Literal: p.curToken.Literal}})
 		return lit
 	}
 
@@ -1794,10 +1794,7 @@ func (p *Parser) parseCheckForArrayIndex(exp *ast.Identifier) {
 
 	if strings.ContainsAny(p.peekToken.Literal, "[(") {
 		p.nextToken()
-		expectClose := "]"
-		if p.curTokenIs("(") {
-			expectClose = ")"
-		}
+
 		exp.Token.Literal = exp.Token.Literal + p.curToken.Literal
 		exp.Value = exp.Value + "[" // hidden from the user, I always use brackets to evaluate
 		exp.Array = true
@@ -1808,11 +1805,6 @@ func (p *Parser) parseCheckForArrayIndex(exp *ast.Identifier) {
 				exp.Index = append(exp.Index, p.innerParseIndexExpression(exp))
 			}
 			p.nextToken()
-		}
-
-		// if user wrote A[5) = 5, let's call that an error
-		if p.curToken.Literal != expectClose {
-			exp.Trash = append(exp.Trash, ast.TrashStatement{Token: token.Token{Literal: p.curToken.Literal}})
 		}
 
 		exp.Token.Literal = exp.Token.Literal + p.curToken.Literal

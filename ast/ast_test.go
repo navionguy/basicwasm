@@ -994,12 +994,26 @@ func Test_InfixExpression(t *testing.T) {
 }
 
 func Test_IntegerLiteral(t *testing.T) {
-	il := &IntegerLiteral{Token: token.Token{Type: token.INT, Literal: "13"}, Value: 13}
+	tests := []struct {
+		literal string
+		value   int16
+		trash   string
+		exp     string
+	}{
+		{literal: "13", value: 13, exp: "13"},
+		{literal: "", trash: "trash", exp: " trash"},
+	}
 
-	il.expressionNode()
+	for _, tt := range tests {
+		il := &IntegerLiteral{Token: token.Token{Type: token.INT, Literal: tt.literal}, Value: tt.value}
+		if len(tt.trash) > 0 {
+			il.Trash = append(il.Trash, TrashStatement{Token: token.Token{Literal: tt.trash}})
+		}
 
-	assert.Equal(t, "13", il.TokenLiteral())
-	assert.Equal(t, "13", il.String())
+		il.expressionNode()
+		assert.Equal(t, tt.literal, il.TokenLiteral())
+		assert.Equal(t, tt.exp, il.String())
+	}
 }
 
 func Test_KeySettings(t *testing.T) {

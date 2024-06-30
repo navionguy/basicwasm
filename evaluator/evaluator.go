@@ -172,11 +172,10 @@ func Eval(node ast.Node, code *ast.Code, env *object.Environment) object.Object 
 
 		// Expressions
 	case *ast.IntegerLiteral:
-		i, err := strconv.Atoi(node.TokenLiteral())
-		if err != nil {
+		if node.HasTrash() {
 			return object.StdError(env, berrors.Syntax)
 		}
-		return &object.Integer{Value: int16(i)}
+		return &object.Integer{Value: node.Value}
 
 	case *ast.DblIntegerLiteral:
 		return &object.IntDbl{Value: node.Value}

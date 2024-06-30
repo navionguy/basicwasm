@@ -1439,7 +1439,6 @@ func Test_UsingRunTime(t *testing.T) {
 }
 
 func TestIntegerLiteralExpression(t *testing.T) {
-	intTok := token.Token{Type: token.INT, Literal: "5"}
 	dblTok := token.Token{Type: token.INTD, Literal: "65999"}
 	fltTok := token.Token{Type: token.FLOAT, Literal: "4294967295"}
 
@@ -1448,7 +1447,7 @@ func TestIntegerLiteralExpression(t *testing.T) {
 		stmts int
 		lit   interface{}
 	}{
-		{`10 5`, 2, &ast.IntegerLiteral{Value: 5, Token: intTok}},
+		{`10 5`, 2, &ast.IntegerLiteral{Value: 5, Token: token.Token{Type: token.INT, Literal: "5"}}},
 		{`20 65999#`, 2, &ast.DblIntegerLiteral{Value: 65999, Token: dblTok}},
 		{`30 4294967295`, 2, &ast.FloatSingleLiteral{Token: fltTok, Value: 4294967295}},
 	}

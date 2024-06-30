@@ -604,7 +604,7 @@ func Test_CloseStatement(t *testing.T) {
 		open  int16
 		fail  bool
 	}{
-		{files: []ast.FileNumber{{Numbr: &ast.IntegerLiteral{Token: token.Token{Literal: "1"}}}}, open: 1},
+		{files: []ast.FileNumber{{Numbr: &ast.IntegerLiteral{Token: token.Token{Literal: "1"}, Value: 1}}}, open: 1},
 		{files: []ast.FileNumber{{Numbr: &ast.IntegerLiteral{Token: token.Token{Literal: "1"}}}}, open: 2, fail: true},
 		{files: []ast.FileNumber{{Numbr: &ast.StringLiteral{Token: token.Token{Literal: "Fred"}, Value: "Fred"}}}, fail: true},
 	}
@@ -1427,6 +1427,7 @@ func Test_LetStatements(t *testing.T) {
 		exp int16
 	}{
 		{inp: "10 LET a = 5", chk: "a", exp: 5},
+		//{inp: "15 LET a = 5a", chk: "a", exp: 5},
 		{inp: "20 LET a = 5 * 5", chk: "a", exp: 25},
 		{inp: "30 LET a = 5: let b = a:", chk: "b", exp: 5},
 		{inp: "40 LET a = 5: let b = a: let c = a + b + 5", chk: "c", exp: 15},
