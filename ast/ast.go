@@ -212,12 +212,7 @@ func (chn *ChainStatement) String() string {
 		}
 	}
 
-	for i, t := range chn.Trash {
-		if i == 0 {
-			out.WriteString(" ")
-		}
-		out.WriteString(t.String())
-	}
+	out.WriteString(Trash(chn.Trash))
 	return out.String()
 }
 
@@ -336,13 +331,9 @@ func (color *ColorStatement) String() string {
 		}
 	}
 
-	for _, tr := range color.Trash {
-		out.WriteString(" ")
-		out.WriteString(tr.String())
-	}
+	out.WriteString(Trash(color.Trash))
 
-	tmp := out.String()
-	return tmp
+	return out.String()
 }
 
 type CommonStatement struct {
@@ -575,14 +566,13 @@ type LetStatement struct {
 	Token token.Token // the token.LET token Name *Identifier
 	Name  *Identifier
 	Value Expression
+	Trash []TrashStatement
 }
 
-func (ls *LetStatement) statementNode() {}
+func (ls *LetStatement) statementNode()       {}
+func (ls *LetStatement) TokenLiteral() string { return strings.ToUpper(ls.Token.Literal) }
+func (ls *LetStatement) HasTrash() bool       { return len(ls.Trash) > 0 }
 
-// TokenLiteral returns literal value of the statement
-func (ls *LetStatement) TokenLiteral() string {
-	return strings.ToUpper(ls.Token.Literal)
-}
 func (ls *LetStatement) String() string {
 	var out bytes.Buffer
 
@@ -593,6 +583,9 @@ func (ls *LetStatement) String() string {
 	if ls.Value != nil {
 		out.WriteString(ls.Value.String())
 	}
+
+	out.WriteString(Trash(ls.Trash))
+
 	return out.String()
 }
 
@@ -600,15 +593,20 @@ func (ls *LetStatement) String() string {
 type LineNumStmt struct {
 	Token token.Token
 	Value int32
+	Trash []TrashStatement
 }
 
-func (lns *LineNumStmt) statementNode() {}
-
-// TokenLiteral returns the literal value
+func (lns *LineNumStmt) statementNode()       {}
 func (lns *LineNumStmt) TokenLiteral() string { return lns.Token.Literal }
+func (lns *LineNumStmt) HasTrash() bool       { return len(lns.Trash) > 0 }
 
 func (lns *LineNumStmt) String() string {
-	return fmt.Sprintf("%d ", lns.Value)
+	var out bytes.Buffer
+
+	out.WriteString(fmt.Sprintf("%d ", lns.Value))
+
+	out.WriteString(Trash(lns.Trash))
+	return out.String()
 }
 
 // Load command loads a source file and optionally starts it
@@ -806,7 +804,7 @@ func (es *ExpressionStatement) String() string {
 	var out bytes.Buffer
 
 	// expression statement handles trash a little differently
-	if len(es.Trash) > 0 {
+	if es.HasTrash() {
 		for i, tr := range es.Trash {
 			if i > 0 {
 				out.WriteString(" ")
@@ -942,15 +940,25 @@ func (il *IntegerLiteral) String() string {
 type DblIntegerLiteral struct {
 	Token token.Token
 	Value int32
+	Trash []TrashStatement
 }
 
-func (dil *DblIntegerLiteral) expressionNode() {}
-
-// TokenLiteral returns literal value
+func (dil *DblIntegerLiteral) expressionNode()      {}
 func (dil *DblIntegerLiteral) TokenLiteral() string { return dil.Token.Literal }
+func (dil *DblIntegerLiteral) HasTrash() bool       { return len(dil.Trash) > 0 }
 
 // String returns value as an integer
-func (dil *DblIntegerLiteral) String() string { return fmt.Sprintf("%d", dil.Value) }
+func (dil *DblIntegerLiteral) String() string {
+	var out bytes.Buffer
+
+	out.WriteString(fmt.Sprintf("%d", dil.Value))
+
+	if dil.HasTrash() {
+		out.WriteString(Trash(dil.Trash))
+	}
+
+	return out.String()
+}
 
 // FixedLiteral is a Fixed Point number
 type FixedLiteral struct {
@@ -975,40 +983,57 @@ func (fl *FixedLiteral) String() string {
 type FloatSingleLiteral struct {
 	Token token.Token
 	Value float32
+	Trash []TrashStatement
 }
 
-func (fs *FloatSingleLiteral) expressionNode() {}
-
-// TokenLiteral returns literal value
+func (fs *FloatSingleLiteral) expressionNode()      {}
 func (fs *FloatSingleLiteral) TokenLiteral() string { return fs.Token.Literal }
+func (fs *FloatSingleLiteral) HasTrash() bool       { return len(fs.Trash) > 0 }
 
 // String returns value as an integer
-func (fs *FloatSingleLiteral) String() string { return fs.Token.Literal }
+func (fs *FloatSingleLiteral) String() string {
+	var out bytes.Buffer
+	out.WriteString(fs.Token.Literal)
+
+	if fs.HasTrash() {
+		out.WriteString(Trash(fs.Trash))
+	}
+	return out.String()
+}
 
 // FloatDoubleLiteral 64 bit floating point number
 type FloatDoubleLiteral struct {
 	Token token.Token
 	Value float64
+	Trash []TrashStatement
 }
 
-func (fd *FloatDoubleLiteral) expressionNode() {}
-
-// TokenLiteral returns literal value
+func (fd *FloatDoubleLiteral) expressionNode()      {}
 func (fd *FloatDoubleLiteral) TokenLiteral() string { return fd.Token.Literal }
+func (fd *FloatDoubleLiteral) HasTrash() bool       { return len(fd.Trash) > 0 }
 
 // String returns value as a string
-func (fd *FloatDoubleLiteral) String() string { return fd.Token.Literal }
+func (fd *FloatDoubleLiteral) String() string {
+	var out bytes.Buffer
+
+	out.WriteString(fd.Token.Literal)
+
+	if fd.HasTrash() {
+		out.WriteString(Trash(fd.Trash))
+	}
+	return out.String()
+}
 
 // HexConstant holds values in the from &H76 &H32F
 type HexConstant struct {
 	Token token.Token
 	Value string
+	Trash []TrashStatement
 }
 
-func (hc *HexConstant) expressionNode() {}
-
-// TokenLiteral returns my literal
+func (hc *HexConstant) expressionNode()      {}
 func (hc *HexConstant) TokenLiteral() string { return hc.Token.Literal }
+func (hc *HexConstant) HasTrash() bool       { return len(hc.Trash) > 0 }
 
 // String returns literal as a string
 func (hc *HexConstant) String() string {
@@ -1016,6 +1041,10 @@ func (hc *HexConstant) String() string {
 
 	out.WriteString(hc.Token.Literal)
 	out.WriteString(hc.Value)
+
+	if hc.HasTrash() {
+		out.WriteString(Trash(hc.Trash))
+	}
 	return out.String()
 }
 
@@ -1031,6 +1060,10 @@ func (nse *TrashStatement) String() string { return nse.Token.Literal }
 
 func Trash(Trashes []TrashStatement) string {
 	var out bytes.Buffer
+
+	if len(Trashes) == 0 {
+		return ""
+	}
 
 	for _, Trash := range Trashes {
 		switch Trash.Token.Type {
@@ -1050,12 +1083,12 @@ func Trash(Trashes []TrashStatement) string {
 type OctalConstant struct {
 	Token token.Token
 	Value string
+	Trash []TrashStatement
 }
 
-func (oc *OctalConstant) expressionNode() {}
-
-// TokenLiteral throws back my literal
+func (oc *OctalConstant) expressionNode()      {}
 func (oc *OctalConstant) TokenLiteral() string { return oc.Token.Literal }
+func (oc *OctalConstant) HasTrash() bool       { return len(oc.Trash) > 0 }
 
 // String gives printable version of me
 func (oc *OctalConstant) String() string {
@@ -1063,6 +1096,8 @@ func (oc *OctalConstant) String() string {
 
 	out.WriteString(oc.Token.Literal)
 	out.WriteString(oc.Value)
+	out.WriteString(Trash(oc.Trash))
+
 	return out.String()
 }
 
@@ -1179,12 +1214,12 @@ func (rd *ReadStatement) String() string {
 type RestoreStatement struct {
 	Token token.Token
 	Line  int
+	Trash []TrashStatement
 }
 
-func (rs *RestoreStatement) statementNode() {}
-
-// TokenLiteral returns my literal
+func (rs *RestoreStatement) statementNode()       {}
 func (rs *RestoreStatement) TokenLiteral() string { return rs.Token.Literal }
+func (rs *RestoreStatement) HasTrash() bool       { return len(rs.Trash) > 0 }
 
 // String sends the original code
 func (rs *RestoreStatement) String() string {
@@ -1195,6 +1230,8 @@ func (rs *RestoreStatement) String() string {
 		out.WriteString(" ")
 		out.WriteString(strconv.Itoa((rs.Line)))
 	}
+
+	out.WriteString(Trash(rs.Trash))
 
 	return out.String()
 }

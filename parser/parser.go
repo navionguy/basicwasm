@@ -47,8 +47,8 @@ var precedences = map[token.TokenType]int{
 
 // Parser an instance
 type Parser struct {
-	l      *lexer.Lexer // the lexer feeding me tokens
-	errors []string     // array of error messages, TODO: stop parsing after first error
+	l      TokenIzer // the lexer feeding me tokens
+	errors []string  // array of error messages, TODO: stop parsing after first error
 
 	curToken  token.Token
 	peekToken token.Token
@@ -65,8 +65,15 @@ type (
 	infixParseFn  func(ast.Expression) ast.Expression
 )
 
+// define a Lexer interface so I can use a test mock
+type TokenIzer interface {
+	NextToken() token.Token // returns the next token to process
+	PassOn()                // turns on passing whitespace
+	PassOff()               // turns off passing whitespace
+}
+
 // New create and return a Parser instance
-func New(l *lexer.Lexer) *Parser {
+func New(l TokenIzer) *Parser {
 	p := &Parser{
 		l:       l,
 		curLine: 0,
@@ -659,11 +666,6 @@ func (p *Parser) parseDataElement(elem string) ast.Expression {
 	ip.nextToken()
 	stmt := ip.parseStatement()
 
-	if len(ip.errors) != 0 {
-		p.errors = append(p.errors, ip.errors...)
-		return nil
-	}
-
 	ln, ok := stmt.(*ast.LineNumStmt)
 
 	if ok {
@@ -680,7 +682,9 @@ func (p *Parser) parseDataElement(elem string) ast.Expression {
 	exp, ok := stmt.(*ast.ExpressionStatement)
 
 	if !ok {
-		return nil
+		exp := &ast.IntegerLiteral{Token: token.Token{Type: token.INT, Literal: "INT"}}
+		p.parseTrash(&exp.Trash)
+		return exp
 	}
 
 	if exp.Token.Type == token.IDENT {
@@ -813,14 +817,8 @@ func (p *Parser) parseIntegerLiteral() ast.Expression {
 }
 
 func (p *Parser) parseHexOctalConstant() ast.Expression {
-	defer untrace(trace("parseHexOctalConstant"))
-
 	if p.peekTokenIs(token.IDENT) && (strings.Compare(p.peekToken.Literal[0:1], "H") == 0) {
 		return p.parseHexConstant()
-	}
-
-	if !p.peekTokenIs(token.INT) && !p.peekTokenIs(token.IDENT) {
-		return nil
 	}
 
 	return p.parseOctalConstant()
@@ -833,16 +831,16 @@ func (p *Parser) parseOctalConstant() ast.Expression {
 
 	if p.curTokenIs(token.IDENT) {
 		if strings.Compare(p.curToken.Literal, "O") != 0 {
-			p.reportError(berrors.Syntax)
-			return nil
+			p.parseTrash(&lit.Trash)
+			return lit
 		}
 		lit.Token = token.Token{Type: token.OCTAL, Literal: "&O"}
 		p.nextToken()
 	}
 
 	if !p.curTokenIs(token.INT) {
-		p.reportError(berrors.TypeMismatch)
-		return nil
+		p.parseTrash(&lit.Trash)
+		return lit
 	}
 
 	lit.Value = p.curToken.Literal
@@ -875,22 +873,19 @@ func (p *Parser) parseHexConstant() ast.Expression {
 }
 
 func (p *Parser) parseIntDoubleLiteral() ast.Expression {
-	defer untrace(trace("parseIntDoubleLiteral"))
-
+	dblInt := &ast.DblIntegerLiteral{Token: token.Token{Type: token.INTD, Literal: p.curToken.Literal}}
 	value, err := strconv.Atoi(strings.TrimRight(p.curToken.Literal, "#"))
 
 	if err != nil {
-		msg := fmt.Sprintf("could not parse %q as integer in line %d", p.curToken.Literal, p.curLine)
-		p.errors = append(p.errors, msg)
-		return nil
+		p.parseTrash(&dblInt.Trash)
+		return dblInt
 	}
 
-	return p.buildDoubleIIntegerLiteral(value)
+	dblInt.Value = int32(value)
+	return dblInt
 }
 
 func (p *Parser) buildDoubleIIntegerLiteral(value int) ast.Expression {
-	defer untrace(trace("buildDoubleIIntegerLiteral"))
-
 	// make sure it will fit in in32
 	if (value >= math.MinInt32) && (value <= math.MaxInt32) {
 		tk := token.Token{Type: token.INTD, Literal: strconv.Itoa(value)}
@@ -916,33 +911,37 @@ func (p *Parser) parseFixedPointLiteral() ast.Expression {
 	return &lit
 }
 
+// Parse floating point number
 func (p *Parser) parseFloatingPointLiteral() ast.Expression {
-	defer untrace(trace("parseFloatingPointLiteral"))
-	lit := &ast.FloatSingleLiteral{Token: p.curToken}
+	// check for double precision, literal will use 'D' instead of 'E'
 	src := p.curToken.Literal
 	if strings.ContainsAny(src, "dD") {
 		src = strings.Replace(src, "d", "E", 1)
 		src = strings.Replace(src, "D", "E", 1)
 		return p.parseDoubleFloatingPointLiteral(src)
 	}
+
+	// assume single precision, try to convert it
+	lit := &ast.FloatSingleLiteral{Token: p.curToken}
 	value, err := strconv.ParseFloat(p.curToken.Literal, 32)
+
+	// if conversion fails, sweep up the trash
 	if err != nil {
-		msg := fmt.Sprintf("could not parse %s as float at line %d", p.curToken.Literal, p.curLine)
-		p.errors = append(p.errors, msg)
-		return nil
+		p.parseTrash(&lit.Trash)
+		return lit
 	}
+
+	// save the value and return
 	lit.Value = float32(value)
 	return lit
 }
 
 func (p *Parser) parseDoubleFloatingPointLiteral(newTokLit string) ast.Expression {
-	defer untrace(trace("parseDoubleFloatingPointLiteral"))
 	lit := &ast.FloatDoubleLiteral{Token: p.curToken}
 	value, err := strconv.ParseFloat(newTokLit, 64)
 	if err != nil {
-		msg := fmt.Sprintf("could not parse %s as float at line %d", p.curToken.Literal, p.curLine)
-		p.errors = append(p.errors, msg)
-		return nil
+		p.parseTrash(&lit.Trash)
+		return lit
 	}
 	lit.Value = float64(value)
 	return lit
@@ -958,16 +957,13 @@ func (p *Parser) parseLineNumber() *ast.LineNumStmt {
 	stmt := &ast.LineNumStmt{Token: p.curToken}
 	stmt.Token.Literal = p.curToken.Literal
 
-	var err error
 	tv, err := strconv.Atoi(p.curToken.Literal)
 
 	if err != nil {
-		p.generalError("Invalid line number")
+		p.parseTrash(&stmt.Trash)
+		return stmt
 	}
-	/*msg := fmt.Sprintf("Parsing line %d", tv)
-	if p.env != nil {
-		p.env.Terminal().Log(msg)
-	}*/
+
 	stmt.Value = int32(tv)
 	p.curLine = tv
 
@@ -1002,7 +998,6 @@ func (p *Parser) parseListExpression() ast.Expression {
 
 // user wants to list part or all of the program
 func (p *Parser) parseListStatement() *ast.ListStatement {
-	defer untrace(trace("parseListStatement"))
 	stmt := &ast.ListStatement{Token: p.curToken, Start: "", Lrange: "", Stop: ""}
 
 	if !p.peekTokenIs(token.INT) && !p.peekTokenIs(token.MINUS) {
@@ -1036,7 +1031,6 @@ func (p *Parser) parseListStatement() *ast.ListStatement {
 }
 
 func (p *Parser) parsePrintStatement() *ast.PrintStatement {
-	defer untrace(trace("parsePrintStatement"))
 	stmt := &ast.PrintStatement{Token: p.curToken}
 
 	for !p.chkEndOfStatement() {
@@ -1096,7 +1090,7 @@ func (p *Parser) parseGosubStatement() *ast.GosubStatement {
 	return &stmt
 }
 
-// goto - uncondition transfer to line
+// goto - unconditional transfer to line
 func (p *Parser) parseGotoStatement() *ast.GotoStatement {
 	stmt := ast.GotoStatement{Token: p.curToken}
 	p.nextToken()
@@ -1182,7 +1176,6 @@ func (p *Parser) finishParseLetStatment(stmt *ast.LetStatement) *ast.LetStatemen
 
 // build array of parameter expressions
 func (p *Parser) parseLocateStatement() *ast.LocateStatement {
-	defer untrace(trace("parseLocateStatement"))
 	stmt := ast.LocateStatement{Token: p.curToken}
 
 	for !p.chkEndOfStatement() {
@@ -1207,7 +1200,6 @@ func (p *Parser) parseLocateStatement() *ast.LocateStatement {
 }
 
 func (p *Parser) parseLoadCommand() *ast.LoadCommand {
-	defer untrace(trace("parseLoadCommand"))
 	stmt := ast.LoadCommand{Token: p.curToken}
 
 	p.nextToken()
@@ -1326,7 +1318,7 @@ func (p *Parser) parseOnErrorStatement() ast.Statement {
 
 // could be either ON exp GOTO, or ON exp GOSUB
 func (p *Parser) parseOnExpressionStatement() ast.Statement {
-	// create the statment and start building the parameters
+	// create the statement and start building the parameters
 	stmt := ast.OnGoStatement{Token: token.Token{Type: token.ON, Literal: p.curToken.Literal}}
 
 	// go get the expression that drives the jump
@@ -1580,9 +1572,8 @@ func (p *Parser) parseRestoreStatement() *ast.RestoreStatement {
 		targ, err := strconv.Atoi(p.curToken.Literal)
 
 		if err != nil {
-			msg := fmt.Sprintf("undefined line number %s", p.curToken.Literal)
-			p.errors = append(p.errors, msg)
-			return nil
+			stmt.Trash = append(stmt.Trash, ast.TrashStatement{Token: token.Token{Literal: p.curToken.Literal}})
+			return &stmt
 		}
 
 		stmt.Line = targ
@@ -2036,12 +2027,10 @@ func (p *Parser) parseCallArguments() []ast.Expression {
 }
 
 func (p *Parser) parseIndexExpression(left ast.Expression) ast.Expression {
-	defer untrace(trace("parseIndexExpression"))
 	return p.innerParseIndexExpression(left)
 }
 
 func (p *Parser) innerParseIndexExpression(left ast.Expression) *ast.IndexExpression {
-	defer untrace(trace("innerParseIndexExpression"))
 	exp := &ast.IndexExpression{Token: p.curToken, Left: left}
 	p.nextToken()
 	exp.Index = p.parseExpression(LOWEST)

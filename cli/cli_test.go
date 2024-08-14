@@ -61,7 +61,7 @@ func Test_ExecCommand(t *testing.T) {
 	}{
 		{inp: ""},
 		{inp: `10 PRINT X`},
-		{inp: "RESTORE X", exp: []string{"undefined line number X"}},
+		{inp: "RESTORE X", exp: []string{"Syntax error", "OK"}},
 		{inp: "CHAIN", exp: []string{"Syntax error", "OK"}},
 		{inp: `PRINT "HELLO"`, exp: []string{"HELLO", "", "OK"}},
 	}

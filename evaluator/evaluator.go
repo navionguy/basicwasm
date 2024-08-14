@@ -43,7 +43,7 @@ func Eval(node ast.Node, code *ast.Code, env *object.Environment) object.Object 
 		return evalAutoCommand(node, code, env)
 
 	case *ast.BeepStatement:
-		evalBeepStatement(node, code, env)
+		evalBeepStatement(env)
 
 	case *ast.BuiltinExpression:
 		return evalBuiltinExpression(node, code, env)
@@ -223,7 +223,7 @@ func Eval(node ast.Node, code *ast.Code, env *object.Environment) object.Object 
 		return evalReadStatement(node, code, env)
 
 	case *ast.RestoreStatement:
-		return evalRestoreStatement(node, code, env)
+		return evalRestoreStatement(node, env)
 
 	case *ast.ResumeStatement:
 		return evalResumeStatement(node, code, env)
@@ -380,7 +380,7 @@ func evalAutoCommandParam2(auto, cmd *ast.AutoCommand, code *ast.Code, env *obje
 }
 
 // just sound the bell
-func evalBeepStatement(beep *ast.BeepStatement, code *ast.Code, env *object.Environment) {
+func evalBeepStatement(env *object.Environment) {
 	env.Terminal().SoundBell()
 }
 
@@ -851,7 +851,10 @@ func evalReadStatement(rd *ast.ReadStatement, code *ast.Code, env *object.Enviro
 }
 
 // evalRestoreStatement makes sure you can re-read data statements
-func evalRestoreStatement(rst *ast.RestoreStatement, code *ast.Code, env *object.Environment) object.Object {
+func evalRestoreStatement(rst *ast.RestoreStatement, env *object.Environment) object.Object {
+	if rst.HasTrash() {
+		return object.StdError(env, berrors.Syntax)
+	}
 	if rst.Line >= 0 {
 		// he wants to restore to a certain line
 		if env.ConstData().RestoreTo(rst.Line) {

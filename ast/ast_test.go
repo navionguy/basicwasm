@@ -734,12 +734,26 @@ func Test_Csrlin(t *testing.T) {
 }
 
 func Test_DblIntegerLiteral(t *testing.T) {
-	dint := &DblIntegerLiteral{Token: token.Token{Type: token.TYPE_DBL, Literal: "#"}, Value: 375}
+	tests := []struct {
+		value int32
+		exp   string
+		trash string
+	}{
+		{value: 375, exp: "375"},
+		{value: 4351, exp: "4351 PRINT", trash: "PRINT"},
+	}
+	for _, tt := range tests {
+		dint := &DblIntegerLiteral{Token: token.Token{Type: token.TYPE_DBL, Literal: "#"}, Value: tt.value}
+		if len(tt.trash) > 0 {
+			dint.Trash = append(dint.Trash, TrashStatement{Token: token.Token{Literal: tt.trash}})
+		}
 
-	dint.expressionNode()
+		dint.expressionNode()
 
-	assert.Equal(t, "#", dint.TokenLiteral())
-	assert.Equal(t, "375", dint.String())
+		assert.Equal(t, "#", dint.TokenLiteral())
+		assert.Equal(t, tt.exp, dint.String())
+		assert.Equal(t, dint.HasTrash(), len(tt.trash) > 0)
+	}
 }
 
 func Test_EndStatement(t *testing.T) {
@@ -819,6 +833,28 @@ func Test_FixedLiteral(t *testing.T) {
 }
 
 func Test_FloatDoubleLiteral(t *testing.T) {
+	tests := []struct {
+		lit   string
+		val   float64
+		trash string
+		exp   string
+	}{
+		{lit: "1.09432D-06", val: 314.159, exp: "1.09432D-06"},
+		{lit: "1.09432D-06", val: 314.159, trash: "PRINT", exp: "1.09432D-06 PRINT"},
+	}
+
+	for _, tt := range tests {
+		fdbl := &FloatDoubleLiteral{Token: token.Token{Type: token.FLOAT, Literal: tt.lit}, Value: tt.val}
+
+		if len(tt.trash) > 0 {
+			fdbl.Trash = append(fdbl.Trash, TrashStatement{Token: token.Token{Literal: tt.trash}})
+		}
+
+		fdbl.expressionNode()
+		assert.Equal(t, tt.lit, fdbl.TokenLiteral())
+		assert.Equal(t, tt.exp, fdbl.String())
+		assert.Equal(t, len(tt.trash) > 0, fdbl.HasTrash())
+	}
 	fdbl := &FloatDoubleLiteral{Token: token.Token{Type: token.FLOAT, Literal: "1.09432D-06"}}
 
 	fdbl.expressionNode()
@@ -827,11 +863,27 @@ func Test_FloatDoubleLiteral(t *testing.T) {
 }
 
 func Test_FloatSingleLiteral(t *testing.T) {
-	fsng := &FloatSingleLiteral{Token: token.Token{Type: token.FLOAT, Literal: "3.14159E02"}, Value: 314.159}
+	tests := []struct {
+		lit   string
+		val   float32
+		trash string
+		exp   string
+	}{
+		{lit: "3.14159E02", val: 314.159, exp: "3.14159E02"},
+		{lit: "3.14159E02", val: 314.159, trash: "PRINT", exp: "3.14159E02 PRINT"},
+	}
 
-	fsng.expressionNode()
-	assert.Equal(t, "3.14159E02", fsng.TokenLiteral())
-	assert.Equal(t, "3.14159E02", fsng.String())
+	for _, tt := range tests {
+		fsng := &FloatSingleLiteral{Token: token.Token{Type: token.FLOAT, Literal: tt.lit}, Value: tt.val}
+
+		if len(tt.trash) > 0 {
+			fsng.Trash = append(fsng.Trash, TrashStatement{Token: token.Token{Literal: tt.trash}})
+		}
+
+		fsng.expressionNode()
+		assert.Equal(t, tt.lit, fsng.TokenLiteral())
+		assert.Equal(t, tt.exp, fsng.String())
+	}
 }
 
 func Test_ForStatement(t *testing.T) {
@@ -895,12 +947,26 @@ func Test_GroupedExpression(t *testing.T) {
 }
 
 func Test_HexConstant(t *testing.T) {
-	hx := &HexConstant{Token: token.Token{Type: token.HEX, Literal: "&H"}, Value: "cf"}
+	tests := []struct {
+		value string
+		exp   string
+		trash string
+	}{
+		{value: "cf", exp: "&Hcf"},
+		{value: "cc", exp: "&Hcc PRINT", trash: "PRINT"},
+	}
 
-	hx.expressionNode()
+	for _, tt := range tests {
+		hx := &HexConstant{Token: token.Token{Type: token.HEX, Literal: "&H"}, Value: tt.value}
+		if len(tt.trash) > 0 {
+			hx.Trash = append(hx.Trash, TrashStatement{Token: token.Token{Literal: tt.trash}})
+		}
 
-	assert.Equal(t, "&H", hx.TokenLiteral())
-	assert.Equal(t, "&Hcf", hx.String())
+		hx.expressionNode()
+
+		assert.Equal(t, "&H", hx.TokenLiteral())
+		assert.Equal(t, tt.exp, hx.String())
+	}
 }
 
 func Test_Identifier(t *testing.T) {
@@ -1033,6 +1099,41 @@ func Test_KeyStatement(t *testing.T) {
 
 	assert.Equal(t, "KEY", key.TokenLiteral())
 	assert.Equal(t, `KEY 1, "FILES", "Syntax Error"`, key.String())
+}
+
+func Test_LetStatement(t *testing.T) {
+	tests := []struct {
+		token token.Token
+		name  *Identifier
+		value Expression
+		trash string
+		exp   string
+	}{
+		{token: token.Token{Type: token.LET, Literal: "LET"}, name: &Identifier{Token: token.Token{Type: token.IDENT, Literal: "X"}, Value: "X"}, value: &IntegerLiteral{Value: 5}, exp: "LET X = 5"},
+		{token: token.Token{Type: token.LET, Literal: "LET"}, name: &Identifier{Token: token.Token{Type: token.IDENT, Literal: "X"}, Value: "X"}, value: &IntegerLiteral{Value: 5}, trash: "PRINT", exp: "LET X = 5 PRINT"},
+	}
+
+	for _, tt := range tests {
+		let := LetStatement{Token: tt.token, Name: tt.name, Value: tt.value}
+
+		if len(tt.trash) > 0 {
+			let.Trash = append(let.Trash, TrashStatement{Token: token.Token{Literal: tt.trash}})
+		}
+
+		let.statementNode()
+		assert.Equal(t, tt.token.Literal, let.TokenLiteral())
+		assert.Equal(t, let.HasTrash(), len(tt.trash) > 0)
+		assert.Equal(t, tt.exp, let.String())
+	}
+}
+
+func Test_LineNumStmt(t *testing.T) {
+	linenum := LineNumStmt{Token: token.Token{Type: token.LINENUM, Literal: "10"}}
+
+	linenum.Trash = append(linenum.Trash, TrashStatement{Token: token.Token{Literal: "PRINT"}})
+
+	linenum.statementNode()
+	assert.True(t, linenum.HasTrash())
 }
 
 func Test_ListExpression(t *testing.T) {
@@ -1245,12 +1346,30 @@ func Test_OpenStatement(t *testing.T) {
 }
 
 func Test_OctalConstant(t *testing.T) {
-	oct := OctalConstant{Token: token.Token{Type: token.OCTAL, Literal: "&"}, Value: "37"}
+	tests := []struct {
+		literal string
+		value   string
+		trash   string
+		exp     string
+	}{
+		{literal: "&", value: "37", exp: "&37"},
+		{literal: "&", value: "37", exp: "&37"},
+		{literal: "&O", value: "47", exp: "&O47 $", trash: "$"},
+	}
 
-	oct.expressionNode()
+	for _, tt := range tests {
+		oct := OctalConstant{Token: token.Token{Type: token.OCTAL, Literal: tt.literal}, Value: tt.value}
 
-	assert.Equal(t, "&", oct.TokenLiteral())
-	assert.Equal(t, "&37", oct.String())
+		if len(tt.trash) > 0 {
+			oct.Trash = append(oct.Trash, TrashStatement{Token: token.Token{Literal: tt.trash}})
+		}
+
+		oct.expressionNode()
+
+		assert.Equal(t, tt.literal, oct.TokenLiteral())
+		assert.Equal(t, tt.exp, oct.String())
+		assert.Equal(t, len(tt.trash) > 0, oct.HasTrash())
+	}
 }
 
 func Test_OnErrorGoto(t *testing.T) {
@@ -1365,6 +1484,7 @@ func Test_RestoreStatement(t *testing.T) {
 
 	assert.Equal(t, "RESTORE", rstr.TokenLiteral())
 	assert.Equal(t, "RESTORE 200", rstr.String())
+	assert.False(t, rstr.HasTrash())
 }
 
 func Test_ResumeStatement(t *testing.T) {

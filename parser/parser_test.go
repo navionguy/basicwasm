@@ -817,6 +817,48 @@ func testLineNumber(t *testing.T, s ast.Statement, line int32) bool {
 	return true
 }
 
+func Test_LineNumberWithTrash(t *testing.T) {
+	var mocklex mocks.MockLexer
+	mocklex.AddToken(token.Token{Type: token.LINENUM, Literal: "10PRINT"})
+	mocklex.AddToken(token.Token{Type: token.EOF})
+	p := New(&mocklex)
+	p.parseLineNumber()
+}
+
+func Test_LiteralsWithTrash(t *testing.T) {
+	tests := []struct {
+		tokens   []token.Token
+		hasTrash bool
+	}{
+		{tokens: []token.Token{{Type: token.FLOAT, Literal: "3.14159E+0"},
+			{Type: token.EOF}}},
+		{tokens: []token.Token{{Type: token.FLOAT, Literal: "3.14159EFG+0"},
+			{Type: token.EOF}}, hasTrash: true},
+		{tokens: []token.Token{{Type: token.FLOAT, Literal: "1.09432D-06"},
+			{Type: token.EOF}}},
+		{tokens: []token.Token{{Type: token.FLOAT, Literal: "1.09432DBA-06"},
+			{Type: token.EOF}}, hasTrash: true},
+	}
+
+	for _, tt := range tests {
+		var mocklex mocks.MockLexer
+		for _, tok := range tt.tokens {
+			mocklex.AddToken(tok)
+		}
+		p := New(&mocklex)
+		exp := p.parseExpression(LOWEST)
+		assert.NotZero(t, len(tt.tokens))
+
+		switch v := exp.(type) {
+		case *ast.FloatSingleLiteral:
+		case *ast.FloatDoubleLiteral:
+			assert.Equal(t, tt.hasTrash, v.HasTrash())
+		default:
+			assert.Fail(t, "Got unsupported type in test")
+		}
+	}
+}
+
 func checkParserErrors(t *testing.T, p *Parser) {
 	errors := p.Errors()
 	if len(errors) == 0 {
@@ -1208,9 +1250,10 @@ func TestRestore(t *testing.T) {
 		inp string
 		exp interface{}
 	}{
-		{`10 RESTORE`, &ast.RestoreStatement{Token: rsTk, Line: -1}},
-		{`20 RESTORE 300`, &ast.RestoreStatement{Token: rsTk, Line: 300}},
-		{`30 RESTORE X`, nil},
+		{inp: `10 RESTORE`, exp: &ast.RestoreStatement{Token: rsTk, Line: -1}},
+		{inp: `20 RESTORE 300`, exp: &ast.RestoreStatement{Token: rsTk, Line: 300}},
+		{inp: `30 RESTORE X`},
+		{inp: `40 RESTORE : END`, exp: &ast.RestoreStatement{Token: rsTk, Line: -1}},
 	}
 
 	for _, tt := range tests {
@@ -1219,20 +1262,16 @@ func TestRestore(t *testing.T) {
 		env := object.NewTermEnvironment(mocks.MockTerm{})
 		p.ParseProgram(env)
 
-		if tt.exp != nil {
-			checkParserErrors(t, p)
-		} else {
-			if len(p.errors) == 0 {
-				t.Fatalf("%s parsed but should have failed!", tt.inp)
-			}
-		}
-
 		itr := env.StatementIter()
 		itr.Next()
 		stmt := itr.Value()
 
 		if tt.exp != nil {
 			compareStatements(tt.inp, stmt, tt.exp, t)
+		} else {
+			res, ok := stmt.(*ast.RestoreStatement)
+			assert.True(t, ok)
+			assert.True(t, res.HasTrash())
 		}
 	}
 }
@@ -1477,15 +1516,16 @@ func TestIntegerLiteralExpression(t *testing.T) {
 
 func TestHexOctalConstants(t *testing.T) {
 	tests := []struct {
-		inp string
-		lit interface{}
+		inp   string
+		lit   interface{}
+		trash bool
 	}{
-		{"10 &HF76F", &ast.HexConstant{Value: "F76F"}},
-		{"20 &HF7F6F", &ast.HexConstant{Value: "F7F6F"}},
-		{"30 &767", &ast.OctalConstant{Value: "767"}},
-		{"30 &O767", &ast.OctalConstant{Value: "767"}},
-		{"40 &F767", nil},
-		{"30 &O F767", nil},
+		{inp: "10 &HF76F", lit: &ast.HexConstant{Value: "F76F"}},
+		{inp: "20 &HF7F6F", lit: &ast.HexConstant{Value: "F7F6F"}},
+		{inp: "30 &767", lit: &ast.OctalConstant{Value: "767"}},
+		{inp: "40 &O767", lit: &ast.OctalConstant{Value: "767"}},
+		{inp: "50 &F767", lit: nil, trash: true},
+		{inp: "60 &O F767", lit: nil},
 	}
 
 	for _, tt := range tests {
@@ -1494,25 +1534,24 @@ func TestHexOctalConstants(t *testing.T) {
 		env := object.NewTermEnvironment(mocks.MockTerm{})
 		p.ParseProgram(env)
 
-		if tt.lit == nil {
-			if len(p.errors) != 1 {
-				t.Fatalf("%s passed and it shouldn't", tt.inp)
-			}
-		} else {
-			checkParserErrors(t, p)
-			if env.StatementIter().Len() != 2 {
-				t.Fatalf("program has not enough statements. got=%d", env.StatementIter().Len())
-			}
+		if env.StatementIter().Len() != 2 {
+			t.Fatalf("program has not enough statements. got=%d", env.StatementIter().Len())
+		}
 
-			iter := env.StatementIter()
-			iter.Next()
-			step := iter.Value()
-			stmt, ok := step.(*ast.ExpressionStatement)
-			if !ok {
-				t.Fatalf("program.Statements[1] is not ast.ExpressionStatement. got=%T", step)
-			}
+		iter := env.StatementIter()
+		iter.Next()
+		step := iter.Value()
+		stmt, ok := step.(*ast.ExpressionStatement)
+		if !ok {
+			t.Fatalf("program.Statements[1] is not ast.ExpressionStatement. got=%T", step)
+		}
 
+		if !tt.trash {
 			compareStatements(tt.inp, tt.lit, stmt, t)
+		} else {
+			oct, ok := stmt.Expression.(*ast.OctalConstant)
+			assert.True(t, ok, tt.inp)
+			assert.True(t, oct.HasTrash(), tt.inp)
 		}
 	}
 }
@@ -1535,7 +1574,7 @@ func TestNumericConversion(t *testing.T) {
 		}, "235.988D-7"},*/
 		{"53a", token.INT, func(p *Parser) ast.Expression {
 			return p.parseIntegerLiteral()
-		}, ""},
+		}, " 53a"},
 		{"62.4d5", token.FIXED, func(p *Parser) ast.Expression {
 			return p.parseFixedPointLiteral()
 		}, "62.4d5"},
@@ -1571,16 +1610,10 @@ func TestNumericConversion(t *testing.T) {
 		}
 
 		// moving error reporting to evaluator
-		if len(p.errors) > 0 {
-			t.Errorf("Parse reported errors")
-			break
-		}
+		assert.Zero(t, len(p.errors))
 
 		if tt.res != "" {
-			//fmt.Printf("got %T", res)
-			if tt.res != res.String() {
-				t.Errorf("expected %s, got %s", tt.res, res.String())
-			}
+			assert.EqualValues(t, tt.res, res.String())
 		}
 	}
 }

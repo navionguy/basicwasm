@@ -1422,20 +1422,41 @@ func Test_KeyStatement(t *testing.T) {
 
 func Test_LetStatements(t *testing.T) {
 	tests := []struct {
-		inp string
-		chk string
-		exp int16
+		inp  string
+		chk  string
+		exp  int16
+		fail bool
 	}{
 		{inp: "10 LET a = 5", chk: "a", exp: 5},
-		//{inp: "15 LET a = 5a", chk: "a", exp: 5},
 		{inp: "20 LET a = 5 * 5", chk: "a", exp: 25},
 		{inp: "30 LET a = 5: let b = a:", chk: "b", exp: 5},
 		{inp: "40 LET a = 5: let b = a: let c = a + b + 5", chk: "c", exp: 15},
 		{inp: `50 LET a = 2*(4+1)`, chk: "a", exp: 10},
 	}
 	for _, tt := range tests {
-		testIntegerObject(t, testEval(tt.inp, tt.chk), tt.exp)
+		rc := testEval(tt.inp, tt.chk)
+		testIntegerObject(t, rc, tt.exp)
 	}
+}
+
+// force the let statement's expression to have trash
+func Test_LetStatementTrash(t *testing.T) {
+	var mt mocks.MockTerm
+	initMockTerm(&mt)
+	env := object.NewTermEnvironment(mt)
+
+	let := ast.LetStatement{Token: token.Token{Type: token.LET, Literal: "LET"},
+		Name:  &ast.Identifier{Token: token.Token{Type: token.IDENT, Literal: "X"}, Value: "X"},
+		Value: &ast.IntegerLiteral{Value: 5}}
+	let.Trash = append(let.Trash, ast.TrashStatement{Token: token.Token{Literal: "PRINT"}})
+
+	env.AddCmdStmt(&let)
+	rc := Eval(&ast.Program{}, env.CmdLineIter(), env)
+
+	assert.NotNil(t, rc)
+
+	_, ok := rc.(*object.Error)
+	assert.True(t, ok)
 }
 
 func Test_LoadCommand(t *testing.T) {
