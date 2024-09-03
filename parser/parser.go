@@ -326,28 +326,28 @@ func (p *Parser) parseAutoCommand() *ast.AutoCommand {
 	// create an AUTO node
 	auto := &ast.AutoCommand{Token: p.curToken}
 
-	// read in any parameters listed
-	for !p.chkEndOfStatement() {
+	if p.chkEndOfStatement() {
+		// nothing else to parse
+		return auto
+	}
 
-		if p.peekTokenIs(token.COMMA) {
-			// add a nil parameter for starting line
-			auto.Params = append(auto.Params, nil)
-			p.nextToken()
-			continue
-		}
-
+	if p.peekTokenIs(token.COMMA) {
+		// add a nil parameter for starting line
+		auto.Params = append(auto.Params, nil)
 		p.nextToken()
-		if p.curTokenIs(token.PERIOD) {
-			auto.Params = append(auto.Params, &ast.Identifier{Value: "."})
-		} else {
-			// it should be an expression of some sort
-			auto.Params = append(auto.Params, p.parseExpression(LOWEST))
-		}
+	}
 
-		// is there a comma seperating the next param?
-		if p.peekTokenIs(token.COMMA) {
-			p.nextToken()
-		}
+	p.nextToken()
+	if p.curTokenIs(token.PERIOD) {
+		auto.Params = append(auto.Params, &ast.Identifier{Value: "."})
+	} else {
+		// it should be an expression of some sort
+		auto.Params = append(auto.Params, p.parseExpression(LOWEST))
+	}
+
+	// is there a comma separating the next param?
+	if p.peekTokenIs(token.COMMA) {
+		p.parseAutoParamTwo(auto)
 	}
 
 	// move past the end of the statement
@@ -356,9 +356,31 @@ func (p *Parser) parseAutoCommand() *ast.AutoCommand {
 	return auto
 }
 
+// appears to be a second parameter, pull it in
+func (p *Parser) parseAutoParamTwo(auto *ast.AutoCommand) {
+	// skip to the comma
+	p.nextToken()
+
+	// make sure there is a param there
+	if !p.chkEndOfStatement() {
+		// add it to the params
+		p.nextToken()
+		auto.Params = append(auto.Params, p.parseExpression(LOWEST))
+	}
+
+	// if there is still more stuff, it is trash
+	if !p.chkEndOfStatement() {
+		p.parseTrash(&auto.Trash)
+	}
+}
+
 // he has no params, he just, well, beeps
 func (p *Parser) parseBeepStatement() *ast.BeepStatement {
 	beep := ast.BeepStatement{Token: p.curToken}
+
+	if !p.chkEndOfStatement() {
+		p.parseTrash(&beep.Trash)
+	}
 
 	return &beep
 }
@@ -1661,23 +1683,12 @@ func (p *Parser) parseRunCommand() *ast.RunCommand {
 // does it look like files should stay open?
 func (p *Parser) parseRunKeepOpen(cmd ast.RunCommand) *ast.RunCommand {
 	p.nextToken()
-	if !p.peekTokenIs(token.IDENT) {
-		p.reportError(berrors.Syntax)
+	if !p.peekTokenIs(token.IDENT) || (strings.ToUpper(p.peekToken.Literal) != "R") {
+		p.parseTrash(&cmd.Trash)
 		return &cmd
 	}
 
-	return p.parseRunValidFlag(cmd)
-}
-
-// the only valid flag is "R"
-func (p *Parser) parseRunValidFlag(cmd ast.RunCommand) *ast.RunCommand {
 	p.nextToken()
-
-	if strings.ToUpper(p.curToken.Literal) != "R" {
-		p.reportError(berrors.Syntax)
-		return &cmd
-	}
-
 	cmd.KeepOpen = true
 
 	return &cmd

@@ -20,11 +20,15 @@ func TestAutoCommand(t *testing.T) {
 		inp    string
 		params []ast.Expression
 	}{
+		{inp: "AUTO 10, 10, 10", params: []ast.Expression{
+			&ast.IntegerLiteral{Token: token.Token{Type: token.INT, Literal: "10"}, Value: 10},
+			&ast.IntegerLiteral{Token: token.Token{Type: token.INT, Literal: "10"}, Value: 10},
+		}},
 		{inp: "AUTO"},
 		{inp: "AUTO 20", params: []ast.Expression{&ast.IntegerLiteral{Token: token.Token{Type: token.INT, Literal: "20"}, Value: 20}}},
 		{inp: "AUTO , 20", params: []ast.Expression{nil, &ast.IntegerLiteral{Token: token.Token{Type: token.INT, Literal: "20"}, Value: 20}}},
 		{inp: "AUTO ., 20", params: []ast.Expression{&ast.Identifier{Value: "."}, &ast.IntegerLiteral{Token: token.Token{Type: token.INT, Literal: "20"}, Value: 20}}},
-		//{inp: "AUTO .", params: []ast.Expression{&ast.Identifier{Value: "."}}},
+		{inp: "AUTO .", params: []ast.Expression{&ast.Identifier{Value: "."}}},
 	}
 
 	for _, tt := range tests {
@@ -52,7 +56,7 @@ func TestAutoCommand(t *testing.T) {
 
 		assert.NotNil(t, atc, "couldn't extract AutoCommand object")
 
-		assert.EqualValues(t, len(tt.params), len(atc.Params), "incorrect number of params")
+		assert.EqualValues(t, len(tt.params), len(atc.Params), tt.inp)
 
 		for i, p := range atc.Params {
 			assert.EqualValuesf(t, tt.params[i], p, "param %d didn't match expected", i)
@@ -61,29 +65,43 @@ func TestAutoCommand(t *testing.T) {
 }
 
 func Test_BeepStatement(t *testing.T) {
-	l := lexer.New("BEEP")
-	p := New(l)
-	env := object.NewTermEnvironment(mocks.MockTerm{})
-	p.ParseCmd(env)
-
-	checkParserErrors(t, p)
-
-	itr := env.CmdLineIter()
-
-	if itr.Len() != 1 {
-		t.Fatal("program.Cmd does not contain single command")
+	tests := []struct {
+		inp   string
+		trash bool
+	}{
+		{inp: "BEEP"},
+		{inp: "BEEP BEEP", trash: true},
 	}
 
-	stmt := itr.Value()
+	for _, tt := range tests {
+		l := lexer.New(tt.inp)
+		p := New(l)
+		env := object.NewTermEnvironment(mocks.MockTerm{})
+		p.ParseCmd(env)
 
-	if stmt.TokenLiteral() != token.BEEP {
-		t.Fatal("TestBeepStatement didn't get an Beep Statement")
-	}
+		checkParserErrors(t, p)
 
-	atc := stmt.(*ast.BeepStatement)
+		itr := env.CmdLineIter()
 
-	if atc == nil {
-		t.Fatal("TestBeepStatement couldn't extract BeepStatement object")
+		if itr.Len() != 1 {
+			t.Fatal("program.Cmd does not contain single command")
+		}
+
+		stmt := itr.Value()
+
+		if stmt.TokenLiteral() != token.BEEP {
+			t.Fatal("TestBeepStatement didn't get an Beep Statement")
+		}
+
+		atc := stmt.(*ast.BeepStatement)
+
+		if atc == nil {
+			t.Fatal("TestBeepStatement couldn't extract BeepStatement object")
+		}
+
+		if tt.trash {
+			assert.True(t, atc.HasTrash(), tt.inp)
+		}
 	}
 
 }
@@ -2015,12 +2033,6 @@ func Test_RunCommand(t *testing.T) {
 		env := object.NewTermEnvironment(mocks.MockTerm{})
 		p.ParseCmd(env)
 
-		if tt.err {
-			assert.Len(t, p.errors, 1, "test %s expected one error, got %d", tt.inp, len(p.errors))
-			continue
-		}
-		checkParserErrors(t, p)
-
 		itr := env.CmdLineIter()
 
 		if itr.Len() != 1 {
@@ -2036,7 +2048,11 @@ func Test_RunCommand(t *testing.T) {
 		atc := stmt.(*ast.RunCommand)
 
 		if atc == nil {
-			t.Fatal("TestRunCommand couldn't extract AutoCommand object")
+			t.Fatal("TestRunCommand couldn't extract RunCommand object")
+		}
+
+		if tt.err {
+			assert.True(t, atc.HasTrash(), "didn't find trash")
 		}
 
 		if atc.StartLine != tt.start {

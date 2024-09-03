@@ -43,12 +43,12 @@ type AutoCommand struct {
 	Token  token.Token
 	Params []Expression
 	On     bool
+	Trash  []TrashStatement
 }
 
-func (ac *AutoCommand) statementNode() {}
-
-// TokenLiteral returns my token literal
+func (ac *AutoCommand) statementNode()       {}
 func (ac *AutoCommand) TokenLiteral() string { return strings.ToUpper(ac.Token.Literal) }
+func (ac *AutoCommand) HasTrash() bool       { return len(ac.Trash) > 0 }
 func (ac *AutoCommand) String() string {
 	var out bytes.Buffer
 
@@ -61,21 +61,31 @@ func (ac *AutoCommand) String() string {
 		out.WriteString(" " + p.String())
 	}
 
+	if ac.HasTrash() {
+		out.WriteString(Trash(ac.Trash))
+	}
+
 	return out.String()
 }
 
 // BeepStatement triggers a beep, no parameters
 type BeepStatement struct {
 	Token token.Token
+	Trash []TrashStatement
 }
 
-func (bp *BeepStatement) statementNode() {}
-
-// TokenLiteral returns my token literal
+func (bp *BeepStatement) statementNode()       {}
 func (bp *BeepStatement) TokenLiteral() string { return strings.ToUpper(bp.Token.Literal) }
-
+func (bp *BeepStatement) HasTrash() bool       { return len(bp.Trash) > 0 }
 func (bp *BeepStatement) String() string {
-	return "BEEP"
+	var out bytes.Buffer
+	out.WriteString("BEEP")
+
+	if bp.HasTrash() {
+		out.WriteString(Trash(bp.Trash))
+	}
+
+	return out.String()
 }
 
 // the expression that forms the user defined function
@@ -1563,12 +1573,12 @@ type RunCommand struct {
 	StartLine int
 	LoadFile  Expression
 	KeepOpen  bool
+	Trash     []TrashStatement
 }
 
-func (run *RunCommand) statementNode() {}
-
-// TokenLiteral should return RUN
+func (run *RunCommand) statementNode()       {}
 func (run *RunCommand) TokenLiteral() string { return strings.ToUpper(run.Token.Literal) }
+func (run *RunCommand) HasTrash() bool       { return len(run.Trash) > 0 }
 
 func (run *RunCommand) String() string {
 	rc := "RUN"

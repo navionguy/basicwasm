@@ -26,15 +26,15 @@ import (
 
 // Eval evaluates the current node in the AST.  It generally returns nil, but
 // it can return an error object or a halt object.
-func Eval(node ast.Node, code *ast.Code, env *object.Environment) object.Object {
+func Eval(tnode ast.Node, code *ast.Code, env *object.Environment) object.Object {
 
-	trash := checkForTrash(node, env)
+	trash := checkForTrash(tnode, env)
 	if trash != nil {
 		return trash
 	}
 
 	// node parsed correctly, evaluate it
-	switch node := node.(type) {
+	switch node := tnode.(type) {
 	// Statements
 	case *ast.Program:
 		return evalStatements(code, env)
@@ -45,8 +45,8 @@ func Eval(node ast.Node, code *ast.Code, env *object.Environment) object.Object 
 	case *ast.BeepStatement:
 		evalBeepStatement(env)
 
-	case *ast.BuiltinExpression:
-		return evalBuiltinExpression(node, code, env)
+	//case *ast.BuiltinExpression:
+	//return evalBuiltinExpression(node, code, env)
 
 	case *ast.ChainStatement:
 		return evalChainStatement(node, code, env)
@@ -172,9 +172,6 @@ func Eval(node ast.Node, code *ast.Code, env *object.Environment) object.Object 
 
 		// Expressions
 	case *ast.IntegerLiteral:
-		if node.HasTrash() {
-			return object.StdError(env, berrors.Syntax)
-		}
 		return &object.Integer{Value: node.Value}
 
 	case *ast.DblIntegerLiteral:
@@ -408,7 +405,7 @@ func evalBlockStatement(block *ast.BlockStatement, code *ast.Code, env *object.E
 }
 
 // execute a built in function
-func evalBuiltinExpression(builtin *ast.BuiltinExpression, code *ast.Code, env *object.Environment) object.Object {
+/*func evalBuiltinExpression(builtin *ast.BuiltinExpression, code *ast.Code, env *object.Environment) object.Object {
 
 	// if I can't find the function, it isn't really built in
 	blt, ok := builtins.Builtins[builtin.TokenLiteral()]
@@ -422,15 +419,10 @@ func evalBuiltinExpression(builtin *ast.BuiltinExpression, code *ast.Code, env *
 
 	// return functions result
 	return blt.Fn(env, blt, params...)
-}
+}*/
 
 // tries to load a new program and start it's execution.
 func evalChainStatement(chain *ast.ChainStatement, code *ast.Code, env *object.Environment) object.Object {
-	// if no filename was given, report the error
-	if chain.Path == nil {
-		return object.StdError(env, berrors.Syntax)
-	}
-
 	// eval the path to get a string
 	res := Eval(chain.Path, code, env)
 
@@ -852,9 +844,6 @@ func evalReadStatement(rd *ast.ReadStatement, code *ast.Code, env *object.Enviro
 
 // evalRestoreStatement makes sure you can re-read data statements
 func evalRestoreStatement(rst *ast.RestoreStatement, env *object.Environment) object.Object {
-	if rst.HasTrash() {
-		return object.StdError(env, berrors.Syntax)
-	}
 	if rst.Line >= 0 {
 		// he wants to restore to a certain line
 		if env.ConstData().RestoreTo(rst.Line) {
@@ -954,15 +943,16 @@ func evalRunCommand(run *ast.RunCommand, code *ast.Code, env *object.Environment
 
 // pull the file down from the server
 func evalRunLoad(run *ast.RunCommand, code *ast.Code, env *object.Environment) object.Object {
+
 	val := Eval(run.LoadFile, code, env)
 
-	fname, ok := val.(*object.String)
+	fn, ok := val.(*object.String)
 
 	if !ok {
-		object.StdError(env, berrors.TypeMismatch)
+		return object.StdError(env, berrors.TypeMismatch)
 	}
 
-	return evalRunFetch(fname.Value, run, env)
+	return evalRunFetch(fn.Value, run, env)
 }
 
 func evalRunFetch(file string, run *ast.RunCommand, env *object.Environment) object.Object {

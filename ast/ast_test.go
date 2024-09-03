@@ -11,21 +11,54 @@ import (
 )
 
 func Test_AutoCommand(t *testing.T) {
-	auto := AutoCommand{Token: token.Token{Type: token.AUTO, Literal: "AUTO"}, Params: []Expression{&Identifier{Value: "."}}}
+	tests := []struct {
+		param Expression
+		trash string
+		exp   string
+	}{
+		{param: &Identifier{Value: "."}, exp: "AUTO ."},
+		{param: &Identifier{Value: "10"}, exp: "AUTO 10 NOISE", trash: "NOISE"},
+	}
 
-	auto.statementNode()
-	assert.Equal(t, "AUTO", auto.TokenLiteral(), "AUTO gave wrong token literal")
+	for _, tt := range tests {
+		auto := AutoCommand{Token: token.Token{Type: token.AUTO, Literal: "AUTO"}}
+		auto.Params = append(auto.Params, tt.param)
+		if len(tt.trash) > 0 {
+			auto.Trash = append(auto.Trash, TrashStatement{Token: token.Token{Literal: tt.trash}})
+		}
 
-	assert.Equalf(t, "AUTO .", auto.String(), "auto.String returned %s wanted %s", auto.String(), "AUTO .")
+		auto.statementNode()
+		assert.Equal(t, "AUTO", auto.TokenLiteral(), "AUTO gave wrong token literal")
+		assert.Equalf(t, tt.exp, auto.String(), "auto.String returned %s wanted %s", auto.String(), "AUTO .")
+		if len(tt.trash) > 0 {
+			assert.True(t, auto.HasTrash(), "expected trash")
+		}
+	}
+
 }
 
 func Test_BeepStatement(t *testing.T) {
-	beep := BeepStatement{Token: token.Token{Type: token.BEEP, Literal: "BEEP"}}
+	tests := []struct {
+		inp   string
+		trash string
+		exp   string
+	}{
+		{inp: "BEEP", exp: "BEEP"},
+		{inp: "BEEP", trash: "BEEP", exp: "BEEP BEEP"},
+	}
 
-	beep.statementNode()
-	assert.Equal(t, "BEEP", beep.TokenLiteral(), "BEEP gave wrong token literal")
+	for _, tt := range tests {
+		beep := BeepStatement{Token: token.Token{Type: token.BEEP, Literal: tt.inp}}
 
-	assert.Equalf(t, "BEEP", beep.String(), "beep.String returned %s wanted %s", beep.String(), "BEEP")
+		if len(tt.trash) > 0 {
+			beep.Trash = append(beep.Trash, TrashStatement{Token: token.Token{Literal: tt.trash}})
+		}
+
+		beep.statementNode()
+		assert.Equal(t, tt.inp, beep.TokenLiteral(), "BEEP gave wrong token literal")
+
+		assert.Equalf(t, tt.exp, beep.String(), "beep.String returned %s wanted %s", beep.String(), "BEEP")
+	}
 }
 
 func Test_BuiltinExpression(t *testing.T) {
@@ -1521,6 +1554,7 @@ func Test_RunCommand(t *testing.T) {
 
 		assert.Equal(t, "RUN", cmd.TokenLiteral(), "Run command has incorrect TokenLiteral")
 		assert.Equal(t, tt.exp, cmd.String(), "Run command didn't build string correctly")
+		assert.False(t, cmd.HasTrash(), "trash can should be empty")
 	}
 }
 

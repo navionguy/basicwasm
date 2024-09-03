@@ -178,11 +178,14 @@ func TestApplyFuncion(t *testing.T) {
 func TestAutoCommand(t *testing.T) {
 	tests := []struct {
 		inp  string
+		line int32
 		strt ast.DblIntegerLiteral
 		step ast.DblIntegerLiteral
 		err  bool
 	}{
 		{inp: "AUTO 10,10,10", err: true},
+		{inp: `AUTO "10,10,10"`, err: true},
+		{inp: `AUTO 10,"10,10"`, err: true},
 		{inp: "AUTO", strt: ast.DblIntegerLiteral{Value: 10}, step: ast.DblIntegerLiteral{Value: 10}},
 		{inp: "AUTO 500", strt: ast.DblIntegerLiteral{Value: 500}, step: ast.DblIntegerLiteral{Value: 10}},
 		{inp: "AUTO 500, 50", strt: ast.DblIntegerLiteral{Value: 500}, step: ast.DblIntegerLiteral{Value: 50}},
@@ -190,7 +193,8 @@ func TestAutoCommand(t *testing.T) {
 		{inp: "AUTO ., 20", strt: ast.DblIntegerLiteral{Value: 10}, step: ast.DblIntegerLiteral{Value: 20}},
 		{inp: "AUTO 10, 20, 50", err: true},
 		{inp: "AUTO 10.5, 20", strt: ast.DblIntegerLiteral{Value: 11}, step: ast.DblIntegerLiteral{Value: 20}},
-		{inp: "AUTO 32770,20", strt: ast.DblIntegerLiteral{Value: 32770}, step: ast.DblIntegerLiteral{Value: 20}},
+		{inp: "AUTO .,20", line: 32770, strt: ast.DblIntegerLiteral{Value: 32770}, step: ast.DblIntegerLiteral{Value: 20}},
+		{inp: "AUTO 32770,32770", strt: ast.DblIntegerLiteral{Value: 32770}, step: ast.DblIntegerLiteral{Value: 32770}},
 	}
 
 	for _, tt := range tests {
@@ -201,6 +205,10 @@ func TestAutoCommand(t *testing.T) {
 		l := lexer.New(tt.inp)
 		p := parser.New(l)
 		p.ParseCmd(env)
+
+		if tt.line > 0 {
+			env.Set(token.LINENUM, &object.IntDbl{Value: tt.line})
+		}
 
 		rc := Eval(&ast.Program{}, env.CmdLineIter(), env)
 
@@ -2061,6 +2069,41 @@ func ExampleReturnStatement() {
 	// I'm back!
 }
 
+func Test_RunLoad(t *testing.T) {
+
+	cmd := ast.RunCommand{
+		Token: token.Token{Type: token.RUN, Literal: "RUN"},
+	}
+	tests := []struct {
+		file  ast.Expression
+		start int
+		keep  bool
+		trash string
+	}{
+		{file: &ast.StringLiteral{Token: token.Token{Type: token.STRING, Literal: "HELLO.BAS"}},
+			start: 0, keep: false, trash: "PRINT"},
+		{file: &ast.IntegerLiteral{Token: token.Token{Type: token.INT, Literal: "12"}},
+			start: 0, keep: false, trash: "PRINT"},
+	}
+
+	for _, tt := range tests {
+		var mt mocks.MockTerm
+		initMockTerm(&mt)
+		env := object.NewTermEnvironment(mt)
+
+		tc := cmd
+		tc.LoadFile = tt.file
+		tc.StartLine = tt.start
+		tc.KeepOpen = tt.keep
+		if len(tt.trash) > 0 {
+			trash := ast.TrashStatement{Token: token.Token{Type: token.STRING, Literal: tt.trash}}
+			tc.Trash = append(tc.Trash, trash)
+		}
+
+		evalRunLoad(&tc, env.CmdLineIter(), env)
+	}
+}
+
 func Test_RunParameters(t *testing.T) {
 	tests := []struct {
 		src  string // source code of the file to run
@@ -2742,19 +2785,41 @@ func ExampleT_Run() {
 
 func TestBuiltinFunctions(t *testing.T) {
 	tests := []struct {
-		input    string
-		expected interface{}
+		inp  string
+		exp  int16
+		fail bool
 	}{
-		{`10 X = LEN("")`, 0},
-		/*{`20 LEN("four")`, 4},
-		{`30 LEN("hello world")`, 11},
+		{inp: `10 X = LEN("")`, exp: 0},
+		{inp: `20 X = LEN("four")`, exp: 4},
+		/*{`30 LEN("hello world")`, 11},
 		{`40 LEN(1)`, "Type mismatch in 40"},
 		{`50 LEN("one", "two")`, "Syntax error in 50"},
 		{`70 LEN("four" / "five")`, &object.Error{}},*/
 	}
 	for _, tt := range tests {
-		evaluated := testEval(tt.input, "")
-		switch expected := tt.expected.(type) {
+		l := lexer.New(tt.inp)
+		p := parser.New(l)
+		var mt mocks.MockTerm
+		initMockTerm(&mt)
+		env := object.NewTermEnvironment(mt)
+		p.ParseProgram(env)
+
+		// need to execute run command
+		env.SetRun(true)
+		rc := Eval(&ast.Program{}, env.StatementIter(), env)
+
+		if tt.fail {
+
+		} else {
+			assert.Nil(t, rc, "wasn't expecting a return value")
+			v := env.Get("X")
+
+			val, ok := v.(*object.Integer)
+
+			assert.True(t, ok, "didn't get an integer")
+			assert.Equal(t, tt.exp, val.Value, "incorrect value")
+		}
+		/*switch expected := tt.expected.(type) {
 		case int:
 			testIntegerObject(t, evaluated, int16(expected))
 		case string:
@@ -2766,7 +2831,7 @@ func TestBuiltinFunctions(t *testing.T) {
 			if errObj.Message != expected {
 				t.Errorf("wrong error message. expected=%q, got=%q test %s", expected, errObj.Message, tt.input)
 			}
-		}
+		}*/
 	}
 }
 
