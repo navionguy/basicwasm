@@ -26,6 +26,7 @@ type Statement interface {
 type Expression interface {
 	Node
 	expressionNode()
+	TrashCan
 }
 
 // TrashCan defines interface for all nodes that store parser trash
@@ -127,10 +128,12 @@ func (bs *BlockStatement) String() string {
 type BuiltinExpression struct {
 	Token  token.Token  // literal will hold the function name
 	Params []Expression //
+	Trash  []TrashStatement
 }
 
 func (bi *BuiltinExpression) expressionNode()      {}
 func (bi *BuiltinExpression) TokenLiteral() string { return strings.ToUpper(bi.Token.Literal) }
+func (bi *BuiltinExpression) HasTrash() bool       { return len(bi.Trash) > 0 }
 func (bi *BuiltinExpression) String() string {
 	var out bytes.Buffer
 
@@ -144,6 +147,8 @@ func (bi *BuiltinExpression) String() string {
 	}
 
 	out.WriteString(")")
+	out.WriteString(Trash(bi.Trash))
+
 	return out.String()
 }
 
@@ -152,12 +157,13 @@ type CallExpression struct {
 	Token     token.Token // The '(' token
 	Function  Expression  // Identifier or FunctionLiteral
 	Arguments []Expression
+	Trash     []TrashStatement
 }
 
-func (ce *CallExpression) expressionNode() {}
-
-// TokenLiteral returns my token literal
+func (ce *CallExpression) expressionNode()      {}
 func (ce *CallExpression) TokenLiteral() string { return strings.ToUpper(ce.Token.Literal) }
+func (ce *CallExpression) HasTrash() bool       { return len(ce.Trash) > 0 }
+
 func (ce *CallExpression) String() string {
 	var out bytes.Buffer
 
@@ -170,6 +176,8 @@ func (ce *CallExpression) String() string {
 	out.WriteString("(")
 	out.WriteString(strings.Join(args, ", "))
 	out.WriteString(")")
+
+	out.WriteString(Trash(ce.Trash))
 
 	return out.String()
 }
@@ -206,7 +214,12 @@ func (chn *ChainStatement) String() string {
 	}
 
 	if chn.Line != nil {
-		out.WriteString(", " + chn.Line.String())
+		if !chn.Line.HasTrash() {
+			out.WriteString(", ")
+		} else {
+			out.WriteString(",")
+		}
+		out.WriteString(chn.Line.String())
 	}
 
 	if chn.All {
@@ -382,20 +395,32 @@ func (cnt *ContCommand) String() string { return "CONT" }
 // CSRLIN variable serves up the curre
 type Csrlin struct {
 	Token token.Token
+	Trash []TrashStatement
 }
 
 func (csr *Csrlin) expressionNode()      {}
 func (csr *Csrlin) TokenLiteral() string { return strings.ToUpper(csr.Token.Literal) }
-func (csr *Csrlin) String() string       { return csr.Token.Literal + " " }
+func (csr *Csrlin) HasTrash() bool       { return len(csr.Trash) > 0 }
+func (csr *Csrlin) String() string {
+	var out bytes.Buffer
+
+	out.WriteString(csr.Token.Literal + " ")
+
+	out.WriteString(Trash(csr.Trash))
+
+	return out.String()
+}
 
 // the end of the program file
 type EOFExpression struct {
 	Token token.Token
+	Trash []TrashStatement
 }
 
 func (eof *EOFExpression) expressionNode()      {}
 func (eof *EOFExpression) TokenLiteral() string { return strings.ToUpper(eof.Token.Literal) }
-func (eof *EOFExpression) String() string       { return "" }
+func (eof *EOFExpression) HasTrash() bool       { return len(eof.Trash) > 0 }
+func (eof *EOFExpression) String() string       { return Trash(eof.Trash) }
 
 // signal that an error has occurred
 type ErrorStatement struct {
@@ -488,12 +513,12 @@ type FunctionLiteral struct {
 	Token      token.Token // The 'DEF' token
 	Parameters []*Identifier
 	Body       *BlockStatement
+	Trash      []TrashStatement
 }
 
-func (fl *FunctionLiteral) expressionNode() {}
-
-// TokenLiteral returns my literal
+func (fl *FunctionLiteral) expressionNode()      {}
 func (fl *FunctionLiteral) TokenLiteral() string { return strings.ToUpper(fl.Token.Literal) }
+func (fl *FunctionLiteral) HasTrash() bool       { return len(fl.Trash) > 0 }
 func (fl *FunctionLiteral) String() string {
 	var out bytes.Buffer
 
@@ -623,23 +648,26 @@ func (lns *LineNumStmt) String() string {
 type LoadCommand struct {
 	Token    token.Token
 	Path     Expression // program file to load
-	KeppOpen bool       // keep all open files open
+	KeepOpen bool       // keep all open files open
+	Trash    []TrashStatement
 }
 
-func (ld *LoadCommand) statementNode() {}
-
-// TokenLiteral returns my token literal
+func (ld *LoadCommand) statementNode()       {}
 func (ld *LoadCommand) TokenLiteral() string { return strings.ToUpper(ld.Token.Literal) }
+func (ld *LoadCommand) HasTrash() bool       { return len(ld.Trash) > 0 }
 
 func (ld *LoadCommand) String() string {
+	var out bytes.Buffer
 
-	lc := "LOAD " + ld.Path.String()
+	out.WriteString("LOAD " + ld.Path.String())
 
-	if ld.KeppOpen {
-		lc = lc + ",R"
+	if ld.KeepOpen {
+		out.WriteString(",R")
 	}
 
-	return lc
+	out.WriteString(Trash(ld.Trash))
+
+	return out.String()
 }
 
 // locate and optional configure the look of the cursor
@@ -648,26 +676,24 @@ type LocateStatement struct {
 	Parms []Expression
 }
 
-func (lct *LocateStatement) statementNode() {}
-
+func (lct *LocateStatement) statementNode()       {}
 func (lct *LocateStatement) TokenLiteral() string { return strings.ToUpper(lct.Token.Literal) }
 
 func (lct *LocateStatement) String() string {
-	stmt := ""
+	var out bytes.Buffer
+	out.WriteString("LOCATE ")
 
-	for _, pp := range lct.Parms {
-		if stmt != "" {
-			stmt = stmt + ","
+	for i, pp := range lct.Parms {
+		if i > 0 {
+			out.WriteString(",")
 		}
+
 		if pp != nil {
-			stmt = stmt + pp.String()
-		}
-		if (stmt == "") && (pp == nil) {
-			stmt = " "
+			out.WriteString(pp.String())
 		}
 	}
 
-	return "LOCATE " + strings.TrimLeft(stmt, " ")
+	return out.String()
 }
 
 // ColorPalette maps[GWBasicColor]XTermColor
@@ -675,9 +701,10 @@ type ColorPalette map[int16]string
 
 // user wants to change the color palette
 type PaletteStatement struct {
-	Token  token.Token // token.PALETTE
-	Attrib Expression  // index of attribute to change
-	Color  Expression  // color value to use, array of values for PALETTE USING
+	Token  token.Token      // token.PALETTE
+	Attrib Expression       // index of attribute to change
+	Color  Expression       // color value to use, array of values for PALETTE USING
+	Trash  []TrashStatement // any un-parsable stuff
 
 	// values below will hold the active palette settings
 	// defaults are set in evaluator.evalPaletteDefault()
@@ -690,6 +717,7 @@ type PaletteStatement struct {
 
 func (plt *PaletteStatement) statementNode()       {}
 func (plt *PaletteStatement) TokenLiteral() string { return strings.ToUpper(plt.Token.Literal) }
+func (plt *PaletteStatement) HasTrash() bool       { return len(plt.Trash) > 0 }
 func (plt *PaletteStatement) String() string {
 	var buf bytes.Buffer
 
@@ -702,6 +730,10 @@ func (plt *PaletteStatement) String() string {
 
 	if plt.Color != nil {
 		buf.WriteString("," + plt.Color.String())
+	}
+
+	if plt.HasTrash() {
+		buf.WriteString(Trash(plt.Trash))
 	}
 	return buf.String()
 }
@@ -719,10 +751,12 @@ func (new *NewCommand) String() string       { return new.Token.Literal + " " }
 type NextStatement struct {
 	Token token.Token
 	Id    Identifier // for loop iterator id, not required
+	Trash []TrashStatement
 }
 
 func (nxt *NextStatement) statementNode()       {}
 func (nxt *NextStatement) TokenLiteral() string { return strings.ToUpper(nxt.Token.Literal) }
+func (nxt *NextStatement) HasTrash() bool       { return len(nxt.Trash) > 0 }
 func (nxt *NextStatement) String() string {
 	var out bytes.Buffer
 	out.WriteString(nxt.Token.Literal)
@@ -731,26 +765,32 @@ func (nxt *NextStatement) String() string {
 		out.WriteString(" " + nxt.Id.String())
 	}
 
+	out.WriteString(Trash(nxt.Trash))
+
 	return out.String()
 }
 
 // OffExpression used as a param to KEY statement
 type OffExpression struct {
 	Token token.Token
+	Trash []TrashStatement
 }
 
 func (off *OffExpression) expressionNode()      {}
 func (off *OffExpression) TokenLiteral() string { return off.Token.Literal }
-func (off *OffExpression) String() string       { return "OFF" }
+func (off *OffExpression) HasTrash() bool       { return len(off.Trash) > 0 }
+func (off *OffExpression) String() string       { return "OFF" + Trash(off.Trash) }
 
 // OnExpression used as a param to KEY statement
 type OnExpression struct {
 	Token token.Token
+	Trash []TrashStatement
 }
 
 func (on *OnExpression) expressionNode()      {}
 func (on *OnExpression) TokenLiteral() string { return on.Token.Literal }
-func (on *OnExpression) String() string       { return "ON" }
+func (on *OnExpression) HasTrash() bool       { return len(on.Trash) > 0 }
+func (on *OnExpression) String() string       { return "ON" + Trash(on.Trash) }
 
 // OnErrorGoto statement transfers execution when an error occurs
 type OnErrorGoto struct {
@@ -974,18 +1014,20 @@ func (dil *DblIntegerLiteral) String() string {
 type FixedLiteral struct {
 	Token token.Token
 	Value token.Token
+	Trash []TrashStatement
 }
 
-func (fl *FixedLiteral) expressionNode() {}
-
-// TokenLiteral returns literal value
+func (fl *FixedLiteral) expressionNode()      {}
 func (fl *FixedLiteral) TokenLiteral() string { return fl.Token.Literal }
+func (fl *FixedLiteral) HasTrash() bool       { return len(fl.Trash) > 0 }
 
 // return the value as a string
 func (fl *FixedLiteral) String() string {
 	var out bytes.Buffer
 
 	out.WriteString(fl.Value.Literal)
+
+	out.WriteString(Trash(fl.Trash))
 	return out.String()
 }
 
@@ -1088,6 +1130,18 @@ func Trash(Trashes []TrashStatement) string {
 
 	return out.String()
 }
+
+// TrashExpression when a parseExpression can't make any sense of the input
+type TrashExpression struct {
+	Token token.Token
+	Trash []TrashStatement
+}
+
+func (trash *TrashExpression) expressionNode()      {}
+func (trash *TrashExpression) TokenLiteral() string { return trash.Token.Literal }
+func (trash *TrashExpression) HasTrash() bool       { return len(trash.Trash) > 0 }
+
+func (trash *TrashExpression) String() string { return Trash(trash.Trash) }
 
 // OctalConstant has two forms &37 or &O37
 type OctalConstant struct {
@@ -1270,12 +1324,12 @@ func (rs *ReturnStatement) String() string {
 type StringLiteral struct {
 	Token token.Token
 	Value string
+	Trash []TrashStatement
 }
 
-func (il *StringLiteral) expressionNode() {}
-
-// TokenLiteral returns literal value
+func (il *StringLiteral) expressionNode()      {}
 func (il *StringLiteral) TokenLiteral() string { return il.Token.Literal }
+func (il *StringLiteral) HasTrash() bool       { return len(il.Trash) > 0 }
 
 // String returns literal as a string
 func (il *StringLiteral) String() string {
@@ -1283,6 +1337,8 @@ func (il *StringLiteral) String() string {
 	out.WriteString(`"`)
 	out.WriteString(il.Value)
 	out.WriteString(`"`)
+
+	out.WriteString(Trash(il.Trash))
 	return out.String()
 }
 
@@ -1291,15 +1347,16 @@ type IndexExpression struct {
 	Token token.Token // The [ token
 	Left  Expression
 	Index Expression
+	Trash []TrashStatement
 }
 
-func (ie *IndexExpression) expressionNode() {}
-
-// TokenLiteral returns my literal
+func (ie *IndexExpression) expressionNode()      {}
 func (ie *IndexExpression) TokenLiteral() string { return strings.ToUpper(ie.Token.Literal) }
+func (ie *IndexExpression) HasTrash() bool       { return len(ie.Trash) > 0 }
 func (ie *IndexExpression) String() string {
 	var out bytes.Buffer
 	out.WriteString(ie.Index.String())
+	out.WriteString(Trash(ie.Trash))
 	return out.String()
 }
 
@@ -1308,16 +1365,17 @@ type PrefixExpression struct {
 	Token    token.Token // The prefix token, e.g. !
 	Operator string
 	Right    Expression
+	Trash    []TrashStatement
 }
 
-func (pe *PrefixExpression) expressionNode() {}
-
-// TokenLiteral returns read string of Token
+func (pe *PrefixExpression) expressionNode()      {}
 func (pe *PrefixExpression) TokenLiteral() string { return pe.Token.Literal }
+func (pe *PrefixExpression) HasTrash() bool       { return len(pe.Trash) > 0 }
 func (pe *PrefixExpression) String() string {
 	var out bytes.Buffer
 	out.WriteString(pe.Operator)
 	out.WriteString(pe.Right.String())
+	out.WriteString(Trash(pe.Trash))
 	return out.String()
 }
 
@@ -1327,13 +1385,29 @@ type InfixExpression struct {
 	Left     Expression
 	Operator string
 	Right    Expression
+	Trash    []TrashStatement
 }
 
-func (ie *InfixExpression) expressionNode() {}
+func (ie *InfixExpression) expressionNode()      {}
+func (ie *InfixExpression) TokenLiteral() string { return ie.Token.Literal }
+func (ie *InfixExpression) HasTrash() bool {
+	if len(ie.Trash) > 0 {
+		return true
+	}
 
-// TokenLiteral my token
-func (ie *InfixExpression) TokenLiteral() string {
-	return ie.Token.Literal
+	if ie.Left != nil {
+		if ie.Left.HasTrash() {
+			return true
+		}
+	}
+
+	if ie.Right != nil {
+		if ie.Right.HasTrash() {
+			return true
+		}
+	}
+
+	return false
 }
 
 // String the readable version of me
@@ -1348,6 +1422,8 @@ func (ie *InfixExpression) String() string {
 	if ie.Right != nil {
 		out.WriteString(ie.Right.String())
 	}
+
+	out.WriteString(Trash(ie.Trash))
 	return out.String()
 }
 
@@ -1355,14 +1431,12 @@ func (ie *InfixExpression) String() string {
 type GroupedExpression struct {
 	Token token.Token
 	Exp   Expression
+	Trash []TrashStatement
 }
 
-func (ge *GroupedExpression) expressionNode() {}
-
-// TokenLiteral sends back my token
-func (ge *GroupedExpression) TokenLiteral() string {
-	return ge.Token.Literal
-}
+func (ge *GroupedExpression) expressionNode()      {}
+func (ge *GroupedExpression) TokenLiteral() string { return ge.Token.Literal }
+func (ge *GroupedExpression) HasTrash() bool       { return len(ge.Trash) > 0 }
 
 // String the readable version of me
 func (ge *GroupedExpression) String() string {
@@ -1371,7 +1445,9 @@ func (ge *GroupedExpression) String() string {
 	if ge.Exp != nil {
 		out.WriteString(ge.Exp.String())
 	}
+
 	out.WriteString(")")
+	out.WriteString(Trash(ge.Trash))
 
 	return out.String()
 }
@@ -1481,11 +1557,13 @@ func (end *EndStatement) String() string {
 // ListExpression when LIST is a parameter to a Statement
 type ListExpression struct {
 	Token token.Token
+	Trash []TrashStatement
 }
 
 func (lst *ListExpression) expressionNode()      {}
 func (lst *ListExpression) TokenLiteral() string { return strings.ToUpper(lst.Token.Literal) }
-func (lst *ListExpression) String() string       { return lst.TokenLiteral() }
+func (lst *ListExpression) HasTrash() bool       { return len(lst.Trash) > 0 }
+func (lst *ListExpression) String() string       { return lst.TokenLiteral() + Trash(lst.Trash) }
 
 // ListStatement command to clear screen
 type ListStatement struct {
@@ -1613,13 +1691,15 @@ const (
 )
 
 type ScreenStatement struct {
-	Token    token.Token  // stmt token
-	Params   []Expression // Parser creates these
-	Settings [4]int       // When executed, eval of expressions go here
+	Token    token.Token      // stmt token
+	Params   []Expression     // Parser creates these
+	Settings [4]int           // When executed, eval of expressions go here
+	Trash    []TrashStatement // any trash found while parsing
 }
 
 func (scrn *ScreenStatement) statementNode()       {}
 func (scrn *ScreenStatement) TokenLiteral() string { return strings.ToUpper(scrn.Token.Literal) }
+func (scrn *ScreenStatement) HasTrash() bool       { return len(scrn.Trash) > 0 }
 
 // String returns the statement and any parameters as a string
 func (scrn *ScreenStatement) String() string {
@@ -1631,6 +1711,10 @@ func (scrn *ScreenStatement) String() string {
 
 		if i+1 < len(scrn.Params) {
 			out.WriteString(",")
+		}
+
+		if scrn.HasTrash() {
+			out.WriteString(Trash(scrn.Trash))
 		}
 	}
 
@@ -1693,10 +1777,12 @@ type UsingExpression struct {
 	Sep    string
 	Items  []Expression
 	Seps   []string
+	Trash  []TrashStatement
 }
 
 func (us *UsingExpression) expressionNode()      {}
 func (us *UsingExpression) TokenLiteral() string { return strings.ToUpper(us.Token.Literal) }
+func (us *UsingExpression) HasTrash() bool       { return len(us.Trash) > 0 }
 func (us *UsingExpression) String() string {
 	var out bytes.Buffer
 
@@ -1726,6 +1812,8 @@ func (us *UsingExpression) String() string {
 			out.WriteString(us.Seps[i])
 		}
 	}
+
+	out.WriteString(Trash(us.Trash))
 
 	return out.String()
 }

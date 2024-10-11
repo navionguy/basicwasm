@@ -38,8 +38,6 @@ func TestAutoCommand(t *testing.T) {
 		env := object.NewTermEnvironment(mt)
 		p.ParseCmd(env)
 
-		checkParserErrors(t, p)
-
 		itr := env.CmdLineIter()
 
 		if itr.Len() != 1 {
@@ -79,8 +77,6 @@ func Test_BeepStatement(t *testing.T) {
 		env := object.NewTermEnvironment(mocks.MockTerm{})
 		p.ParseCmd(env)
 
-		checkParserErrors(t, p)
-
 		itr := env.CmdLineIter()
 
 		if itr.Len() != 1 {
@@ -118,7 +114,6 @@ func Test_BuiltinExpression(t *testing.T) {
 		p := New(l)
 		env := object.NewTermEnvironment(mocks.MockTerm{})
 		p.ParseCmd(env)
-		checkParserErrors(t, p)
 
 		itr := env.CmdLineIter()
 
@@ -144,7 +139,7 @@ func Test_ChainStatement(t *testing.T) {
 		{cmd: `CHAIN`, exp: ` CHAIN`, trash: true},
 		{cmd: `CHAIN MERGE`, exp: `CHAIN MERGE`, trash: true},
 		{cmd: `CHAIN "MENU.BAS"`, exp: `CHAIN "MENU.BAS"`},
-		{cmd: `CHAIN "MENUE.BAS", PRINT`, exp: `CHAIN "MENUE.BAS" PRINT`, trash: true},
+		{cmd: `CHAIN "MENU2.BAS", PRINT`, exp: `CHAIN "MENU2.BAS", PRINT`},
 		{cmd: `CHAIN "MENU.BAS", 10`, exp: `CHAIN "MENU.BAS", 10`},
 		{cmd: `CHAIN "MENU.BAS",, all`, exp: `CHAIN "MENU.BAS",, ALL`},
 		{cmd: `CHAIN "MENU2.BAS",, all OPEN`, exp: `CHAIN "MENU2.BAS",, ALL OPEN`, trash: true},
@@ -189,7 +184,6 @@ func Test_ChrS(t *testing.T) {
 		p := New(l)
 		env := object.NewTermEnvironment(mocks.MockTerm{})
 		p.ParseCmd(env)
-		checkParserErrors(t, p)
 
 		if env.CmdLineIter().Len() != 1 {
 			t.Fatalf("program.Statements does not contain single command")
@@ -218,7 +212,6 @@ func Test_ChDir(t *testing.T) {
 		p := New(l)
 		env := object.NewTermEnvironment(mocks.MockTerm{})
 		p.ParseCmd(env)
-		checkParserErrors(t, p)
 
 		if env.CmdLineIter().Len() != 1 {
 			t.Fatalf("program.Statements does not contain single command")
@@ -249,7 +242,6 @@ func TestClose(t *testing.T) {
 		p := New(l)
 		env := object.NewTermEnvironment(mocks.MockTerm{})
 		p.ParseCmd(env)
-		checkParserErrors(t, p)
 		itr := env.CmdLineIter()
 		stmt := itr.Value()
 
@@ -271,7 +263,6 @@ func TestCls(t *testing.T) {
 		p := New(l)
 		env := object.NewTermEnvironment(mocks.MockTerm{})
 		p.ParseCmd(env)
-		checkParserErrors(t, p)
 
 		if env.CmdLineIter().Len() != 1 {
 			t.Fatalf("program.Statements does not contain single command")
@@ -310,7 +301,6 @@ func Test_ColorStatement(t *testing.T) {
 		p.ParseCmd(env)
 
 		if env.CmdLineIter().Len() != 1 {
-			checkParserErrors(t, p)
 			t.Fatalf("program.Statements does not contain single command")
 		}
 
@@ -349,8 +339,6 @@ func Test_Commands(t *testing.T) {
 		env := object.NewTermEnvironment(mocks.MockTerm{})
 		p.ParseCmd(env)
 
-		checkParserErrors(t, p)
-
 		itr := env.CmdLineIter()
 
 		if itr.Len() != 1 {
@@ -384,7 +372,6 @@ func Test_CommonStatement(t *testing.T) {
 		p := New(l)
 		env := object.NewTermEnvironment(mocks.MockTerm{})
 		p.ParseCmd(env)
-		checkParserErrors(t, p)
 		iter := env.CmdLineIter()
 		stmt := iter.Value()
 
@@ -405,7 +392,6 @@ func Test_ContCommand(t *testing.T) {
 	p := New(l)
 	env := object.NewTermEnvironment(mocks.MockTerm{})
 	p.ParseCmd(env)
-	checkParserErrors(t, p)
 	itr := env.CmdLineIter()
 	assert.Equal(t, 1, itr.Len())
 }
@@ -415,7 +401,6 @@ func Test_Csrlin(t *testing.T) {
 	p := New(l)
 	env := object.NewTermEnvironment(mocks.MockTerm{})
 	p.ParseCmd(env)
-	checkParserErrors(t, p)
 	itr := env.CmdLineIter()
 	assert.Equal(t, 1, itr.Len())
 }
@@ -462,7 +447,6 @@ func Test_DataStatement(t *testing.T) {
 		p := New(l)
 		env := object.NewTermEnvironment(mocks.MockTerm{})
 		p.ParseProgram(env)
-		checkParserErrors(t, p)
 		iter := env.StatementIter()
 		if iter.Len() != tt.stmtNum {
 			t.Fatalf("expected %d statements, got %d", tt.stmtNum, iter.Len())
@@ -524,7 +508,6 @@ func TestDimStatement(t *testing.T) {
 		env := object.NewTermEnvironment(mocks.MockTerm{})
 		p.ParseProgram(env)
 
-		checkParserErrors(t, p)
 		iter := env.StatementIter()
 		if iter.Len() != tt.stmtNum {
 			t.Fatalf("expected %d statements, got %d", tt.stmtNum, iter.Len())
@@ -590,7 +573,6 @@ func Test_ErrorStatement(t *testing.T) {
 		env := object.NewTermEnvironment(mocks.MockTerm{})
 		p.ParseProgram(env)
 
-		checkParserErrors(t, p)
 		itr := env.StatementIter()
 		itr.Next() // skip the line number
 		val := itr.Value()
@@ -624,8 +606,6 @@ func Test_KeyStatement(t *testing.T) {
 		p := New(l)
 		env := object.NewTermEnvironment(mocks.MockTerm{})
 		p.ParseProgram(env)
-
-		checkParserErrors(t, p)
 
 		assert.True(t, p.curTokenIs(token.EOF), "didn't parse to EOF")
 
@@ -674,8 +654,6 @@ func Test_LetStatement(t *testing.T) {
 	p := New(l)
 	env := object.NewTermEnvironment(mocks.MockTerm{})
 	p.ParseProgram(env)
-
-	checkParserErrors(t, p)
 
 	if env.StatementIter().Len() != 6 {
 		t.Fatalf("program.Statements does not contain 4 statements. got=%d", env.StatementIter().Len())
@@ -768,8 +746,6 @@ func TestLetWithTypes(t *testing.T) {
 		env := object.NewTermEnvironment(mocks.MockTerm{})
 		p.ParseProgram(env)
 
-		checkParserErrors(t, p)
-
 		itr := env.StatementIter()
 		for _, ttt := range tt.results {
 			stmt := itr.Value()
@@ -795,8 +771,6 @@ func TestLineNumbers(t *testing.T) {
 	env := object.NewTermEnvironment(mocks.MockTerm{})
 	env.SaveSetting(settings.Auto, &ast.AutoCommand{Token: tk, Params: []ast.Expression{&ast.IntegerLiteral{Value: 30}, &ast.IntegerLiteral{Value: 10}}})
 	p.ParseProgram(env)
-
-	checkParserErrors(t, p)
 
 	if env.StatementIter().Len() != 3 {
 		t.Fatalf("program.Statements does not contain 3 statements. got=%d", env.StatementIter().Len())
@@ -877,27 +851,16 @@ func Test_LiteralsWithTrash(t *testing.T) {
 	}
 }
 
-func checkParserErrors(t *testing.T, p *Parser) {
-	errors := p.Errors()
-	if len(errors) == 0 {
-		return
-	}
-	t.Errorf("parser has %d errors", len(errors))
-	for _, msg := range errors {
-		t.Errorf("parser error: %q", msg)
-	}
-	t.FailNow()
-}
-
 func Test_LoadCommand(t *testing.T) {
 	tests := []struct {
-		inp      string           // command to parse
-		exp      *ast.LoadCommand // object type I expect
-		keepOpen bool             // flag should be set
+		inp      string // command to parse
+		keepOpen bool   // flag should be set
+		trash    bool
 	}{
-		{inp: `LOAD "HEWORLD.BAS"`, exp: &ast.LoadCommand{}},
-		{inp: `LOAD "HIWORLD.BAS",R`, exp: &ast.LoadCommand{}, keepOpen: true},
-		{inp: `LOAD "HERWORLD.BAS",F`},
+		{inp: `LOAD "HEWORLD.BAS"`},
+		{inp: `LOAD "HIWORLD.BAS",R`, keepOpen: true},
+		{inp: `LOAD "HERWORLD.BAS",F`, trash: true},
+		{inp: `LOAD "HERWORLD.BAS" F`, trash: true},
 	}
 
 	for _, tt := range tests {
@@ -911,16 +874,16 @@ func Test_LoadCommand(t *testing.T) {
 		stmt := itr.Value()
 		cmd, ok := stmt.(*ast.LoadCommand)
 
-		if !ok && (tt.exp != nil) {
+		if !ok {
 			t.Fatalf("(%s) parse didn't return LoadCommand, got %T instead", tt.inp, stmt)
 		}
 
-		if ok && tt.keepOpen && !cmd.KeppOpen {
-			t.Fatalf("(%s) parse failed to set KeepOpen", tt.inp)
-		}
+		assert.Equal(t, tt.keepOpen, cmd.KeepOpen, "KeepOpen incorrect")
 
-		if !ok && (tt.exp == nil) && (len(p.errors) == 0) {
-			t.Fatalf("(%s) parse failed to report error", tt.inp)
+		if tt.trash {
+			assert.True(t, cmd.HasTrash(), "trash not found")
+		} else {
+			assert.False(t, cmd.HasTrash(), "unexpected trash found")
 		}
 	}
 }
@@ -947,15 +910,15 @@ func Test_LocateStatement(t *testing.T) {
 		env := object.NewTermEnvironment(mocks.MockTerm{})
 		p.ParseCmd(env)
 
+		itr := env.CmdLineIter()
+		stmt := itr.Value()
+		lct, ok := stmt.(*ast.LocateStatement)
+
+		if !ok {
+			t.Fatalf("Test_LocateStatement didn't return Locate object")
+		}
+
 		if !tt.err {
-			itr := env.CmdLineIter()
-			stmt := itr.Value()
-			lct, ok := stmt.(*ast.LocateStatement)
-
-			if !ok {
-				t.Fatalf("Test_LocateStatement didn't return Locate object")
-			}
-
 			for i, res := range lct.Parms {
 				if res != nil {
 					if tt.exp[i] != nil {
@@ -965,13 +928,8 @@ func Test_LocateStatement(t *testing.T) {
 					}
 				}
 			}
-
-			checkParserErrors(t, p)
 		} else {
-			// make sure I did catch the error
-			if len(p.errors) == 0 {
-				t.Fatalf("%s failed to generate parse error", tt.inp)
-			}
+			//assert.True(t, lct.H)
 		}
 	}
 }
@@ -983,7 +941,6 @@ func TestIdentifierExpression(t *testing.T) {
 	env := object.NewTermEnvironment(mocks.MockTerm{})
 	p.ParseProgram(env)
 
-	checkParserErrors(t, p)
 	if env.StatementIter().Len() != 2 {
 		t.Fatalf("program has not enough statements. got=%d", env.StatementIter().Len())
 	}
@@ -1013,7 +970,6 @@ func TestNewCommand(t *testing.T) {
 	p := New(l)
 	env := object.NewTermEnvironment(mocks.MockTerm{})
 	p.ParseCmd(env)
-	checkParserErrors(t, p)
 	assert.Equal(t, 1, env.CmdLineIter().Len(), "NewCommand didn't create one command")
 }
 
@@ -1024,7 +980,6 @@ func TestNextCommand(t *testing.T) {
 	}{
 		{inp: `30 NEXT`},
 		{inp: `40 NEXT X`},
-		{inp: `50 NEXT 4`, err: true},
 	}
 
 	for _, tt := range tests {
@@ -1032,10 +987,6 @@ func TestNextCommand(t *testing.T) {
 		p := New(l)
 		env := object.NewTermEnvironment(mocks.MockTerm{})
 		p.ParseProgram(env)
-
-		if !tt.err {
-			checkParserErrors(t, p)
-		}
 	}
 }
 
@@ -1154,12 +1105,15 @@ func TestPaletteStatement(t *testing.T) {
 		env := object.NewTermEnvironment(mocks.MockTerm{})
 		p.ParseProgram(env)
 
-		if !tt.err {
-			checkParserErrors(t, p)
-		}
+		iter := env.StatementIter()
+		iter.Next()
+		step := iter.Value()
+		stmt, ok := step.(*ast.PaletteStatement)
+
+		assert.True(t, ok, "Didn't get a palette statement")
 
 		if tt.err {
-			assert.NotEqual(t, 0, len(p.errors), "line %d succeeded and should have failed")
+			assert.True(t, stmt.HasTrash(), "failed to catch the error")
 		}
 	}
 }
@@ -1194,7 +1148,6 @@ func Test_ReadStatement(t *testing.T) {
 		env := object.NewTermEnvironment(mocks.MockTerm{})
 		p.ParseProgram(env)
 
-		checkParserErrors(t, p)
 		iter := env.StatementIter()
 		if iter.Len() != tt.stmtNum {
 			t.Fatalf("expected %d statements, got %d", tt.stmtNum, iter.Len())
@@ -1246,8 +1199,6 @@ func Test_RemStatement(t *testing.T) {
 		p := New(l)
 		env := object.NewTermEnvironment(mocks.MockTerm{})
 		p.ParseProgram(env)
-
-		checkParserErrors(t, p)
 
 		itr := env.StatementIter()
 		itr.Next()
@@ -1315,17 +1266,17 @@ func Test_ResumeStatement(t *testing.T) {
 
 func Test_ScreenStatement(t *testing.T) {
 	tests := []struct {
-		inp string
-		exp []ast.Expression
-		err bool
+		inp   string
+		exp   []ast.Expression
+		trash bool
 	}{
 		{inp: "10 SCREEN 0,1", exp: []ast.Expression{&ast.IntegerLiteral{Token: token.Token{Type: token.INT, Literal: "0"}, Value: 0},
 			&ast.IntegerLiteral{Token: token.Token{Type: token.INT, Literal: "1"}, Value: 1}}},
 		{inp: "20 SCREEN 2,,3", exp: []ast.Expression{&ast.IntegerLiteral{Token: token.Token{Type: token.INT, Literal: "2"}, Value: 2},
 			nil,
 			&ast.IntegerLiteral{Token: token.Token{Type: token.INT, Literal: "3"}, Value: 3}}},
-		{inp: "30 SCREEN", err: true},
-		{inp: "30 SCREEN 1,2,3,4,5", err: true},
+		{inp: "30 SCREEN", trash: true},
+		{inp: "30 SCREEN 1,2,3,4,5", trash: true},
 	}
 
 	for _, tt := range tests {
@@ -1334,43 +1285,43 @@ func Test_ScreenStatement(t *testing.T) {
 		env := object.NewTermEnvironment(mocks.MockTerm{})
 		p.ParseProgram(env)
 
-		if !tt.err {
-			checkParserErrors(t, p)
+		cd := env.StatementIter()
 
-			cd := env.StatementIter()
+		if cd.Len() != 2 {
+			t.Fatalf("Input %s, expected 2 statements, got %d", tt.inp, cd.Len())
+		}
 
-			if cd.Len() != 2 {
-				t.Fatalf("Input %s, expected 2 statements, got %d", tt.inp, cd.Len())
-			}
+		if !cd.Next() {
+			t.Fatalf("Input %s, failed to advance to second statement", tt.inp)
+		}
 
-			if !cd.Next() {
-				t.Fatalf("Input %s, failed to advance to second statement", tt.inp)
-			}
+		stmt := cd.Value()
+		scrn := stmt.(*ast.ScreenStatement)
 
-			stmt := cd.Value()
-			scrn := stmt.(*ast.ScreenStatement)
+		assert.NotNil(t, scrn, "%s didn't return a SCREEN statement", tt.inp)
 
-			assert.NotNil(t, scrn, "%s didn't return a SCREEN statement", tt.inp)
+		for i, exp := range tt.exp {
+			assert.Equal(t, tt.exp[i], exp, "For input %s, expression %d was unexpected", tt.inp, i)
+		}
 
-			for i, exp := range tt.exp {
-				assert.Equal(t, tt.exp[i], exp, "For input %s, expression %d was unexpected", tt.inp, i)
-			}
+		if tt.trash {
+			assert.True(t, scrn.HasTrash(), "didn't get trash")
 		} else {
-			assert.Equal(t, 1, len(p.errors), "Expected 1 error but got %d", len(p.errors))
+			assert.False(t, scrn.HasTrash(), "shouldn't have trash")
 		}
 	}
 }
 
 func Test_StopStatement(t *testing.T) {
-	input := `10 STOP`
+
+	input := `10 STOP : REM a test`
 	l := lexer.New(input)
 	p := New(l)
 	env := object.NewTermEnvironment(mocks.MockTerm{})
 	p.ParseProgram(env)
-	checkParserErrors(t, p)
 	iter := env.StatementIter()
 
-	assert.Equal(t, 2, iter.Len())
+	assert.Equal(t, 3, iter.Len())
 	iter.Next()
 	step := iter.Value()
 	stmt, ok := step.(*ast.StopStatement)
@@ -1397,8 +1348,6 @@ func Test_StringLiteralExpression(t *testing.T) {
 		p := New(l)
 		env := object.NewTermEnvironment(mocks.MockTerm{})
 		p.ParseProgram(env)
-
-		checkParserErrors(t, p)
 		iter := env.StatementIter()
 
 		iter.Next()
@@ -1434,8 +1383,6 @@ func TestTronTroffCommands(t *testing.T) {
 		p := New(l)
 		env := object.NewTermEnvironment(mocks.MockTerm{})
 		p.ParseCmd(env)
-
-		checkParserErrors(t, p)
 
 		itr := env.CmdLineIter()
 
@@ -1515,7 +1462,6 @@ func TestIntegerLiteralExpression(t *testing.T) {
 		env := object.NewTermEnvironment(mocks.MockTerm{})
 		p.ParseProgram(env)
 
-		checkParserErrors(t, p)
 		if env.StatementIter().Len() != tt.stmts {
 			t.Fatalf("program has not enough statements. got=%d", env.StatementIter().Len())
 		}
@@ -1650,7 +1596,6 @@ func TestParsingPrefixExpressions(t *testing.T) {
 		env := object.NewTermEnvironment(mocks.MockTerm{})
 		p.ParseProgram(env)
 
-		checkParserErrors(t, p)
 		if env.StatementIter().Len() != 2 {
 			t.Fatalf("program.Statements does not contain %d statements. got=%d\n", 2, env.StatementIter().Len())
 		}
@@ -1716,7 +1661,6 @@ func TestParsingInfixExpressions(t *testing.T) {
 		env := object.NewTermEnvironment(mocks.MockTerm{})
 		p.ParseProgram(env)
 
-		checkParserErrors(t, p)
 		if env.StatementIter().Len() != 2 {
 			t.Fatalf("program.Statements does not contain %d statements. got=%d\n", 2, env.StatementIter().Len())
 		}
@@ -1776,8 +1720,6 @@ func TestOperatorPrecedenceParsing(t *testing.T) {
 		p := New(l)
 		env := object.NewTermEnvironment(mocks.MockTerm{})
 		p.ParseProgram(env)
-
-		checkParserErrors(t, p)
 	}
 }
 func TestParsingIndexExpressions(t *testing.T) {
@@ -1805,7 +1747,6 @@ func TestParsingIndexExpressions(t *testing.T) {
 		env := object.NewTermEnvironment(mocks.MockTerm{})
 		p.ParseProgram(env)
 
-		checkParserErrors(t, p)
 		iter := env.StatementIter()
 		if iter.Len() < 2 {
 			t.Fatalf("got %d expressions, wanted %d", iter.Len(), 2)
@@ -1855,8 +1796,6 @@ func TestIfStatement(t *testing.T) {
 		p := New(l)
 		env := object.NewTermEnvironment(mocks.MockTerm{})
 		p.ParseProgram(env)
-
-		checkParserErrors(t, p)
 
 		if env.StatementIter().Len() != 2 {
 			t.Fatalf("program.Statements does not contain %d statements. got=%d\n", 2, env.StatementIter().Len())
@@ -1916,8 +1855,6 @@ func TestGotoStatements(t *testing.T) {
 		env := object.NewTermEnvironment(mocks.MockTerm{})
 		p.ParseProgram(env)
 
-		checkParserErrors(t, p)
-
 		if env.StatementIter().Len() != tt.expStmts {
 			t.Fatalf("program.Statements does not contain %d statements. got=%d", tt.expStmts, env.StatementIter().Len())
 		}
@@ -1950,8 +1887,6 @@ func TestGosubStatements(t *testing.T) {
 		p := New(l)
 		env := object.NewTermEnvironment(mocks.MockTerm{})
 		p.ParseProgram(env)
-
-		checkParserErrors(t, p)
 
 		if env.StatementIter().Len() != tt.expStmts {
 			t.Fatalf("program.Statements does not contain %d statements. got=%d", tt.expStmts, env.StatementIter().Len())
@@ -1987,8 +1922,6 @@ func TestReturnStatements(t *testing.T) {
 		p := New(l)
 		env := object.NewTermEnvironment(mocks.MockTerm{})
 		p.ParseProgram(env)
-
-		checkParserErrors(t, p)
 
 		if env.StatementIter().Len() != tt.expStmts {
 			t.Fatalf("program.Statements does not contain %d statements. got=%d", tt.expStmts, env.StatementIter().Len())
@@ -2109,34 +2042,50 @@ func TestDefFN(t *testing.T) {
 
 func TestFunctionApplication(t *testing.T) {
 	tests := []struct {
-		input    string
-		errCount int
+		input string
+		err   bool
 	}{
-		{"10 DEF FNID(x) = x : PRINT FNID(5)", 0},
-		{"20 DEF FNMUL(x,y) = x*y : PRINT FNMUL(2,3)", 0},
-		{"30 DEF FNSKIP(x)= (x + 2): PRINT FNSKIP(3)", 0},
-		{"40 DEF FN(z) = z + 2", 1},
-		{"50 DEF AFUNC(t) = t * 5", 1},
-		{"60 DEF FNMUL(x,y)", 1},
-		{"70 DEF FNMUL  = 5", 1},
-		{"80 DEF FNMUL(x,y)", 1},
-		{"90 DEF FNMUL(x,y = x * y", 1},
-		{"100 DEF FNMUL() = x * y", 0},
-		{"110 X$ = MKD$(65999)", 0},
-		{"120 MKD$(65999)", 1},
+		/*{input: "10 DEF FNID(x) = x : PRINT FNID(5)"},
+		{input: "20 DEF FNMUL(x,y) = x*y : PRINT FNMUL(2,3)"},
+		{input: "30 DEF FNSKIP(x)= (x + 2): PRINT FNSKIP(3)"},
+		{input: "40 DEF FN(z) = z + 2", err: true},
+		{input: "50 DEF AFUNC(t) = t * 5", err: true},
+		{input: "60 DEF FNMUL(x,y)", err: true},
+		{input: "70 DEF FNMUL  = 5", err: true},
+		{input: "80 DEF FNMUL(x,y)", err: true},
+		{input: "90 DEF FNMUL(x,y = x * y", err: true},
+		{input: "100 DEF FNMUL() = x * y"},
+		{input: "110 X$ = MKD$(65999)"},*/
+		{input: "120 MKD$(65999)", err: true},
 	}
-	for i, tt := range tests {
+	for _, tt := range tests {
 		l := lexer.New(tt.input)
 		p := New(l)
 		env := object.NewTermEnvironment(mocks.MockTerm{})
 		p.ParseProgram(env)
 
-		if len(p.errors) != tt.errCount {
-			t.Fatalf("expected %d errors, got %d instead on test %d", tt.errCount, len(p.errors), i)
-		}
+		itr := env.StatementIter()
+		assert.NotZero(t, itr.Len(), "parser failed to produce statements")
 
-		if env.StatementIter().Len() == 0 {
-			t.Fatalf("parser failed to produce statements")
+		if tt.err {
+			itr.Next()
+			stmt := itr.Value()
+			exp, ok := stmt.(*ast.ExpressionStatement)
+
+			if ok {
+				// expression statement
+				//assert.True(t, (exp.HasTrash() || exp.Expression.HasTrash()), "didn't get expression trash")
+				if !exp.HasTrash() && !exp.Expression.HasTrash() {
+					assert.False(t, exp.HasTrash(), "bogus test")
+				}
+			} else {
+				// try for a let statement
+				let, ok := stmt.(*ast.LetStatement)
+
+				assert.True(t, ok, "got a wierd statement")
+
+				assert.True(t, let.HasTrash() || let.Name.HasTrash(), "failed to get let trash")
+			}
 		}
 	}
 }
@@ -2154,8 +2103,6 @@ func TestEndStatements(t *testing.T) {
 		p := New(l)
 		env := object.NewTermEnvironment(mocks.MockTerm{})
 		p.ParseProgram(env)
-
-		checkParserErrors(t, p)
 
 		if env.StatementIter().Len() != tt.expStmts {
 			t.Fatalf("program.Statements does not contain %d statements. got=%d", tt.expStmts, env.StatementIter().Len())

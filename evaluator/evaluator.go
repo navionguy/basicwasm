@@ -86,7 +86,7 @@ func Eval(tnode ast.Node, code *ast.Code, env *object.Environment) object.Object
 		return evalBlockStatement(node, code, env)
 
 	case *ast.CommonStatement:
-		evalCommonStatement(node, code, env)
+		evalCommonStatement(node, env)
 
 	case *ast.EndStatement:
 		return evalEndStatement(node, code, env)
@@ -265,6 +265,7 @@ func Eval(tnode ast.Node, code *ast.Code, env *object.Environment) object.Object
 
 	case *ast.ViewStatement:
 		return evalViewStatement(node, code, env)
+
 	default:
 		msg := fmt.Sprintf("unsupported codepoint at line %d, %T", code.CurLine(), node)
 		env.Terminal().Println(msg)
@@ -613,6 +614,7 @@ func evalColorSet(color int16, bkGrnd bool, env *object.Environment) object.Obje
 	return nil
 }
 
+// change the current color palette
 func evalColorPalette(scr *ast.ScreenStatement, env *object.Environment) {
 	// fetch the current palette settings
 	paletteSet := env.GetSetting(settings.Palette)
@@ -626,7 +628,7 @@ func evalColorPalette(scr *ast.ScreenStatement, env *object.Environment) {
 }
 
 // common statement allows data to survive across a chain
-func evalCommonStatement(com *ast.CommonStatement, code *ast.Code, env *object.Environment) {
+func evalCommonStatement(com *ast.CommonStatement, env *object.Environment) {
 	for _, id := range com.Vars {
 		env.Common(id.Value)
 	}
@@ -1638,7 +1640,7 @@ func evalLoadParse(rdr *bufio.Reader, stmt *ast.LoadCommand, code *ast.Code, env
 	env.NewProgram()
 	fileserv.ParseFile(rdr, env)
 
-	if !stmt.KeppOpen {
+	if !stmt.KeepOpen {
 		// he does not want to start execution
 		return nil
 	}

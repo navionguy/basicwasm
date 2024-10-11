@@ -12,7 +12,7 @@ import (
 	"github.com/navionguy/basicwasm/settings"
 )
 
-//Start begins interacting with the user
+// Start begins interacting with the user
 func Start(env *object.Environment) {
 	go runLoop(env)
 }
@@ -104,18 +104,7 @@ func parseCmdLine(input string, env *object.Environment) *parser.Parser {
 
 	p.ParseCmd(env)
 
-	// if all went well return the parser
-	if len(p.Errors()) == 0 {
-		return p
-	}
-
-	// display error messages
-	for _, m := range p.Errors() {
-		env.Terminal().Println(m)
-	}
-
-	// nothing to evaluate
-	return nil
+	return p
 }
 
 // once you have a parsed command line, go execute it

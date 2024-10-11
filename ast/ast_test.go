@@ -81,6 +81,7 @@ func TestBlockExpression(t *testing.T) {
 
 	assert.Equalf(t, "", be.TokenLiteral(), "Block Expression should not have a TokenLiteral!")
 	assert.Equalf(t, " 12 + 10", be.String(), "Block Expression String() -> %s", be.String())
+	assert.False(t, be.Exp.HasTrash())
 }
 
 func Test_BlockStatement(t *testing.T) {
@@ -1216,25 +1217,36 @@ func Test_LocateStatement(t *testing.T) {
 func Test_LoadCommand(t *testing.T) {
 
 	tests := []struct {
-		cmd LoadCommand
-		exp string
+		cmd   LoadCommand
+		exp   string
+		trash string
 	}{
 		{cmd: LoadCommand{Token: token.Token{Type: token.LOAD, Literal: "LOAD"},
 			Path: &StringLiteral{Token: token.Token{Type: token.STRING, Literal: "HIWORLD.BAS"}, Value: "HIWORLD.BAS"}},
 			exp: `LOAD "HIWORLD.BAS"`},
 		{cmd: LoadCommand{Token: token.Token{Type: token.LOAD, Literal: "LOAD"},
-			Path: &StringLiteral{Token: token.Token{Type: token.STRING, Literal: "HIWORLD.BAS"}, Value: "HIWORLD.BAS"}, KeppOpen: true},
+			Path: &StringLiteral{Token: token.Token{Type: token.STRING, Literal: "HIWORLD.BAS"}, Value: "HIWORLD.BAS"}, KeepOpen: true},
 			exp: `LOAD "HIWORLD.BAS",R`},
-		//{cmd: LoadCommand{Token: token.Token{Type: token.LOAD, Literal: "LOAD"}, Path: `HIWORLD.BAS`}, exp: `LOAD "HIWORLD.BAS"`},
-		//{cmd: LoadCommand{Token: token.Token{Type: token.LOAD, Literal: "LOAD"}, Path: `HIWORLD.BAS`, KeppOpen: true}, exp: `LOAD "HIWORLD.BAS",R`},
+		{cmd: LoadCommand{Token: token.Token{Type: token.LOAD, Literal: "LOAD"},
+			Path: &StringLiteral{Token: token.Token{Type: token.STRING, Literal: "HIWORLD.BAS"}, Value: "HIWORLD.BAS"}, KeepOpen: true},
+			exp: `LOAD "HIWORLD.BAS",R Trash`, trash: "Trash"},
 	}
 
 	for _, tt := range tests {
 		tt.cmd.statementNode()
 
+		if len(tt.trash) > 0 {
+			tt.cmd.Trash = append(tt.cmd.Trash, TrashStatement{Token: token.Token{Literal: tt.trash}})
+		}
+
 		assert.Equal(t, tt.cmd.Token.Literal, tt.cmd.TokenLiteral(), "Load command has incorrect TokenLiteral")
 		assert.Equal(t, tt.exp, tt.cmd.String(), "Load command didn't build string correctly")
 
+		if len(tt.trash) > 0 {
+			assert.True(t, tt.cmd.HasTrash(), "trash not found")
+		} else {
+			assert.False(t, tt.cmd.HasTrash(), "unexpected trash")
+		}
 	}
 }
 
@@ -1249,16 +1261,24 @@ func Test_NewCommand(t *testing.T) {
 
 func Test_NextStatement(t *testing.T) {
 	tests := []struct {
-		nxt NextStatement
-		tok string
-		exp string
+		nxt   NextStatement
+		tok   string
+		exp   string
+		Trash string
 	}{
-		//{nxt: NextStatement{Token: token.Token{Type: token.NEXT, Literal: "NEXT"}}, tok: "NEXT", exp: "NEXT"},
+		{nxt: NextStatement{Token: token.Token{Type: token.NEXT, Literal: "NEXT"}}, tok: "NEXT", exp: "NEXT"},
 		{nxt: NextStatement{Token: token.Token{Type: token.NEXT, Literal: "NEXT"}, Id: Identifier{Token: token.Token{Literal: "I"}, Value: "I"}}, tok: "NEXT", exp: "NEXT I"},
+		{nxt: NextStatement{Token: token.Token{Type: token.NEXT, Literal: "NEXT"}, Id: Identifier{Token: token.Token{Literal: "I"}, Value: "I"}}, tok: "NEXT", exp: "NEXT I Value", Trash: "Value"},
 	}
 
 	for _, tt := range tests {
 		tt.nxt.statementNode()
+		if len(tt.Trash) > 0 {
+			tt.nxt.Trash = append(tt.nxt.Trash, TrashStatement{Token: token.Token{Literal: tt.Trash}})
+
+			assert.True(t, tt.nxt.HasTrash(), "should have found trash")
+		}
+
 		assert.Equal(t, tt.tok, tt.nxt.TokenLiteral())
 		assert.Equal(t, tt.exp, tt.nxt.String())
 	}
@@ -1440,17 +1460,23 @@ func Test_OnGoStatement(t *testing.T) {
 
 func Test_PaletteStatement(t *testing.T) {
 	tests := []struct {
-		stmt PaletteStatement
-		exp  string
+		stmt  PaletteStatement
+		exp   string
+		trash string
 	}{
 		{stmt: PaletteStatement{Token: token.Token{Type: token.PALETTE, Literal: "PALETTE"}}, exp: "PALETTE"},
 		{stmt: PaletteStatement{Token: token.Token{Type: token.PALETTE, Literal: "PALETTE"},
 			Attrib: &IntegerLiteral{Token: token.Token{Type: token.INT, Literal: "INT"},
 				Value: 1}, Color: &IntegerLiteral{Token: token.Token{Type: token.INT, Literal: "INT"}, Value: 2}}, exp: "PALETTE 1,2"},
+		{stmt: PaletteStatement{Token: token.Token{Type: token.PALETTE, Literal: "PALETTE"}}, exp: "PALETTE Trash", trash: "Trash"},
 	}
 
 	for _, tt := range tests {
 		tt.stmt.statementNode()
+
+		if len(tt.trash) > 0 {
+			tt.stmt.Trash = append(tt.stmt.Trash, TrashStatement{Token: token.Token{Literal: tt.trash}})
+		}
 
 		assert.Equal(t, token.PALETTE, tt.stmt.TokenLiteral())
 		if len(tt.exp) != 0 {
@@ -1560,8 +1586,9 @@ func Test_RunCommand(t *testing.T) {
 
 func Test_ScreenStatement(t *testing.T) {
 	tests := []struct {
-		prms []Expression // array of parameter expressions
-		exp  string       // what the string output should look like
+		prms  []Expression // array of parameter expressions
+		exp   string       // what the string output should look like
+		trash string       // trash in the statement
 	}{
 		{prms: []Expression{&IntegerLiteral{
 			Token: token.Token{Type: token.INT, Literal: "INT"},
@@ -1571,15 +1598,28 @@ func Test_ScreenStatement(t *testing.T) {
 			Value: 1}, &IntegerLiteral{
 			Token: token.Token{Type: token.INT, Literal: "INT"},
 			Value: 2}}, exp: "SCREEN 1,2"},
+		{prms: []Expression{&IntegerLiteral{
+			Token: token.Token{Type: token.INT, Literal: "INT"},
+			Value: 1}}, exp: "SCREEN 1 Trash", trash: "Trash"},
 	}
 
 	for _, tt := range tests {
 		scrn := ScreenStatement{Token: token.Token{Type: token.SCREEN, Literal: "SCREEN"}, Params: tt.prms}
 
+		if len(tt.trash) > 0 {
+			scrn.Trash = append(scrn.Trash, TrashStatement{Token: token.Token{Literal: tt.trash}})
+		}
+
 		scrn.statementNode()
 
 		assert.Equal(t, token.SCREEN, scrn.TokenLiteral())
 		assert.Equal(t, tt.exp, scrn.String())
+
+		if len(tt.trash) == 0 {
+			assert.False(t, scrn.HasTrash(), "shouldn't have trash")
+		} else {
+			assert.True(t, scrn.HasTrash(), "should have trash")
+		}
 	}
 
 	scrn := ScreenStatement{}

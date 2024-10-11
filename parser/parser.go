@@ -7,7 +7,6 @@ import (
 	"strings"
 
 	"github.com/navionguy/basicwasm/ast"
-	"github.com/navionguy/basicwasm/berrors"
 	"github.com/navionguy/basicwasm/builtins"
 	"github.com/navionguy/basicwasm/lexer"
 	"github.com/navionguy/basicwasm/object"
@@ -123,11 +122,6 @@ func New(l TokenIzer) *Parser {
 	return p
 }
 
-// Errors returns list of errors seen while parsing
-func (p *Parser) Errors() []string {
-	return p.errors
-}
-
 func (p *Parser) nextToken() {
 	p.curToken = p.peekToken
 	p.peekToken = p.l.NextToken()
@@ -169,7 +163,7 @@ func (p *Parser) ParseCmd(env *object.Environment) {
 
 	// command line has his own AST
 	p.cmdInput = true
-	for (!p.curTokenIs(token.EOF)) && (len(p.errors) == 0) {
+	for !p.curTokenIs(token.EOF) {
 		stmt := p.parseStatement()
 		if stmt != nil {
 			env.AddCmdStmt(stmt)
@@ -289,7 +283,7 @@ func (p *Parser) parseStatement() ast.Statement {
 	case token.RUN:
 		return p.parseRunCommand()
 	case token.SCREEN:
-		return p.parseScreenCommand()
+		return p.parseScreenStatement()
 	case token.STOP:
 		return p.parseStopStatement()
 	case token.TROFF:
@@ -387,6 +381,9 @@ func (p *Parser) parseBeepStatement() *ast.BeepStatement {
 
 // parse the expression part of a BlockStatement
 func (p *Parser) parseBlockExpression() *ast.BlockExpression {
+	if p.curTokenIs(token.EQ) {
+		p.nextToken()
+	}
 	ep := p.parseExpression(LOWEST)
 
 	be := ast.BlockExpression{Exp: ep}
@@ -615,9 +612,10 @@ func (p *Parser) parseColorStatement() *ast.ColorStatement {
 	}
 	p.nextToken()
 
-	exp := p.parseCommaSeparatedExpressions()
+	exp, trash := p.parseCommaSeparatedExpressions()
 
 	stmt.Parms = exp
+	stmt.Trash = append(stmt.Trash, trash...)
 	return &stmt
 }
 
@@ -1172,8 +1170,9 @@ func (p *Parser) parseImpliedLetStatement(id string) *ast.LetStatement {
 	stmt := &ast.LetStatement{Token: token.Token{Type: token.LET, Literal: ""}}
 	stmt.Name = p.innerParseIdentifier()
 
-	if p.checkForFuncCall() {
+	if p.checkForFuncCall() || stmt.Name.HasTrash() {
 		// whoops, it's a function identifier
+		p.parseTrash(&stmt.Trash)
 		return stmt
 	}
 
@@ -1183,7 +1182,8 @@ func (p *Parser) parseImpliedLetStatement(id string) *ast.LetStatement {
 func (p *Parser) finishParseLetStatment(stmt *ast.LetStatement) *ast.LetStatement {
 
 	if !p.expectPeek(token.ASSIGN) {
-		return nil
+		p.parseTrash(&stmt.Trash)
+		return stmt
 	}
 
 	p.nextToken()
@@ -1228,32 +1228,36 @@ func (p *Parser) parseLoadCommand() *ast.LoadCommand {
 	// parse the Expression to get the filename, hopefully
 	stmt.Path = p.parseExpression(LOWEST)
 
-	// if there isn't a comma, we are done
-	if p.peekToken.Literal != token.COMMA {
-		return &stmt
+	// if there is a comma, check for run option
+	if p.peekToken.Literal == token.COMMA {
+		return p.parseLoadCommandRunOption(&stmt)
 	}
 
-	return p.parseLoadCommandRunOption(&stmt)
+	// if I'm not at the end of the statement, collect the trash
+	if !p.chkEndOfStatement() {
+		p.parseTrash(&stmt.Trash)
+	}
+
+	return &stmt
 }
 
 // parseLoadCommandRunOption, only called if param is present
 func (p *Parser) parseLoadCommandRunOption(cmd *ast.LoadCommand) *ast.LoadCommand {
-	p.nextToken()
-	p.nextToken()
+	p.nextToken() // move to the comma
+	p.nextToken() // then move to what should be the run option
 
-	if strings.ToUpper(p.curToken.Literal) == "R" {
-		cmd.KeppOpen = true
-		return cmd
+	if strings.EqualFold(p.curToken.Literal, "R") {
+		cmd.KeepOpen = true
+	} else {
+		// anything other than an 'R' is trash
+		p.parseTrash(&cmd.Trash)
 	}
 
-	// anything other than an 'R' or 'r' is a syntax error
-	p.reportError(berrors.Syntax)
-	return nil
+	return cmd
 }
 
 // parseNewCommand, a very simple thing to do
 func (p *Parser) parseNewCommand() *ast.NewCommand {
-	defer untrace(trace("parseNewCommand"))
 	cmd := ast.NewCommand{Token: p.curToken}
 
 	return &cmd
@@ -1261,7 +1265,6 @@ func (p *Parser) parseNewCommand() *ast.NewCommand {
 
 // parse the NEXT statement
 func (p *Parser) parseNextStatement() *ast.NextStatement {
-	defer untrace(trace("parseNextStatement"))
 	nxt := ast.NextStatement{Token: p.curToken}
 
 	if !p.chkEndOfStatement() {
@@ -1269,7 +1272,7 @@ func (p *Parser) parseNextStatement() *ast.NextStatement {
 		if p.curTokenIs(token.IDENT) {
 			nxt.Id = *p.innerParseIdentifier()
 		} else {
-			p.reportError(berrors.Syntax)
+			p.parseTrash(&nxt.Trash)
 		}
 	}
 
@@ -1526,8 +1529,8 @@ func (p *Parser) parsePaletteSingleStatement(stmt *ast.PaletteStatement) *ast.Pa
 	p.nextToken()
 
 	if !p.curTokenIs(token.COMMA) {
-		p.reportError(berrors.Syntax)
-		return nil
+		p.parseTrash(&stmt.Trash)
+		return stmt
 	}
 	p.nextToken()
 	stmt.Color = p.parseIdentifier()
@@ -1696,29 +1699,33 @@ func (p *Parser) parseRunKeepOpen(cmd ast.RunCommand) *ast.RunCommand {
 
 // ScreenStatement allows user to configure screen mode for
 // different display adapters.  MDA,CGA,EGA and such
-func (p *Parser) parseScreenCommand() *ast.ScreenStatement {
+func (p *Parser) parseScreenStatement() *ast.ScreenStatement {
 	// create my object
 	stmt := ast.ScreenStatement{Token: p.curToken}
 
 	// need to move past the SCREEN token, unless their are no params
 	if p.chkEndOfStatement() {
-		p.reportError(berrors.MissingOp)
+		p.parseTrash(&stmt.Trash)
 		return &stmt
 	}
 	p.nextToken()
 
-	return p.parseScreenCommandParameters(stmt)
+	return p.parseScreenStatementParameters(stmt)
 }
 
 // parse the parameters for the SCREEN statement
-func (p *Parser) parseScreenCommandParameters(stmt ast.ScreenStatement) *ast.ScreenStatement {
+func (p *Parser) parseScreenStatementParameters(stmt ast.ScreenStatement) *ast.ScreenStatement {
 	// load up all the parameters, max 4
 
-	stmt.Params = p.parseCommaSeparatedExpressions()
+	var trash []ast.TrashStatement
+
+	stmt.Params, trash = p.parseCommaSeparatedExpressions()
+	stmt.Trash = append(stmt.Trash, trash...)
 
 	// check for too many params
 	if len(stmt.Params) > 4 {
-		p.reportError(berrors.Syntax)
+		// give him some trash for evaluator to catch
+		stmt.Trash = append(stmt.Trash, ast.TrashStatement{Token: token.Token{Literal: " "}})
 	}
 
 	return &stmt
@@ -1726,7 +1733,6 @@ func (p *Parser) parseScreenCommandParameters(stmt ast.ScreenStatement) *ast.Scr
 
 // not much to do, just return a StopStatement object
 func (p *Parser) parseStopStatement() *ast.StopStatement {
-	defer untrace(trace("parseStopStatement"))
 	stmt := ast.StopStatement{Token: p.curToken}
 
 	if p.peekTokenIs(token.COLON) {
@@ -1830,17 +1836,7 @@ func (p *Parser) expectPeek(t token.TokenType) bool {
 		p.nextToken()
 		return true
 	}
-	p.peekError(t)
 	return false
-}
-
-func (p *Parser) peekError(t token.TokenType) {
-	msg := fmt.Sprintf("expected next token to be '%s', got %s instead", t, p.peekToken.Type)
-	p.errors = append(p.errors, msg)
-}
-
-func (p *Parser) generalError(msg string) {
-	p.errors = append(p.errors, msg)
 }
 
 func (p *Parser) registerPrefix(tokenType token.TokenType, fn prefixParseFn) {
@@ -1859,7 +1855,7 @@ func (p *Parser) parseGroupedExpression() ast.Expression {
 	exp.Exp = p.parseExpression(LOWEST)
 
 	if !p.expectPeek(token.RPAREN) {
-		return nil
+		p.parseTrash(&exp.Trash)
 	}
 
 	return exp
@@ -1919,38 +1915,36 @@ func (p *Parser) parseIfOption() ast.Statement {
 
 // users is trying to define a function
 func (p *Parser) parseFunctionLiteral() ast.Expression {
-	if !p.expectPeek(token.IDENT) {
-		return nil
-	}
+	// what I'm hoping to produce
+	lit := ast.FunctionLiteral{}
 
 	// enforce the basic rule that the id starts with "FN"
 
-	if len(p.curToken.Literal) < 3 {
-		p.generalError("function names must be in the form FNname")
-		return nil
+	if (!p.expectPeek(token.IDENT)) ||
+		(len(p.curToken.Literal) < 3) ||
+		(strings.ToUpper(p.curToken.Literal[0:2]) != "FN") ||
+		(!p.peekTokenIs(token.LPAREN)) {
+		// sweep up the trash and return
+		p.parseTrash(&lit.Trash)
+		return &lit
 	}
+	lit.Token = p.curToken
+	p.nextToken()
 
-	if strings.ToUpper(p.curToken.Literal[0:2]) != "FN" {
-		p.generalError("function names must be in the form FNname")
-		return nil
-	}
-
-	lit := &ast.FunctionLiteral{Token: p.curToken}
-
-	if !p.expectPeek(token.LPAREN) {
-		return nil
-	}
-
+	// read in the function parameters
 	lit.Parameters = p.parseFunctionParameters()
 
-	if !p.expectPeek(token.EQ) {
-		return nil
+	rc := p.peekTokenIs(token.RPAREN)
+	if !rc {
+		p.parseTrash(&lit.Trash)
+		return &lit
 	}
+	p.nextToken()
 	p.nextToken()
 
 	lit.Body = p.parseBlockStatement()
 
-	return lit
+	return &lit
 }
 
 func (p *Parser) parseFunctionParameters() []*ast.Identifier {
@@ -1971,10 +1965,6 @@ func (p *Parser) parseFunctionParameters() []*ast.Identifier {
 		p.nextToken()
 		ident := &ast.Identifier{Token: p.curToken, Value: p.curToken.Literal}
 		identifiers = append(identifiers, ident)
-	}
-
-	if !p.expectPeek(token.RPAREN) {
-		return nil
 	}
 
 	return identifiers
@@ -2065,24 +2055,22 @@ func (p *Parser) parseExpressionStatement() *ast.ExpressionStatement {
 func (p *Parser) parseExpression(precedence int) ast.Expression {
 	prefix := p.prefixParseFns[p.curToken.Type]
 	if prefix == nil {
-		p.noPrefixParseFnError(p.curToken.Type)
-		return nil
+		stmt := ast.TrashExpression{}
+		stmt.Trash = append(stmt.Trash, ast.TrashStatement{Token: token.Token{Literal: p.curToken.Literal}})
+		return &stmt
 	}
 	leftExp := prefix()
 	for !p.peekTokenIs(token.COLON) && !p.peekTokenIs((token.RBRACKET)) && precedence < p.peekPrecedence() {
 		infix := p.infixParseFns[p.peekToken.Type]
 		if infix == nil {
-			return leftExp
+			stmt := ast.TrashExpression{}
+			stmt.Trash = append(stmt.Trash, ast.TrashStatement{Token: token.Token{Literal: p.curToken.Literal}})
+			return &stmt
 		}
 		p.nextToken()
 		leftExp = infix(leftExp)
 	}
 	return leftExp
-}
-
-func (p *Parser) noPrefixParseFnError(t token.TokenType) {
-	msg := fmt.Sprintf("no prefix parse function for %s found", t)
-	p.errors = append(p.errors, msg)
 }
 
 func (p *Parser) parsePrefixExpression() ast.Expression {
@@ -2209,17 +2197,6 @@ func (p *Parser) curPrecedence() int {
 		return p
 	}
 	return LOWEST
-}
-
-// reportError builds an error message and adds to the array
-func (p *Parser) reportError(err int) {
-	msg := berrors.TextForError(err)
-
-	if !p.cmdInput && (p.curLine != 0) {
-		msg = fmt.Sprintf("%s in %d", msg, p.curLine)
-	}
-
-	p.errors = append(p.errors, msg)
 }
 
 // parse VIEW, also catches VIEW PRINT

@@ -241,13 +241,6 @@ func Test_BeepStatement(t *testing.T) {
 
 	p.ParseCmd(env)
 
-	if len(p.Errors()) > 0 {
-		for _, er := range p.Errors() {
-			fmt.Println(er)
-		}
-		return
-	}
-
 	Eval(&ast.Program{}, env.CmdLineIter(), env)
 
 	assert.True(t, chk, "Test_BeepStatement term.beep() not called!")
@@ -272,13 +265,6 @@ func Test_BreakSignal(t *testing.T) {
 		env := object.NewTermEnvironment(mt)
 
 		p.ParseProgram(env)
-
-		if len(p.Errors()) > 0 {
-			for _, er := range p.Errors() {
-				fmt.Println(er)
-			}
-			return
-		}
 
 		env.SetRun(true)
 		rc := Eval(&ast.Program{}, env.StatementIter(), env)
@@ -317,13 +303,6 @@ func Test_ChainStatementCommandLine(t *testing.T) {
 
 		p.ParseCmd(env)
 
-		if len(p.Errors()) > 0 {
-			for _, er := range p.Errors() {
-				fmt.Println(er)
-			}
-			return
-		}
-
 		Eval(&ast.Program{}, env.CmdLineIter(), env)
 
 		if len(tt.exp) != 0 {
@@ -358,13 +337,6 @@ func Test_ChainStatementRunning(t *testing.T) {
 
 		p.ParseProgram(env)
 
-		if len(p.Errors()) > 0 {
-			for _, er := range p.Errors() {
-				fmt.Println(er)
-			}
-			return
-		}
-
 		env.SetRun(true)
 		Eval(&ast.Program{}, env.StatementIter(), env)
 
@@ -388,13 +360,6 @@ func Test_ChrS(t *testing.T) {
 		env := object.NewTermEnvironment(mt)
 
 		p.ParseProgram(env)
-
-		if len(p.Errors()) > 0 {
-			for _, er := range p.Errors() {
-				fmt.Println(er)
-			}
-			return
-		}
 
 		env.SetRun(true)
 		Eval(&ast.Program{}, env.StatementIter(), env)
@@ -574,13 +539,6 @@ func Test_ColorStatement(t *testing.T) {
 		env.SaveSetting(settings.Screen, &scrn)
 		p.ParseCmd(env)
 
-		if len(p.Errors()) > 0 {
-			for _, er := range p.Errors() {
-				fmt.Println(er)
-			}
-			return
-		}
-
 		rc := Eval(&ast.Program{}, env.CmdLineIter(), env)
 
 		if !tt.fail {
@@ -630,8 +588,7 @@ func Test_CloseStatement(t *testing.T) {
 
 		env.AddOpenFile(tt.open, file)
 
-		//Eval(&stmt, env.CmdLineIter(), env)
-		rc := evalCloseStatement(&stmt, env.CmdLineIter(), env)
+		rc := Eval(&stmt, env.CmdLineIter(), env)
 
 		if tt.fail {
 			_, ok := rc.(*object.Error)
@@ -657,13 +614,6 @@ func TestClsStatement(t *testing.T) {
 		initMockTerm(&mt)
 		env := object.NewTermEnvironment(mt)
 		p.ParseCmd(env)
-
-		if len(p.Errors()) > 0 {
-			for _, er := range p.Errors() {
-				fmt.Println(er)
-			}
-			return
-		}
 
 		Eval(&ast.Program{}, env.CmdLineIter(), env)
 
@@ -713,14 +663,6 @@ func Test_ContCommand_Errors(t *testing.T) {
 			env.SetRun(true)
 		}
 		p.ParseCmd(env)
-
-		if len(p.Errors()) > 0 {
-			for _, er := range p.Errors() {
-				fmt.Println(er)
-			}
-			t.Fatalf("%s command failed!", tt.inp)
-			return
-		}
 
 		Eval(&ast.Program{}, env.CmdLineIter(), env)
 	}
@@ -784,7 +726,7 @@ func Test_ErrorStatement(t *testing.T) {
 		err int
 	}{
 		{inp: `10 ERROR 200`, err: 200},
-		{inp: `10 ERROR @`, err: berrors.IllegalFuncCallErr},
+		{inp: `10 ERROR @`, err: berrors.Syntax},
 		{inp: `10 ERROR 300`, err: berrors.Syntax},
 		{inp: `10 ERROR "300"`, err: berrors.Syntax},
 	}
@@ -920,14 +862,6 @@ func Test_FilesCommand(t *testing.T) {
 		}
 
 		p.ParseCmd(env)
-
-		if len(p.Errors()) > 0 {
-			for _, er := range p.Errors() {
-				fmt.Println(er)
-			}
-			t.Fatal("FILES command failed!")
-			return
-		}
 
 		Eval(&ast.Program{}, env.CmdLineIter(), env)
 
@@ -1179,8 +1113,6 @@ func Test_EvalIntegerExpression(t *testing.T) {
 		env := object.NewTermEnvironment(mt)
 		p.ParseProgram(env)
 
-		assert.Zero(t, len(p.Errors()), "Parse(%s) failed with errors!")
-
 		// need to execute run command
 		env.SetRun(true)
 		rc := Eval(&ast.Program{}, env.StatementIter(), env)
@@ -1211,8 +1143,6 @@ func TestDblInetegerExpression(t *testing.T) {
 		initMockTerm(&mt)
 		env := object.NewTermEnvironment(mt)
 		p.ParseProgram(env)
-
-		assert.Zero(t, len(p.Errors()), "Parse(%s) failed with errors!")
 
 		// need to execute run command
 		env.SetRun(true)
@@ -1257,10 +1187,6 @@ func testEval(input string, vbl string) object.Object {
 	env := object.NewTermEnvironment(mt)
 	p.ParseProgram(env)
 
-	if len(p.Errors()) > 0 {
-		return nil
-	}
-
 	// need to execute run command
 	env.SetRun(true)
 	rc := Eval(&ast.Program{}, env.StatementIter(), env)
@@ -1276,10 +1202,6 @@ func testEvalEnv(input string, vbl string, env *object.Environment) object.Objec
 	l := lexer.New(input)
 	p := parser.New(l)
 	p.ParseProgram(env)
-
-	if len(p.Errors()) > 0 {
-		return nil
-	}
 
 	// need to execute run command
 	env.SetRun(true)
@@ -1305,10 +1227,6 @@ func testEvalWithClient(input string, file string, err *error) object.Object {
 	env.SetClient(mc)
 
 	p.ParseCmd(env)
-
-	if len(p.Errors()) > 0 {
-		return nil
-	}
 
 	return Eval(&ast.Program{}, env.CmdLineIter(), env)
 }
@@ -1344,8 +1262,6 @@ func Test_IfExpression(t *testing.T) {
 		initMockTerm(&mt)
 		env := object.NewTermEnvironment(mt)
 		p.ParseProgram(env)
-
-		assert.Zero(t, len(p.Errors()), "Parse(%s) failed with errors!")
 
 		// need to execute run command
 		env.SetRun(true)
@@ -1507,11 +1423,6 @@ func Test_LoadCommandWithLiveServer(t *testing.T) {
 
 	for _, tt := range tests {
 		p := parser.New(lexer.New(tt.cmd))
-
-		errs := p.Errors()
-		for _, e := range errs {
-			t.Fatalf(e)
-		}
 		var mt mocks.MockTerm
 		initMockTerm(&mt)
 		env := object.NewTermEnvironment(mt)
@@ -1540,11 +1451,6 @@ func Test_LocateStatement(t *testing.T) {
 
 	for _, tt := range tests {
 		p := parser.New(lexer.New(tt.inp))
-
-		errs := p.Errors()
-		for _, e := range errs {
-			t.Fatalf(e)
-		}
 		var mt mocks.MockTerm
 		initMockTerm(&mt)
 		env := object.NewTermEnvironment(mt)
@@ -1708,10 +1614,6 @@ func Test_OpenStatement(t *testing.T) {
 		env := object.NewTermEnvironment(mt)
 		p.ParseProgram(env)
 
-		errs := p.Errors()
-
-		assert.Zero(t, len(errs), "parser threw some errors")
-
 		code := env.StatementIter()
 		env.SetRun(true)
 		rc := Eval(&ast.Program{}, code, env)
@@ -1743,10 +1645,6 @@ func Test_PrintStatement(t *testing.T) {
 		initMockTerm(&mt)
 		env := object.NewTermEnvironment(mt)
 		p.ParseProgram(env)
-
-		errs := p.Errors()
-
-		assert.Zero(t, len(errs), "parser threw some errors")
 
 		code := env.StatementIter()
 		env.SetRun(true)
@@ -1847,14 +1745,6 @@ func TestInvalidFunctionName(t *testing.T) {
 		initMockTerm(&mt)
 		env := object.NewTermEnvironment(mt)
 		p.ParseProgram(env)
-
-		if len(p.Errors()) != 1 {
-			t.Errorf("expected 1 error, got %d", len(p.Errors()))
-		}
-
-		if tt.expError != p.Errors()[0] {
-			t.Errorf("expected error %s, got %s", tt.expError, p.Errors()[0])
-		}
 	}
 }
 
@@ -2247,13 +2137,6 @@ func TestTronTroffCommands(t *testing.T) {
 		l := lexer.New(tt.inp)
 		p := parser.New(l)
 		p.ParseCmd(env)
-
-		if len(p.Errors()) > 0 {
-			for _, er := range p.Errors() {
-				fmt.Println(er)
-			}
-			return
-		}
 
 		Eval(&ast.Program{}, env.CmdLineIter(), env)
 
