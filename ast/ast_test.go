@@ -98,6 +98,7 @@ func Test_CallExpression(t *testing.T) {
 	call.expressionNode()
 
 	assert.Equalf(t, "ABS", call.TokenLiteral(), "call gave wrong token literal")
+	assert.False(t, call.HasTrash(), "shouldn't have trash")
 }
 
 func TestStringAndToken(t *testing.T) {
@@ -765,6 +766,7 @@ func Test_Csrlin(t *testing.T) {
 	csr.expressionNode()
 	assert.Equal(t, "CSRLIN", csr.TokenLiteral())
 	assert.Equal(t, "csrlin ", csr.String())
+	assert.False(t, csr.HasTrash())
 }
 
 func Test_DblIntegerLiteral(t *testing.T) {
@@ -804,6 +806,7 @@ func Test_EOFExpression(t *testing.T) {
 	eof.expressionNode()
 	assert.Equal(t, "", eof.TokenLiteral())
 	assert.Equal(t, "", eof.String())
+	assert.False(t, eof.HasTrash())
 }
 
 func Test_ExpressionStatement(t *testing.T) {
@@ -864,6 +867,7 @@ func Test_FixedLiteral(t *testing.T) {
 
 	assert.Equal(t, "123.45", fx.TokenLiteral())
 	assert.Equal(t, "123.45", fx.String())
+	assert.False(t, fx.HasTrash())
 }
 
 func Test_FloatDoubleLiteral(t *testing.T) {
@@ -950,6 +954,8 @@ func Test_FunctionLiteral(t *testing.T) {
 
 	assert.Equal(t, "DEF", fn.TokenLiteral())
 	assert.Equal(t, "DEF FNMUL(X, Y) = X * Y", fn.String())
+	assert.False(t, fn.HasTrash())
+	assert.False(t, fn.Expression.HasTrash())
 }
 
 func Test_GosubStatement(t *testing.T) {
@@ -978,6 +984,7 @@ func Test_GroupedExpression(t *testing.T) {
 	assert.Equal(t, "(", grp.TokenLiteral())
 
 	assert.Equal(t, "(5)", grp.String())
+	assert.False(t, grp.HasTrash())
 }
 
 func Test_HexConstant(t *testing.T) {
@@ -1068,6 +1075,7 @@ func Test_IndexExpression(t *testing.T) {
 	assert.Equal(t, "[]", ind.TokenLiteral())
 
 	assert.Equal(t, "5", ind.String())
+	assert.False(t, ind.HasTrash())
 }
 
 // exercise the InfixExpression structure
@@ -1133,6 +1141,8 @@ func Test_KeyStatement(t *testing.T) {
 
 	assert.Equal(t, "KEY", key.TokenLiteral())
 	assert.Equal(t, `KEY 1, "FILES", "Syntax Error"`, key.String())
+	assert.False(t, key.Param.HasTrash())
+	assert.False(t, key.Data[0].HasTrash())
 }
 
 func Test_LetStatement(t *testing.T) {
@@ -1177,6 +1187,7 @@ func Test_ListExpression(t *testing.T) {
 
 	assert.Equal(t, "LIST", list.TokenLiteral())
 	assert.Equal(t, "LIST", list.String())
+	assert.False(t, list.HasTrash())
 }
 
 func Test_ListStatement(t *testing.T) {
@@ -1316,6 +1327,7 @@ func Test_OffExpression(t *testing.T) {
 
 	assert.EqualValues(t, "OFF", off.TokenLiteral(), "OFF literal is incorrect")
 	assert.EqualValues(t, "OFF", off.String(), "OFF string is incorrect")
+	assert.False(t, off.HasTrash())
 }
 
 func Test_OnExpression(t *testing.T) {
@@ -1325,6 +1337,7 @@ func Test_OnExpression(t *testing.T) {
 
 	assert.EqualValues(t, "ON", on.TokenLiteral(), "ON literal is incorrect")
 	assert.EqualValues(t, "ON", on.String(), "ON string is incorrect")
+	assert.False(t, on.HasTrash())
 }
 
 func Test_OpenStatement(t *testing.T) {
@@ -1503,6 +1516,7 @@ func Test_PrefixExpression(t *testing.T) {
 		assert.Equalf(t, tt.lit, exp.TokenLiteral(), "%s returned literal %s", tt.exp, exp.TokenLiteral())
 
 		assert.Equalf(t, tt.exp, exp.String(), "expected %s got %s", tt.exp, exp.String())
+		assert.False(t, exp.HasTrash())
 	}
 }
 
@@ -1685,6 +1699,7 @@ func Test_UsingExpression(t *testing.T) {
 	use.expressionNode()
 	assert.Equal(t, "USING", use.TokenLiteral(), "USING statement has incorrect token.Literal")
 	assert.Equal(t, `USING "###.##";X;Y;,`, use.String(), "USING String() returned %s", use.String())
+	assert.False(t, use.HasTrash())
 }
 
 func Test_ViewStatement(t *testing.T) {
