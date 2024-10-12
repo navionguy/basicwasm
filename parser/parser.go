@@ -46,8 +46,7 @@ var precedences = map[token.TokenType]int{
 
 // Parser an instance
 type Parser struct {
-	l      TokenIzer // the lexer feeding me tokens
-	errors []string  // array of error messages, TODO: stop parsing after first error
+	l TokenIzer // the lexer feeding me tokens
 
 	curToken  token.Token
 	peekToken token.Token
@@ -76,7 +75,6 @@ func New(l TokenIzer) *Parser {
 	p := &Parser{
 		l:       l,
 		curLine: 0,
-		errors:  []string{},
 	}
 
 	// create map parsers for prefix elements
@@ -300,7 +298,7 @@ func (p *Parser) parseStatement() ast.Statement {
 			return &exp
 		}
 		if strings.ContainsAny(p.peekToken.Literal, "=[($%!#") {
-			stmt := p.parseImpliedLetStatement(p.curToken.Literal)
+			stmt := p.parseImpliedLetStatement()
 
 			if !p.checkForFuncCall() {
 				return stmt
@@ -788,13 +786,12 @@ func (p *Parser) parseFileNumber() ast.FileNumber {
 
 // parse the begining of a FOR loop
 func (p *Parser) parseForStatement() *ast.ForStatement {
-	defer untrace(trace("parseForStatement"))
 	four := ast.ForStatement{Token: p.curToken}
 	p.nextToken()
 
 	// get the starting assignment
 	if p.curTokenIs(token.IDENT) {
-		four.Init = p.parseImpliedLetStatement(p.curToken.Literal)
+		four.Init = p.parseImpliedLetStatement()
 		p.nextToken()
 	}
 
@@ -1165,7 +1162,7 @@ func (p *Parser) parseLetStatement() *ast.LetStatement {
 	return p.finishParseLetStatment(stmt)
 }
 
-func (p *Parser) parseImpliedLetStatement(id string) *ast.LetStatement {
+func (p *Parser) parseImpliedLetStatement() *ast.LetStatement {
 
 	stmt := &ast.LetStatement{Token: token.Token{Type: token.LET, Literal: ""}}
 	stmt.Name = p.innerParseIdentifier()

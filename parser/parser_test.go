@@ -1530,12 +1530,12 @@ func TestNumericConversion(t *testing.T) {
 		fn    parseFunc
 		res   string
 	}{
-		/*{"235.988E-7", token.FLOAT, func(p *Parser) ast.Expression {
+		{"235.988E-7", token.FLOAT, func(p *Parser) ast.Expression {
 			return p.parseFloatingPointLiteral()
 		}, "235.988E-7"},
 		{"235.988D-7", token.FLOAT, func(p *Parser) ast.Expression {
 			return p.parseFloatingPointLiteral()
-		}, "235.988D-7"},*/
+		}, "235.988D-7"},
 		{"53a", token.INT, func(p *Parser) ast.Expression {
 			return p.parseIntegerLiteral()
 		}, " 53a"},
@@ -1572,9 +1572,6 @@ func TestNumericConversion(t *testing.T) {
 		if (tt.res == "") && (strings.Compare(res.TokenLiteral(), tt.input) != 0) {
 			t.Errorf("Parse succeeded when it should have failed, %s", tt.input)
 		}
-
-		// moving error reporting to evaluator
-		assert.Zero(t, len(p.errors))
 
 		if tt.res != "" {
 			assert.EqualValues(t, tt.res, res.String())
@@ -2045,7 +2042,7 @@ func TestFunctionApplication(t *testing.T) {
 		input string
 		err   bool
 	}{
-		/*{input: "10 DEF FNID(x) = x : PRINT FNID(5)"},
+		{input: "10 DEF FNID(x) = x : PRINT FNID(5)"},
 		{input: "20 DEF FNMUL(x,y) = x*y : PRINT FNMUL(2,3)"},
 		{input: "30 DEF FNSKIP(x)= (x + 2): PRINT FNSKIP(3)"},
 		{input: "40 DEF FN(z) = z + 2", err: true},
@@ -2055,7 +2052,7 @@ func TestFunctionApplication(t *testing.T) {
 		{input: "80 DEF FNMUL(x,y)", err: true},
 		{input: "90 DEF FNMUL(x,y = x * y", err: true},
 		{input: "100 DEF FNMUL() = x * y"},
-		{input: "110 X$ = MKD$(65999)"},*/
+		{input: "110 X$ = MKD$(65999)"},
 		{input: "120 MKD$(65999)", err: true},
 	}
 	for _, tt := range tests {
