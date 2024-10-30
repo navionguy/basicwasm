@@ -1919,10 +1919,6 @@ func evalOnGoJump(ind int32, node *ast.OnGoStatement, code *ast.Code, env *objec
 //	this way, I can modify the fields for the current environment and not
 //	affect later evaluations of the statement.
 func evalOpenStatement(node ast.OpenStatement, env *object.Environment) object.Object {
-	if len(node.Trash) > 0 {
-		return object.StdError(env, berrors.Syntax)
-	}
-
 	// get the target file name and build a fully qualified file name
 	// based on current virtual drive and directory
 	node.FileName = fileserv.BuildFullPath(node.FileName, env)
@@ -1950,32 +1946,27 @@ func evalVerboseOpen(node *ast.OpenStatement, env *object.Environment) object.Ob
 		node.RecLen = "128"
 	}
 
-	return evalGetFile(node, env)
-}
-
-// evalGetFile checks if the file is held in the local file system
-// if not, it tries to pull the file from the file server
-// once the file is local, it proceeds to open it
-func evalGetFile(node *ast.OpenStatement, env *object.Environment) object.Object {
-	aFile := localfiles.Open(node.FileName, env)
-
-	return aFile
+	// localfiles.Open checks if the file is held in the local file system
+	// if not, it tries to pull the file from the file server
+	// once the file is local, it proceeds to open it
+	// returns an error if it can't be found
+	return localfiles.Open(node.FileName, env)
 }
 
 // fill in defaults as need for concise form of open
 func evalConciseOpen(node *ast.OpenStatement, env *object.Environment) object.Object {
-	// any missing parameters, fill in the defaults
-	if len(node.Mode) == 0 {
-		node.Mode = "R"
-	}
-
+	// concise form assumes access mode
 	node.Access = token.READ + " " + token.WRITE
 
 	if len(node.RecLen) == 0 {
 		node.RecLen = "128"
 	}
 
-	return evalGetFile(node, env)
+	// localfiles.Open checks if the file is held in the local file system
+	// if not, it tries to pull the file from the file server
+	// once the file is local, it proceeds to open it
+	// returns an error if it can't be found
+	return localfiles.Open(node.FileName, env)
 }
 
 // Build the default Palette struct

@@ -17,6 +17,10 @@ That is when I decided that instead of writing an interpreter for Monkey, a fine
 
 At this point, only a small portion of the language is supported.  I have included an Excel spreadsheet that I am filling to show which language elements have been implemented and any limitations of the implementation.
 
+# basicwasm running in the browser
+
+![image](BasicInBrowser.png)
+
 ### Building from source
 
 Prerequestives: Golang build toolkit, `make`, `npm`.

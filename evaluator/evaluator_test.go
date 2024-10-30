@@ -138,6 +138,20 @@ func compareObjects(inp string, evald object.Object, want interface{}, t *testin
 	}
 }
 
+func Test_AllocArray(t *testing.T) {
+	tests := []struct {
+		id   string
+		dims []*ast.IndexExpression
+	}{
+		{id: "%", dims: []*ast.IndexExpression{{Token: token.Token{Type: token.LBRACKET, Literal: "["},
+			Left: &ast.IntegerLiteral{Token: token.Token{Type: token.INT, Literal: "5"}}}}},
+	}
+
+	for range tests {
+
+	}
+}
+
 func Test_AllocArrayValue(t *testing.T) {
 	tests := []struct {
 		id     string
@@ -1599,6 +1613,8 @@ func Test_OpenStatement(t *testing.T) {
 	}{
 		{inp: `10 OPEN "test.dat" FOR OUTPUT AS #1`,
 			exp: &object.Error{Message: "Path not found in 10", Code: 76}},
+		{inp: `20 OPEN "test.dat" AS #1`,
+			exp: &object.Error{Message: "Path not found in 20", Code: 76}},
 		// test his trash detection
 		{inp: `60 open "test3.out" FOR OUTPUT ACCESS WRITE LOCK READ AS #3 LEN = 128`,
 			exp: &object.Error{Message: "Syntax error in 60", Code: 2}},
@@ -1612,6 +1628,8 @@ func Test_OpenStatement(t *testing.T) {
 		var mt mocks.MockTerm
 		initMockTerm(&mt)
 		env := object.NewTermEnvironment(mt)
+		mc := &mocks.MockClient{Err: errors.New("404 Not Found"), StatusCode: 404}
+		env.SetClient(mc)
 		p.ParseProgram(env)
 
 		code := env.StatementIter()
@@ -1980,7 +1998,8 @@ func Test_RunLoad(t *testing.T) {
 		var mt mocks.MockTerm
 		initMockTerm(&mt)
 		env := object.NewTermEnvironment(mt)
-
+		mc := &mocks.MockClient{Err: errors.New("404 Not Found"), StatusCode: 404}
+		env.SetClient(mc)
 		tc := cmd
 		tc.LoadFile = tt.file
 		tc.StartLine = tt.start

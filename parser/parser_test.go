@@ -1061,6 +1061,7 @@ func TestOpenStatement(t *testing.T) {
 			exp: `open "O", #2, "test.out",128`},
 		{inp: `30 open "O" #3, "test.out",128`,
 			exp: `open "O" # 3, "test.out", 128`},
+
 		// verbose syntax
 		{inp: `40 open "test.out" FOR OUTPUT ACCESS WRITE SHARED AS #1 LEN = 128`,
 			exp: `open "test.out" FOR OUTPUT ACCESS WRITE SHARED AS #1 LEN = 128`},
