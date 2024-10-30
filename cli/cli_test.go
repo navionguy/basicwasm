@@ -17,6 +17,7 @@ func Test_EvalKeyCodes(t *testing.T) {
 		exp  []string
 		auto bool
 	}{
+		{inp: "", key: []byte("\r")},
 		{inp: "PRINT", key: []byte("\r"), exp: []string{"\r\n", "", "OK"}},           // output a blank line
 		{inp: "Down arrow", key: []byte{0x7f}, exp: []string{"\x1b[P"}},              // move cursor down
 		{inp: "F", key: []byte("F"), exp: []string{"F"}},                             // just echo the key
@@ -59,7 +60,7 @@ func Test_ExecCommand(t *testing.T) {
 		inp string
 		exp []string
 	}{
-		{inp: ""},
+		{inp: "\n"},
 		{inp: `10 PRINT X`},
 		{inp: "RESTORE X", exp: []string{"Syntax error", "OK"}},
 		{inp: "CHAIN", exp: []string{"Syntax error", "OK"}},
