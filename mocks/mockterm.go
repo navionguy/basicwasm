@@ -38,6 +38,8 @@ type MockTerm struct {
 	SawBeep  *bool
 	SawBreak *bool
 	ExpMsg   *Expector
+	Delay    *int    // tells me to wait before printing a msg
+	DMsg     *string // delayed message
 }
 
 func InitMockTerm(mt *MockTerm) {
@@ -52,6 +54,12 @@ func InitMockTerm(mt *MockTerm) {
 
 	mt.SawCls = new(bool)
 	*mt.SawCls = false
+
+	mt.Delay = new(int)
+	*mt.Delay = 0
+
+	mt.DMsg = new(string)
+	*mt.DMsg = ""
 }
 
 func (mt MockTerm) Cls() {
@@ -59,6 +67,10 @@ func (mt MockTerm) Cls() {
 }
 
 func (mt MockTerm) Print(msg string) {
+	if *mt.Delay > 0 {
+		*mt.DMsg = msg
+		return
+	}
 	fmt.Print(msg)
 	mt.ExpMsg.chkExpectations(msg)
 	*mt.Col += len(msg)
@@ -97,6 +109,19 @@ func (mt MockTerm) Locate(int, int) {
 }
 
 func (mt MockTerm) GetCursor() (int, int) {
+	// if there is a string ready for display
+	// and delay is > 0, decrement delay and
+	// print the string if delay == 0
+
+	if len(*mt.DMsg) > 0 {
+		if *mt.Delay > 0 {
+			*mt.Delay--
+			if *mt.Delay == 0 {
+				mt.Print(*mt.DMsg)
+				*mt.DMsg = ""
+			}
+		}
+	}
 	return *mt.Row, *mt.Col
 }
 

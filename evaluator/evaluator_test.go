@@ -36,6 +36,12 @@ func initMockTerm(mt *mocks.MockTerm) {
 	mt.SawCls = new(bool)
 	*mt.SawCls = false
 
+	mt.Delay = new(int)
+	*mt.Delay = 0
+
+	mt.DMsg = new(string)
+	*mt.DMsg = ""
+
 	mt.ExpMsg = &mocks.Expector{}
 }
 

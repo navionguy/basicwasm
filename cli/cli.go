@@ -12,14 +12,22 @@ import (
 	"github.com/navionguy/basicwasm/settings"
 )
 
+var stopTerminal bool
+
 // Start begins interacting with the user
 func Start(env *object.Environment) {
-	go runLoop(env)
+	stopTerminal = false
+	go runLoop(env, &stopTerminal)
+}
+
+// Stop shuts down the command line interface
+func Stop() {
+	stopTerminal = true
 }
 
 // runLoop reads key presses and send them off to be processed
 // basically, just loop until the main routine exits
-func runLoop(env *object.Environment) {
+func runLoop(env *object.Environment, done *bool) {
 
 	// send the boot-up "OK" to the console
 	env.Terminal().Println("OK")
@@ -27,6 +35,10 @@ func runLoop(env *object.Environment) {
 		keys := env.Terminal().ReadKeys(1)
 
 		evalKeyCodes(keys, env)
+
+		if *done {
+			return
+		}
 	}
 }
 
@@ -76,12 +88,7 @@ func evalKeyCodes(keys []byte, env *object.Environment) {
 func execCommand(input string, env *object.Environment) {
 
 	// go parse the input
-	p := parseCmdLine(input, env)
-
-	// check for error during parse
-	if p == nil {
-		return
-	}
+	parseCmdLine(input, env)
 
 	iter := env.CmdLineIter()
 
@@ -98,13 +105,11 @@ func execCommand(input string, env *object.Environment) {
 }
 
 // see if I can successfully parse the command line entered
-func parseCmdLine(input string, env *object.Environment) *parser.Parser {
+func parseCmdLine(input string, env *object.Environment) {
 	l := lexer.New(input)
 	p := parser.New(l)
 
 	p.ParseCmd(env)
-
-	return p
 }
 
 // once you have a parsed command line, go execute it
