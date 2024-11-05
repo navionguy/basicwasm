@@ -90,6 +90,7 @@ const (
 	GOSUB   = "GOSUB"
 	GOTO    = "GOTO"
 	IF      = "IF"
+	INKEY   = "INKEY$"
 	INPUT   = "INPUT"
 	KEY     = "KEY"
 	LEN     = "LEN"
@@ -163,6 +164,7 @@ var keywords = map[string]TokenType{
 	"gosub":   GOSUB,
 	"goto":    GOTO,
 	"if":      IF,
+	"inkey$":  INKEY,
 	"input":   INPUT,
 	"key":     KEY,
 	//"len":     LEN,

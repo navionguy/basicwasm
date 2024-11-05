@@ -1101,6 +1101,33 @@ func Test_InfixExpression(t *testing.T) {
 	}
 }
 
+func Test_InkeyExpression(t *testing.T) {
+	tests := []struct {
+		trash string
+		exp   string
+	}{
+		{exp: "INKEY$"},
+	}
+
+	for _, tt := range tests {
+		ink := &InkeyExpression{Token: token.Token{Type: token.INKEY, Literal: "inkey$"}}
+
+		if len(tt.trash) > 0 {
+			ink.trash = append(ink.trash, TrashStatement{Token: token.Token{Literal: tt.trash}})
+		}
+
+		ink.expressionNode()
+		assert.True(t, strings.EqualFold(ink.TokenLiteral(), strings.ToUpper(ink.Token.Literal)))
+
+		if len(tt.trash) > 0 {
+			assert.True(t, ink.HasTrash())
+		} else {
+			assert.False(t, ink.HasTrash())
+		}
+		assert.Equal(t, tt.exp, ink.String())
+	}
+}
+
 func Test_IntegerLiteral(t *testing.T) {
 	tests := []struct {
 		literal string

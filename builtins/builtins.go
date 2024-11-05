@@ -355,6 +355,23 @@ var Builtins = map[string]*object.Builtin{
 			return object.StdError(env, berrors.Overflow)
 		},
 	},
+	"INKEY$": { // read a single key, if there is one from the keyboard
+		Fn: func(env *object.Environment, fn *object.Builtin, args ...object.Object) object.Object {
+			// he takes no arguments
+			if len(args) > 0 {
+				return object.StdError(env, berrors.Syntax)
+			}
+
+			bt := env.Terminal().ReadKeys(1)
+
+			//convert it to a string and send it
+
+			st := &object.String{Value: string(bt)}
+			tv := &object.TypedVar{Value: st, TypeID: "$"}
+
+			return tv
+		},
+	},
 	"INPUT$": { // read keystrokes from the keyboard
 		Fn: func(env *object.Environment, fn *object.Builtin, args ...object.Object) object.Object {
 			if len(args) != 1 { // TODO: bump if adding file support

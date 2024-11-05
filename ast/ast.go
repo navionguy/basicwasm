@@ -1493,6 +1493,24 @@ func (ifs *IfStatement) String() string {
 	return out.String()
 }
 
+// Basic views this variable, but I will evaluate as a expression
+type InkeyExpression struct {
+	Token token.Token
+	trash []TrashStatement
+}
+
+func (ink *InkeyExpression) expressionNode()      {}
+func (ink *InkeyExpression) TokenLiteral() string { return strings.ToUpper(ink.Token.Literal) }
+func (ink *InkeyExpression) HasTrash() bool       { return len(ink.trash) > 0 }
+func (ink *InkeyExpression) String() string {
+	var out bytes.Buffer
+
+	out.WriteString("INKEY$")
+	out.WriteString(Trash(ink.trash))
+
+	return out.String()
+}
+
 // GosubStatement call subroutine
 type GosubStatement struct {
 	Token token.Token

@@ -1315,6 +1315,36 @@ func Test_EndStatement(t *testing.T) {
 	}
 }
 
+func Test_InkeyExpression(t *testing.T) {
+	tests := []struct {
+		inp string
+	}{
+		{inp: `X = ABS(-5) : END`},
+		{inp: `X$ = INKEY$ : END`},
+	}
+
+	for _, tt := range tests {
+		mt := mocks.MockTerm{}
+		mocks.InitMockTerm(&mt)
+		env := object.NewTermEnvironment(mt)
+
+		l := lexer.New(tt.inp)
+		p := parser.New(l)
+		p.ParseCmd(env)
+
+		rc := Eval(&ast.Program{}, env.CmdLineIter(), env)
+
+		// should get nothing
+		assert.Nil(t, rc, tt.inp)
+
+		itr := env.CmdLineIter()
+		let, ok := itr.Value().(*ast.LetStatement)
+
+		assert.True(t, ok)
+		assert.False(t, let.HasTrash())
+	}
+}
+
 func Test_KeyStatement(t *testing.T) {
 	const keydef = 14
 	tests := []struct {

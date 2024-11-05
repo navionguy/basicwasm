@@ -42,6 +42,7 @@ var precedences = map[token.TokenType]int{
 	token.MOD:      PRODUCT,
 	token.LPAREN:   CALL,
 	token.LBRACKET: INDEX,
+	token.INKEY:    CALL,
 }
 
 // Parser an instance
@@ -98,21 +99,22 @@ func New(l TokenIzer) *Parser {
 
 	// and infix elements
 	p.infixParseFns = make(map[token.TokenType]infixParseFn)
-	p.registerInfix(token.PLUS, p.parseInfixExpression)
-	p.registerInfix(token.MINUS, p.parseInfixExpression)
-	p.registerInfix(token.SLASH, p.parseInfixExpression)
-	p.registerInfix(token.BSLASH, p.parseInfixExpression)
-	p.registerInfix(token.MOD, p.parseInfixExpression)
 	p.registerInfix(token.ASTERISK, p.parseInfixExpression)
+	p.registerInfix(token.BSLASH, p.parseInfixExpression)
 	p.registerInfix(token.EQ, p.parseInfixExpression)
-	p.registerInfix(token.NOT_EQ, p.parseInfixExpression)
-	p.registerInfix(token.LT, p.parseInfixExpression)
 	p.registerInfix(token.GT, p.parseInfixExpression)
 	p.registerInfix(token.GTE, p.parseInfixExpression)
-	p.registerInfix(token.LTE, p.parseInfixExpression)
-	p.registerInfix(token.RPAREN, p.parseInfixExpression)
-	p.registerInfix(token.LPAREN, p.parseCallExpression)
+	p.registerInfix(token.INKEY, p.parseInfixExpression)
 	p.registerInfix(token.LBRACKET, p.parseIndexExpression)
+	p.registerInfix(token.LPAREN, p.parseCallExpression)
+	p.registerInfix(token.LT, p.parseInfixExpression)
+	p.registerInfix(token.LTE, p.parseInfixExpression)
+	p.registerInfix(token.MINUS, p.parseInfixExpression)
+	p.registerInfix(token.MOD, p.parseInfixExpression)
+	p.registerInfix(token.NOT_EQ, p.parseInfixExpression)
+	p.registerInfix(token.PLUS, p.parseInfixExpression)
+	p.registerInfix(token.RPAREN, p.parseInfixExpression)
+	p.registerInfix(token.SLASH, p.parseInfixExpression)
 
 	// Read two tokens, so curToken and peekToken are both set
 	p.nextToken()

@@ -360,6 +360,16 @@ func TestHex(t *testing.T) {
 	runTests(t, "HEX$", tests)
 }
 
+func TestInkey(t *testing.T) {
+	tests := []test{
+		{cmd: `10 Y$ = INKEY$`, exp: &object.String{Value: ""}},
+		{cmd: `30 X$ = INKEY$`, lnum: 30, inp: []object.Object{&object.Integer{Value: 2}}, exp: &object.Error{Message: "Syntax error in 30"}},
+	}
+
+	runTests(t, "INKEY$", tests)
+
+}
+
 func TestInputStr(t *testing.T) {
 	tests := []struct {
 		tt   test

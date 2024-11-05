@@ -1837,6 +1837,29 @@ func TestIfStatement(t *testing.T) {
 	}
 }
 
+func Test_ParseInkeyExpression(t *testing.T) {
+	tests := []struct {
+		inp string
+		exp []string
+	}{
+		{inp: `10 X$ = INKEY$ : END`},
+	}
+
+	for _, tt := range tests {
+		l := lexer.New(tt.inp)
+		p := New(l)
+		env := object.NewTermEnvironment(mocks.MockTerm{})
+		p.ParseProgram(env)
+		itr := env.StatementIter()
+
+		for _, e := range tt.exp {
+			assert.True(t, itr.Next())
+			assert.Equal(t, e, itr.Value().String())
+		}
+	}
+
+}
+
 func TestGotoStatements(t *testing.T) {
 	tests := []struct {
 		input         string
