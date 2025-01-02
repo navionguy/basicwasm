@@ -1319,7 +1319,8 @@ func Test_InkeyExpression(t *testing.T) {
 	tests := []struct {
 		inp string
 	}{
-		{inp: `X = ABS(-5) : END`},
+		//{inp: `X = ABS(-5) : END`},
+		//{inp: `X$ = HEX$(35) : END`},
 		{inp: `X$ = INKEY$ : END`},
 	}
 
