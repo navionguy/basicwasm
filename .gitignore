@@ -4,12 +4,14 @@
 *.dll
 *.so
 *.dylib
+.VSCodeCounter/*
 webmodules/*.wasm
 assets/js/
 assets/css/
 .vscode/*
 source/
 basicwasm
+~$Supported.xlsx
 
 # Test binary, built with `go test -c`
 *.test

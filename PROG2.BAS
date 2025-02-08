@@ -1,0 +1,2 @@
+10 COMMON A$
+20 PRINT "Value",A$
