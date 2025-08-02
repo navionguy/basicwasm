@@ -285,7 +285,7 @@ func TestCvd(t *testing.T) {
 	// a simple way to get my parameter
 
 	var mt mocks.MockTerm
-	fn, _ := Builtins["MKD$"]
+	fn := Builtins["MKD$"]
 	mocks.InitMockTerm(&mt)
 	env := object.NewTermEnvironment(mt)
 	res := fn.Fn(env, fn, &object.Integer{Value: -12})
@@ -445,7 +445,7 @@ func TestLeft(t *testing.T) {
 	// a simple way to get my parameter
 
 	var mt mocks.MockTerm
-	fn, _ := Builtins["MKS$"]
+	fn := Builtins["MKS$"]
 	mocks.InitMockTerm(&mt)
 	env := object.NewTermEnvironment(mt)
 	res := fn.Fn(env, fn, &object.IntDbl{Value: 65999})

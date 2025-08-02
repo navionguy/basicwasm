@@ -204,7 +204,8 @@ func (a *Auto) Type() ObjectType { return AUTO_OBJ }
 func (a *Auto) Inspect() string  { return "AUTO" }
 
 type Builtin struct {
-	Fn BuiltinFunction
+	Fn      BuiltinFunction // Points to the function
+	RetType ObjectType      // The function return type, or null
 }
 
 func (b *Builtin) Type() ObjectType { return BUILTIN_OBJ }

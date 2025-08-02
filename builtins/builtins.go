@@ -122,10 +122,7 @@ var Builtins = map[string]*object.Builtin{
 				return arg
 
 			case *object.Fixed:
-				val, ok := arg.Value.Float64()
-				if ok {
-
-				}
+				val, _ := arg.Value.Float64()
 				return &object.FloatDbl{Value: val}
 
 			case *object.FloatSgl:
@@ -444,7 +441,7 @@ var Builtins = map[string]*object.Builtin{
 
 			subSize := len(sub)
 			for i := strt - 1; i < len(bt); i++ {
-				if 0 == bytes.Compare(bt[i:subSize+i], sub) {
+				if bytes.Equal(bt[i:subSize+i], sub) {
 					// found him
 					return &object.Integer{Value: int16(i + 1)}
 				}

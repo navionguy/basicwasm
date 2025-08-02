@@ -4,6 +4,7 @@ import (
 	"fmt"
 	"strings"
 	"syscall/js"
+
 	"time"
 
 	"github.com/navionguy/basicwasm/keybuffer"
