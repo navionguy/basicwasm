@@ -104,7 +104,7 @@ func New(l TokenIzer) *Parser {
 	p.registerInfix(token.EQ, p.parseInfixExpression)
 	p.registerInfix(token.GT, p.parseInfixExpression)
 	p.registerInfix(token.GTE, p.parseInfixExpression)
-	p.registerInfix(token.INKEY, p.parseInfixExpression)
+	p.registerInfix(token.INKEY, p.parseInKeyExpression)
 	p.registerInfix(token.LBRACKET, p.parseIndexExpression)
 	p.registerInfix(token.LPAREN, p.parseCallExpression)
 	p.registerInfix(token.LT, p.parseInfixExpression)
@@ -1990,7 +1990,6 @@ func (p *Parser) checkForFuncCall() bool {
 }
 
 func (p *Parser) parseCallExpression(function ast.Expression) ast.Expression {
-	defer untrace(trace("parseCallExpression"))
 	exp := &ast.CallExpression{Token: p.curToken, Function: function}
 	p.nextToken()
 	exp.Arguments = p.parseCallArguments()
@@ -2059,6 +2058,17 @@ func (p *Parser) parseExpression(precedence int) ast.Expression {
 		return &stmt
 	}
 	leftExp := prefix()
+
+	ink, ok := leftExp.(*ast.Identifier)
+
+	if ok {
+		infix := p.infixParseFns[token.TokenType(ink.Value)]
+
+		if infix != nil {
+			leftExp = infix(leftExp)
+		}
+	}
+
 	for !p.peekTokenIs(token.COLON) && !p.peekTokenIs((token.RBRACKET)) && precedence < p.peekPrecedence() {
 		infix := p.infixParseFns[p.peekToken.Type]
 		if infix == nil {
@@ -2072,8 +2082,13 @@ func (p *Parser) parseExpression(precedence int) ast.Expression {
 	return leftExp
 }
 
+func (p *Parser) parseInKeyExpression(inKey ast.Expression) ast.Expression {
+	exp := &ast.CallExpression{Token: p.curToken, Function: inKey}
+	p.nextToken()
+	return exp
+}
+
 func (p *Parser) parsePrefixExpression() ast.Expression {
-	defer untrace(trace("parsePrefixExpression"))
 	expression := &ast.PrefixExpression{
 		Token:    p.curToken,
 		Operator: p.curToken.Literal,
@@ -2084,7 +2099,6 @@ func (p *Parser) parsePrefixExpression() ast.Expression {
 }
 
 func (p *Parser) parseInfixExpression(left ast.Expression) ast.Expression {
-	defer untrace(trace("parseInfixExpression"))
 	expression := &ast.InfixExpression{
 		Token:    p.curToken,
 		Operator: p.curToken.Literal,

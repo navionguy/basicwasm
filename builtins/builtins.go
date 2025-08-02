@@ -330,7 +330,7 @@ var Builtins = map[string]*object.Builtin{
 			return object.StdError(env, berrors.Overflow)
 		},
 	},
-	"HEX$": { // Convert value to hexidecimal, range -32768 to +65535
+	"HEX$": { // Convert value to hexadecimal, range -32768 to +65535
 		// interesting that covers uint16 and int16
 		Fn: func(env *object.Environment, fn *object.Builtin, args ...object.Object) object.Object {
 			if len(args) != 1 {
