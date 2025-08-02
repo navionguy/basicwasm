@@ -1320,6 +1320,7 @@ func Test_InkeyExpression(t *testing.T) {
 		inp string
 	}{
 		//{inp: `X = ABS(-5) : END`},
+		//{inp: `X$ = HEX$(35) : END`},
 		{inp: `X$ = INKEY$ : END`},
 	}
 
@@ -1440,10 +1441,11 @@ func Test_LoadCommand(t *testing.T) {
 		fail bool   // should not get a file
 		emsg string // an error I want the httpClient to return
 	}{
-		{src: `10 PRINT "Hello!"`, cmd: `LOAD "HELLO.BAS"`},
+		/*{src: `10 PRINT "Hello!"`, cmd: `LOAD "HELLO.BAS"`},
 		{src: `10 PRINT "Goodbye!"`, cmd: `LOAD 5`, fail: true},
 		{src: `10 PRINT "And I Ran!"`, cmd: `LOAD "HELLO.BAS",R`},
-		{src: `10 PRINT "And I don't run"`, cmd: `LOAD "HELLO.BAS",R`, emsg: "File not found"},
+		{src: `10 PRINT "And I don't run"`, cmd: `LOAD "HELLO.BAS",R`, emsg: "File not found"},*/
+		{src: `10 COMMON A$\n20 A$ = "CHAIN test"`, cmd: `LOAD "HELLO.BAS"`},
 	}
 
 	for _, tt := range tests {

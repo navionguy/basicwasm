@@ -1,0 +1,4 @@
+10 COMMON A$
+20 A$ = "Ver 1.0.0"
+30 PRINT A$
+40 CHAIN "PROG2.BAS"
