@@ -4,6 +4,7 @@
 *.dll
 *.so
 *.dylib
+*.out
 .VSCodeCounter/*
 webmodules/*.wasm
 assets/js/

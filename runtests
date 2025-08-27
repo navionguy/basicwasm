@@ -1,4 +1,4 @@
-go test ./afile -coverprofile=coverage.out
+go test ./afile -coverprofile=afile.out
 go test ./ast -coverprofile=ast.out
 go test ./berrors -coverprofile=berrors.out
 go test ./builtins -coverprofile=builtins.out
