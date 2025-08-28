@@ -4,11 +4,11 @@
 		./webmodules/gwbasic.wasm \
 		./assets/wasm/gwbasic.wasm \
 		./assets/js/wasm_exec.js \
-		./assets/css/xterm.css \
-		./assets/js/xterm.js \
-		./assets/js/xterm.js.map \
-		./assets/js/xterm-addon-fit.js \
-		./assets/js/xterm-addon-fit.js.map
+		./node_modules/@xterm/xterm/css/xterm.css \
+		./node_modules/@xterm/xterm/lib/xterm.js \
+		./node_modules/@xterm/xterm/lib/xterm.js.map \
+		./node_modules/@xterm/addon-fit/lib/addon-fit.js \
+		./node_modules/@xterm/addon-fit/lib/addon-fit.js.map
 	go build -o basicwasm
 
 ./webmodules/gwbasic.wasm : ./webmodules/src/gwbasic/gwbasic.go \
@@ -38,11 +38,11 @@
 #	tinygo build -no-debug -o ./webmodules/gwbasic.wasm -target=wasm ./webmodules/src/gwbasic/gwbasic.go
 	GOOS=js GOARCH=wasm go build -ldflags "-s -w" -o ./webmodules/gwbasic.wasm ./webmodules/src/gwbasic/gwbasic.go
 
-./assets/js/wasm_exec.js : /usr/local/go/lib/wasm/wasm_exec.js
-	cp /usr/local/go/lib/wasm/wasm_exec.js ./assets/js/wasm_exec.js
+./assets/js/wasm_exec.js : /lib/go/lib/wasm/wasm_exec.js
+	cp /lib/go/lib/wasm/wasm_exec.js ./assets/js/wasm_exec.js
 
-#./assets/js/wasm_exec.js : /usr/local/go/lib/wasm/wasm_exec.js
-#	cp /usr/local/go/lib/wasm/wasm_exec.js ./assets/js/wasm_exec.js
+#./assets/js/wasm_exec.js : /lib/go/lib/wasm/wasm_exec.js
+#	cp /lib/go/lib/wasm/wasm_exec.js ./assets/js/wasm_exec.js
 
 #./assets/css/xterm.css : ~/node_modules/xterm/css/xterm.css
 #	cp ~/node_modules/xterm/css/xterm.css ./assets/css/xterm.css
