@@ -490,6 +490,24 @@ func Test_SettingKeyMac(t *testing.T) {
 	}
 }
 
+func Test_SourceLine(t *testing.T) {
+	tests := []struct {
+		src  string
+		lnum uint16
+	}{
+		{`10 Print"Hello World!"`, 10},
+	}
+
+	for _, tt := range tests {
+		sl := NewSourceLine(tt.src, tt.lnum)
+
+		assert.NotNil(t, sl)
+		assert.EqualValues(t, tt.src, sl.source)
+		assert.EqualValues(t, sl.source, sl.Inspect())
+		assert.EqualValues(t, SOURCE_LINE, sl.Type())
+	}
+}
+
 func Test_Stack(t *testing.T) {
 	tests := []struct {
 		pushCount int

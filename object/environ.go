@@ -5,6 +5,7 @@ import (
 	"net/http"
 	"strings"
 
+	"github.com/google/btree"
 	"github.com/navionguy/basicwasm/ast"
 	"github.com/navionguy/basicwasm/berrors"
 	"github.com/navionguy/basicwasm/gwtypes"
@@ -129,6 +130,7 @@ type HttpClient interface {
 type Environment struct {
 	ForLoops  []ForBlock                    // any For Loops that are active
 	store     map[string]*variable          // variables and other program data
+	source    *sourceTree                   // wraps a btree to hold the source lines
 	common    map[string]*variable          // variables that live through a CHAIN
 	files     map[int16]gwtypes.AnOpenFile  // currently open files by file number
 	dir       map[string]gwtypes.AnOpenFile // locally cached files by full name
@@ -182,6 +184,9 @@ func newEnvironment() *Environment {
 	e.rndVal = e.rnd.Float32()
 	dc := http.DefaultClient
 	e.SetClient(dc)
+
+	// using the default tree layout until I can get some performance data
+	e.source = btree.New(2)
 	return e
 }
 

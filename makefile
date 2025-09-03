@@ -25,7 +25,7 @@
 			./gwtoken/gwtoken.go \
 			./keybuffer/keybuffer.go \
 			./lexer/lexer.go \
-			./localFiles/localFiles.go \
+			./localfiles/localfiles.go \
 			./makefile \
 			./object/object.go \
 			./object/environ.go \
