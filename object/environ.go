@@ -5,7 +5,6 @@ import (
 	"net/http"
 	"strings"
 
-	"github.com/google/btree"
 	"github.com/navionguy/basicwasm/ast"
 	"github.com/navionguy/basicwasm/berrors"
 	"github.com/navionguy/basicwasm/gwtypes"
@@ -186,7 +185,7 @@ func newEnvironment() *Environment {
 	e.SetClient(dc)
 
 	// using the default tree layout until I can get some performance data
-	e.source = btree.New(2)
+	e.source = initSourceTree()
 	return e
 }
 

@@ -256,26 +256,6 @@ type RestartSignal struct{}
 func (rs *RestartSignal) Type() ObjectType { return RESTART_SIGNAL }
 func (rs *RestartSignal) Inspect() string  { return "RESTART" }
 
-// SourceLine gets created with just the line number and the text
-// The first time the line executes, the AST for the line is parsed.
-// Subsequent execution goes direct to the eval step.
-// If the source line is edited by the user, a new struct replaces
-// the old one in the btree.
-type SourceLine struct {
-	lineNum uint16 // Basic actually has a max line number of 65529
-	source  string // text of the source line
-}
-
-func (sl *SourceLine) Type() ObjectType { return SOURCE_LINE }
-func (sl *SourceLine) Inspect() string  { return sl.source }
-
-// create a new SourceLine
-func NewSourceLine(src string, lNumber uint16) *SourceLine {
-	sl := &SourceLine{source: src, lineNum: lNumber}
-
-	return sl
-}
-
 // If a variable has a type specifier, I wrap the value to make it easier
 // to compare types, catching invalid conversions.
 type TypedVar struct {
