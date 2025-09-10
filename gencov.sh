@@ -1,5 +1,5 @@
 #!/usr/bin/bash
-set -e
+#set -e
 
 # Define the output file for the combined coverage profile
 COVERAGE_FILE="coverage.all"
@@ -8,8 +8,8 @@ COVERAGE_FILE="coverage.all"
 echo "mode: set" > "$COVERAGE_FILE"
 
 # Iterate over each package and append coverage data
-#for pkg in $PACKAGES; do
 for pkg in *.out; do
+
     # Append the new coverage data, skipping the header line
     sed '1d' $pkg >> "$COVERAGE_FILE"
 done
