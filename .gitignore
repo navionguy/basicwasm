@@ -28,3 +28,5 @@ node_modules/*
 .DS_Store
 HCALC.txt
 favicon.bak
+coverage.all
+coverage.html

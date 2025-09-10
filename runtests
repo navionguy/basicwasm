@@ -16,3 +16,4 @@ go test ./ -coverprofile=main.out
 go test ./object -coverprofile=object.out
 go test ./parser -coverprofile=parser.out
 go test ./token -coverprofile=token.out
+
