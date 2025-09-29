@@ -57,7 +57,7 @@ func Test_AddSourceLine(t *testing.T) {
 
 		assert.NotNil(t, st)
 		sl := NewSourceLine(tt.src, tt.line)
-		st.addSourceLine(sl)
+		st.AddSourceLine(sl)
 
 		assert.Equal(t, i+1, st.tree.Len())
 	}

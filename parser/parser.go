@@ -132,6 +132,7 @@ func (p *Parser) nextToken() {
 	}
 }
 
+// TODO: Deprecate this code, then remove it.
 // ParseProgram time to get busy and build the Abstract Syntax Tree
 // The program object holds the code and he lives in the environment
 func (p *Parser) ParseProgram(env *object.Environment) {
@@ -150,12 +151,29 @@ func (p *Parser) ParseProgram(env *object.Environment) {
 	env.Parsed()
 }
 
-// ParseCmd is used to parse out a command entered directly
-func (p *Parser) ParseCmd(env *object.Environment) {
-	// if the command line entered starts with a line number
+// ParseSourceLine gets a SourceLine struct and parses the source line.
+// This function is only called the first time the line is executed.
+// Subsequent execution will just go directly to execution.
+// Note! Program source lines have the line number stripped
+// and stored as a separate value in the struct.
+
+func (p *Parser) ParseSourceLine(src *object.SourceLine) {
+
+}
+
+// ParseInput checks the input line to determine if it is a command
+// or a line of source code being added/changed in the current file.
+func (p *Parser) ParseInput(env *object.Environment) {
+	// if the input line entered starts with a line number
 	// we add it to the current program
 	if p.peekTokenIs(token.LINENUM) {
-		p.ParseProgram(env)
+		p.nextToken()
+		value, err := strconv.ParseUint(p.curToken.Literal, 16, 16)
+		if err != nil {
+			// syntax error
+		}
+		v2 := uint16(value)
+		_ = object.NewSourceLine(p.curToken.Literal, v2)
 		return
 	}
 

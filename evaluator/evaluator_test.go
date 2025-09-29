@@ -224,7 +224,7 @@ func TestAutoCommand(t *testing.T) {
 		env := object.NewTermEnvironment(mt)
 		l := lexer.New(tt.inp)
 		p := parser.New(l)
-		p.ParseCmd(env)
+		p.ParseInput(env)
 
 		if tt.line > 0 {
 			env.Set(token.LINENUM, &object.IntDbl{Value: tt.line})
@@ -259,7 +259,7 @@ func Test_BeepStatement(t *testing.T) {
 	mt.SawBeep = &chk
 	env := object.NewTermEnvironment(mt)
 
-	p.ParseCmd(env)
+	p.ParseInput(env)
 
 	Eval(&ast.Program{}, env.CmdLineIter(), env)
 
@@ -321,7 +321,7 @@ func Test_ChainStatementCommandLine(t *testing.T) {
 		defer ts.Close()
 		env.SaveSetting(settings.ServerURL, &ast.StringLiteral{Value: ts.URL})
 
-		p.ParseCmd(env)
+		p.ParseInput(env)
 
 		Eval(&ast.Program{}, env.CmdLineIter(), env)
 
@@ -557,7 +557,7 @@ func Test_ColorStatement(t *testing.T) {
 		scrn := ast.ScreenStatement{}
 		scrn.Settings[ast.ScrnMode] = tt.mode
 		env.SaveSetting(settings.Screen, &scrn)
-		p.ParseCmd(env)
+		p.ParseInput(env)
 
 		rc := Eval(&ast.Program{}, env.CmdLineIter(), env)
 
@@ -633,7 +633,7 @@ func TestClsStatement(t *testing.T) {
 		var mt mocks.MockTerm
 		initMockTerm(&mt)
 		env := object.NewTermEnvironment(mt)
-		p.ParseCmd(env)
+		p.ParseInput(env)
 
 		Eval(&ast.Program{}, env.CmdLineIter(), env)
 
@@ -682,7 +682,7 @@ func Test_ContCommand_Errors(t *testing.T) {
 		if tt.setRun {
 			env.SetRun(true)
 		}
-		p.ParseCmd(env)
+		p.ParseInput(env)
 
 		Eval(&ast.Program{}, env.CmdLineIter(), env)
 	}
@@ -707,7 +707,7 @@ func ExampleContCommand() {
 	// now try to continue
 	l = lexer.New("CONT")
 	p = parser.New(l)
-	p.ParseCmd(env)
+	p.ParseInput(env)
 
 	Eval(&ast.Program{}, env.CmdLineIter(), env)
 
@@ -881,7 +881,7 @@ func Test_FilesCommand(t *testing.T) {
 			env.SaveSetting(settings.WorkDrive, &ast.StringLiteral{Value: tt.cwd})
 		}
 
-		p.ParseCmd(env)
+		p.ParseInput(env)
 
 		Eval(&ast.Program{}, env.CmdLineIter(), env)
 
@@ -1095,7 +1095,7 @@ func Test_GotoGosubDirect(t *testing.T) {
 
 		l = lexer.New(tt.cmd)
 		p = parser.New(l)
-		p.ParseCmd(env)
+		p.ParseInput(env)
 		itr := env.CmdLineIter()
 		rc := Eval(&ast.Program{}, itr, env)
 
@@ -1246,7 +1246,7 @@ func testEvalWithClient(input string, file string, err *error) object.Object {
 	}
 	env.SetClient(mc)
 
-	p.ParseCmd(env)
+	p.ParseInput(env)
 
 	return Eval(&ast.Program{}, env.CmdLineIter(), env)
 }
@@ -1331,7 +1331,7 @@ func Test_InkeyExpression(t *testing.T) {
 
 		l := lexer.New(tt.inp)
 		p := parser.New(l)
-		p.ParseCmd(env)
+		p.ParseInput(env)
 
 		rc := Eval(&ast.Program{}, env.CmdLineIter(), env)
 
@@ -1478,7 +1478,7 @@ func Test_LoadCommandWithLiveServer(t *testing.T) {
 		var mt mocks.MockTerm
 		initMockTerm(&mt)
 		env := object.NewTermEnvironment(mt)
-		p.ParseCmd(env)
+		p.ParseInput(env)
 
 		Eval(&ast.Program{}, env.CmdLineIter(), env)
 
@@ -1506,7 +1506,7 @@ func Test_LocateStatement(t *testing.T) {
 		var mt mocks.MockTerm
 		initMockTerm(&mt)
 		env := object.NewTermEnvironment(mt)
-		p.ParseCmd(env)
+		p.ParseInput(env)
 
 		res := Eval(&ast.Program{}, env.CmdLineIter(), env)
 
@@ -2106,7 +2106,7 @@ func Test_ScreenStatement(t *testing.T) {
 		env := object.NewTermEnvironment(mt)
 		l := lexer.New(tt.inp)
 		p := parser.New(l)
-		p.ParseCmd(env)
+		p.ParseInput(env)
 
 		rc := Eval(&ast.Program{}, env.CmdLineIter(), env)
 
@@ -2160,13 +2160,13 @@ func ExampleStopStatement() {
 			// now try to continue
 			l = lexer.New("CONT")
 			p = parser.New(l)
-			p.ParseCmd(env)
+			p.ParseInput(env)
 
 			Eval(&ast.Program{}, env.CmdLineIter(), env)
 		} else {
 			l = lexer.New(tt.inp)
 			p = parser.New(l)
-			p.ParseCmd(env)
+			p.ParseInput(env)
 
 			Eval(&ast.Program{}, env.CmdLineIter(), env)
 
@@ -2193,7 +2193,7 @@ func TestTronTroffCommands(t *testing.T) {
 		env := object.NewTermEnvironment(mt)
 		l := lexer.New(tt.inp)
 		p := parser.New(l)
-		p.ParseCmd(env)
+		p.ParseInput(env)
 
 		Eval(&ast.Program{}, env.CmdLineIter(), env)
 
@@ -2569,7 +2569,7 @@ func ExampleT_list() {
 	for _, tt := range tests {
 		l := lexer.New(tt.inp)
 		p := parser.New(l)
-		p.ParseCmd(env)
+		p.ParseInput(env)
 
 		Eval(&ast.Program{}, env.CmdLineIter(), env)
 	}
@@ -2609,7 +2609,7 @@ func ExampleT_list2() {
 	for _, tt := range tests {
 		l := lexer.New(tt.inp)
 		p := parser.New(l)
-		p.ParseCmd(env)
+		p.ParseInput(env)
 
 		Eval(&ast.Program{}, env.CmdLineIter(), env)
 	}
@@ -2648,7 +2648,7 @@ func ExampleT_list3() {
 	for _, tt := range tests {
 		l := lexer.New(tt.inp)
 		p := parser.New(l)
-		p.ParseCmd(env)
+		p.ParseInput(env)
 
 		Eval(&ast.Program{}, env.CmdLineIter(), env)
 	}
@@ -2682,7 +2682,7 @@ func ExampleT_list4() {
 	for _, tt := range tests {
 		l := lexer.New(tt.inp)
 		p := parser.New(l)
-		p.ParseCmd(env)
+		p.ParseInput(env)
 
 		Eval(&ast.Program{}, env.CmdLineIter(), env)
 	}
@@ -2714,7 +2714,7 @@ func ExampleT_Run() {
 	for _, tt := range tests {
 		l := lexer.New(tt.inp)
 		p := parser.New(l)
-		p.ParseCmd(env)
+		p.ParseInput(env)
 
 		Eval(&ast.Program{}, env.CmdLineIter(), env)
 	}
@@ -2812,7 +2812,7 @@ func Test_UnsupportedStatement(t *testing.T) {
 		}
 		env := object.NewTermEnvironment(mt)
 
-		p.ParseCmd(env)
+		p.ParseInput(env)
 
 		rc := Eval(&ast.Program{}, env.CmdLineIter(), env)
 
@@ -2854,7 +2854,7 @@ func Test_UsingStatement(t *testing.T) {
 		}
 		env := object.NewTermEnvironment(mt)
 
-		p.ParseCmd(env)
+		p.ParseInput(env)
 
 		rc := Eval(&ast.Program{}, env.CmdLineIter(), env)
 
@@ -2893,7 +2893,7 @@ func Test_ViewPrintStatement(t *testing.T) {
 		mt.ExpMsg = &expr
 		env := object.NewTermEnvironment(mt)
 
-		p.ParseCmd(env)
+		p.ParseInput(env)
 
 		rc := Eval(&ast.Program{}, env.CmdLineIter(), env)
 

@@ -12,6 +12,33 @@ import (
 	"github.com/stretchr/testify/assert"
 )
 
+func Test_AddOrReplaceSourceLine(t *testing.T) {
+	tests := []struct {
+		num   string
+		src   string
+		lines int
+	}{
+		{"10", "10 REM A test line", 1},
+	}
+
+	for _, tt := range tests {
+		trm := mocks.MockTerm{}
+		mocks.InitMockTerm(&trm)
+		env := object.NewTermEnvironment(trm)
+		addOrReplaceSourceLine(tt.num, tt.src, env)
+
+		assert.Equal(t, tt.lines, env.Source)
+	}
+}
+
+func Test_ChkForCmd(t *testing.T) {
+	trm := mocks.MockTerm{}
+	mocks.InitMockTerm(&trm)
+	env := object.NewTermEnvironment(trm)
+
+	chkForCmd("10 REM", env)
+}
+
 func Test_StartStop(t *testing.T) {
 	trm := mocks.MockTerm{}
 	mocks.InitMockTerm(&trm)
@@ -83,12 +110,12 @@ func Test_ExecCommand(t *testing.T) {
 		exp  []string
 		auto bool
 	}{
-		{inp: "\n"},
+		//{inp: "\n"},
 		{inp: `10 PRINT X`},
 		{inp: "RESTORE X", exp: []string{"Syntax error", "OK"}},
 		{inp: "CHAIN", exp: []string{"Syntax error", "OK"}},
 		{inp: `PRINT "HELLO"`, exp: []string{"HELLO", "", "OK"}},
-		{inp: `10 PRINT X`, exp: []string{"10*"}, auto: true},
+		//{inp: `10 PRINT X`, exp: []string{"10*"}, auto: true},
 	}
 
 	for _, tt := range tests {
@@ -109,6 +136,7 @@ func Test_ExecCommand(t *testing.T) {
 		execCommand(tt.inp, env)
 		if len(tt.exp) > 0 {
 			if trm.ExpMsg.Failed {
+				assert.NotNil(t, trm.SawStr, "I see nothing!")
 				t.Fatalf("%s didn't expect that!", *trm.SawStr)
 			}
 

@@ -2,6 +2,7 @@ package object
 
 import (
 	"github.com/google/btree"
+	"github.com/navionguy/basicwasm/ast"
 )
 
 // SourceLine gets created with just the line number and the text
@@ -10,8 +11,9 @@ import (
 // If the source line is edited by the user, a new struct replaces
 // the old one in the btree.
 type SourceLine struct {
-	lineNum uint16 // Basic actually has a max line number of 65529
-	source  string // text of the source line
+	lineNum    uint16 // Basic actually has a max line number of 65529
+	source     string // text of the source line
+	statements []ast.Statement
 }
 
 func (sl *SourceLine) Inspect() string { return sl.source }
@@ -21,7 +23,9 @@ func (sl *SourceLine) Value() uint16   { return sl.lineNum }
 func (sl *SourceLine) Less(than btree.Item) bool {
 	switch nl := than.(type) {
 	case *SourceLine:
-		return sl.Value() < nl.Value()
+		if sl.Value() < nl.Value() {
+			return true
+		}
 	}
 	return false
 }
@@ -33,17 +37,26 @@ func NewSourceLine(src string, lNumber uint16) *SourceLine {
 	return sl
 }
 
-type sourceTree struct {
+// AppendStatement grows the list of statements on a source line
+func (src *SourceLine) AppendStatement(stmt ast.Statement) {
+	src.statements = append(src.statements, stmt)
+}
+
+// SourceTree is a binary tree of all the source code for the loaded program.
+type SourceTree struct {
 	tree *btree.BTree
 }
 
 // Initialize a new source tree for the environment
-func initSourceTree() *sourceTree {
-	t := &sourceTree{tree: btree.New(2)}
+func initSourceTree() *SourceTree {
+	t := &SourceTree{tree: btree.New(2)}
 
 	return t
 }
 
-func (src *sourceTree) addSourceLine(sl *SourceLine) {
+// Puts the passed source line into the tree.
+// If it is replacing an existing line, ReplaceOrInsert()
+// returns the line.  Callers to this function don't care.
+func (src *SourceTree) AddSourceLine(sl *SourceLine) {
 	src.tree.ReplaceOrInsert(sl)
 }

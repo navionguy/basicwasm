@@ -36,7 +36,7 @@ func TestAutoCommand(t *testing.T) {
 		p := New(l)
 		mt := mocks.MockTerm{}
 		env := object.NewTermEnvironment(mt)
-		p.ParseCmd(env)
+		p.ParseInput(env)
 
 		itr := env.CmdLineIter()
 
@@ -75,7 +75,7 @@ func Test_BeepStatement(t *testing.T) {
 		l := lexer.New(tt.inp)
 		p := New(l)
 		env := object.NewTermEnvironment(mocks.MockTerm{})
-		p.ParseCmd(env)
+		p.ParseInput(env)
 
 		itr := env.CmdLineIter()
 
@@ -113,7 +113,7 @@ func Test_BuiltinExpression(t *testing.T) {
 		l := lexer.New(tt.inp)
 		p := New(l)
 		env := object.NewTermEnvironment(mocks.MockTerm{})
-		p.ParseCmd(env)
+		p.ParseInput(env)
 
 		itr := env.CmdLineIter()
 
@@ -153,7 +153,7 @@ func Test_ChainStatement(t *testing.T) {
 		l := lexer.New(tt.cmd)
 		p := New(l)
 		env := object.NewTermEnvironment(mocks.MockTerm{})
-		p.ParseCmd(env)
+		p.ParseInput(env)
 
 		itr := env.CmdLineIter()
 
@@ -183,7 +183,7 @@ func Test_ChrS(t *testing.T) {
 		l := lexer.New(tt.inp)
 		p := New(l)
 		env := object.NewTermEnvironment(mocks.MockTerm{})
-		p.ParseCmd(env)
+		p.ParseInput(env)
 
 		if env.CmdLineIter().Len() != 1 {
 			t.Fatalf("program.Statements does not contain single command")
@@ -211,7 +211,7 @@ func Test_ChDir(t *testing.T) {
 		l := lexer.New(tt.inp)
 		p := New(l)
 		env := object.NewTermEnvironment(mocks.MockTerm{})
-		p.ParseCmd(env)
+		p.ParseInput(env)
 
 		if env.CmdLineIter().Len() != 1 {
 			t.Fatalf("program.Statements does not contain single command")
@@ -241,7 +241,7 @@ func TestClose(t *testing.T) {
 		l := lexer.New(tt.inp)
 		p := New(l)
 		env := object.NewTermEnvironment(mocks.MockTerm{})
-		p.ParseCmd(env)
+		p.ParseInput(env)
 		itr := env.CmdLineIter()
 		stmt := itr.Value()
 
@@ -262,7 +262,7 @@ func TestCls(t *testing.T) {
 		l := lexer.New(tt.input)
 		p := New(l)
 		env := object.NewTermEnvironment(mocks.MockTerm{})
-		p.ParseCmd(env)
+		p.ParseInput(env)
 
 		if env.CmdLineIter().Len() != 1 {
 			t.Fatalf("program.Statements does not contain single command")
@@ -298,7 +298,7 @@ func Test_ColorStatement(t *testing.T) {
 		l := lexer.New(tt.inp)
 		p := New(l)
 		env := object.NewTermEnvironment(mocks.MockTerm{})
-		p.ParseCmd(env)
+		p.ParseInput(env)
 
 		if env.CmdLineIter().Len() != 1 {
 			t.Fatalf("program.Statements does not contain single command")
@@ -337,7 +337,7 @@ func Test_Commands(t *testing.T) {
 		l := lexer.New(tt.inp)
 		p := New(l)
 		env := object.NewTermEnvironment(mocks.MockTerm{})
-		p.ParseCmd(env)
+		p.ParseInput(env)
 
 		itr := env.CmdLineIter()
 
@@ -371,7 +371,7 @@ func Test_CommonStatement(t *testing.T) {
 		l := lexer.New(tt.inp)
 		p := New(l)
 		env := object.NewTermEnvironment(mocks.MockTerm{})
-		p.ParseCmd(env)
+		p.ParseInput(env)
 		iter := env.CmdLineIter()
 		stmt := iter.Value()
 
@@ -391,7 +391,7 @@ func Test_ContCommand(t *testing.T) {
 	l := lexer.New("CONT")
 	p := New(l)
 	env := object.NewTermEnvironment(mocks.MockTerm{})
-	p.ParseCmd(env)
+	p.ParseInput(env)
 	itr := env.CmdLineIter()
 	assert.Equal(t, 1, itr.Len())
 }
@@ -400,7 +400,7 @@ func Test_Csrlin(t *testing.T) {
 	l := lexer.New("PRINT CSRLIN")
 	p := New(l)
 	env := object.NewTermEnvironment(mocks.MockTerm{})
-	p.ParseCmd(env)
+	p.ParseInput(env)
 	itr := env.CmdLineIter()
 	assert.Equal(t, 1, itr.Len())
 }
@@ -868,7 +868,7 @@ func Test_LoadCommand(t *testing.T) {
 		p := New(l)
 		env := object.NewTermEnvironment(mocks.MockTerm{})
 		fmt.Println(tt.inp)
-		p.ParseCmd(env)
+		p.ParseInput(env)
 
 		itr := env.CmdLineIter()
 		stmt := itr.Value()
@@ -908,7 +908,7 @@ func Test_LocateStatement(t *testing.T) {
 		l := lexer.New(tt.inp)
 		p := New(l)
 		env := object.NewTermEnvironment(mocks.MockTerm{})
-		p.ParseCmd(env)
+		p.ParseInput(env)
 
 		itr := env.CmdLineIter()
 		stmt := itr.Value()
@@ -969,7 +969,7 @@ func TestNewCommand(t *testing.T) {
 	l := lexer.New(inp)
 	p := New(l)
 	env := object.NewTermEnvironment(mocks.MockTerm{})
-	p.ParseCmd(env)
+	p.ParseInput(env)
 	assert.Equal(t, 1, env.CmdLineIter().Len(), "NewCommand didn't create one command")
 }
 
@@ -1383,7 +1383,7 @@ func TestTronTroffCommands(t *testing.T) {
 		l := lexer.New(tt.inp)
 		p := New(l)
 		env := object.NewTermEnvironment(mocks.MockTerm{})
-		p.ParseCmd(env)
+		p.ParseInput(env)
 
 		itr := env.CmdLineIter()
 
@@ -1985,7 +1985,7 @@ func Test_RunCommand(t *testing.T) {
 		l := lexer.New(tt.inp)
 		p := New(l)
 		env := object.NewTermEnvironment(mocks.MockTerm{})
-		p.ParseCmd(env)
+		p.ParseInput(env)
 
 		itr := env.CmdLineIter()
 
@@ -2049,7 +2049,7 @@ func TestDefFN(t *testing.T) {
 		l := lexer.New(tt.inp)
 		p := New(l)
 		env := object.NewTermEnvironment(mocks.MockTerm{})
-		p.ParseCmd(env)
+		p.ParseInput(env)
 
 		iter := env.CmdLineIter()
 		if iter.Len() == 0 {
@@ -2372,7 +2372,7 @@ func TestListStatement(t *testing.T) {
 		l := lexer.New(tt.inp)
 		p := New(l)
 		env := object.NewTermEnvironment(mocks.MockTerm{})
-		p.ParseCmd(env)
+		p.ParseInput(env)
 
 		itr := env.CmdLineIter()
 		stmt := itr.Value()
@@ -2509,7 +2509,7 @@ func Test_ViewStatement(t *testing.T) {
 		l := lexer.New(tt.inp)
 		p := New(l)
 		env := object.NewTermEnvironment(mocks.MockTerm{})
-		p.ParseCmd(env)
+		p.ParseInput(env)
 
 		itr := env.CmdLineIter()
 		cmd := itr.Value()
