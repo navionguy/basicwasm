@@ -1,4 +1,4 @@
-#!/usr/bin/bash
+#!/usr/bin/env bash
 #set -e
 
 # Define the output file for the combined coverage profile

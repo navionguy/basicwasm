@@ -10,6 +10,7 @@ import (
 	"github.com/navionguy/basicwasm/evaluator"
 	"github.com/navionguy/basicwasm/lexer"
 	"github.com/navionguy/basicwasm/object"
+	"github.com/navionguy/basicwasm/parser"
 	"github.com/navionguy/basicwasm/settings"
 	"github.com/navionguy/basicwasm/token"
 )
@@ -53,6 +54,8 @@ func evalKeyCodes(keys []byte, env *object.Environment) {
 		//		fmt.Printf("cursor at %d:%d\n", row, col)
 		env.Terminal().Print("\r\n")
 		nr, nc := env.Terminal().GetCursor()
+
+		// have to give XTerm time to update the display
 		for (nr == row) && (nc == col) {
 			time.Sleep(time.Millisecond)
 			nr, nc = env.Terminal().GetCursor()
@@ -89,6 +92,12 @@ func evalKeyCodes(keys []byte, env *object.Environment) {
 // should be either a command or a line of source code
 func execCommand(input string, env *object.Environment) {
 
+	sl := object.NewSourceLine(input, 0)
+	l := lexer.New(input)
+	p := parser.New(l)
+
+	p.ParseSourceLine(sl)
+
 	// go parse the input
 	chkForCmd(input, env)
 
@@ -103,7 +112,8 @@ func execCommand(input string, env *object.Environment) {
 		return
 	}
 
-	parseCmdExecute(iter, env)
+	//parseCmdExecute(iter, env)
+
 }
 
 // see if I can successfully parse the command line entered

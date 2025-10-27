@@ -4,6 +4,7 @@ package object
 import (
 	"bytes"
 	"fmt"
+	"strconv"
 
 	"strings"
 
@@ -38,6 +39,7 @@ const (
 	HALT_SIGNAL    = "HALT"
 	INTEGER_OBJ    = "INTEGER"
 	INTEGER_DBL    = "INTDBL"
+	LINE_NUMBER    = "LINENUM"
 	NULL_OBJ       = "NULL"
 	RESTART_SIGNAL = "RESTART"
 	SOURCE_LINE    = "SOURCE"
@@ -255,6 +257,14 @@ type RestartSignal struct{}
 
 func (rs *RestartSignal) Type() ObjectType { return RESTART_SIGNAL }
 func (rs *RestartSignal) Inspect() string  { return "RESTART" }
+
+// LineNumber holds a line number
+type LineNumber struct {
+	Line uint16
+}
+
+func (ln *LineNumber) Type() ObjectType { return LINE_NUMBER }
+func (ln *LineNumber) Inspect() string  { return strconv.Itoa(int(ln.Line)) }
 
 // If a variable has a type specifier, I wrap the value to make it easier
 // to compare types, catching invalid conversions.

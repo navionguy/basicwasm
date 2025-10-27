@@ -137,7 +137,7 @@ func Eval(tnode ast.Node, code *ast.Code, env *object.Environment) object.Object
 		return saveVariable(code, env, node.Name, val)
 
 	case *ast.LineNumStmt:
-		ln := &object.IntDbl{Value: node.Value}
+		ln := &object.IntDbl{Value: int32(node.Value)}
 		env.Set(token.LINENUM, ln)
 		if env.GetTrace() {
 			env.Terminal().Print(fmt.Sprintf("[%d]", node.Value))

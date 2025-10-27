@@ -416,7 +416,7 @@ func Test_DataStatement(t *testing.T) {
 	tests := []struct {
 		inp     string           // source line
 		stmtNum int              // # of statements expected
-		lineNum int32            // line number
+		lineNum uint16           // line number
 		cnt     int              // number of expressions expected
 		exp     []ast.Expression // expected values
 	}{
@@ -491,7 +491,7 @@ func TestDimStatement(t *testing.T) {
 		input   string
 		exp     string
 		stmtNum int
-		lineNum int32
+		lineNum uint16
 		numIDs  int8
 		dims    []dimensions
 	}{
@@ -778,7 +778,7 @@ func TestLineNumbers(t *testing.T) {
 
 	tests := []struct {
 		expectedToken string
-		expectedValue int32
+		expectedValue uint16
 	}{
 		{token.LINENUM, 10},
 		{token.LINENUM, 20},
@@ -796,7 +796,7 @@ func TestLineNumbers(t *testing.T) {
 
 }
 
-func testLineNumber(t *testing.T, s ast.Statement, line int32) bool {
+func testLineNumber(t *testing.T, s ast.Statement, line uint16) bool {
 	lineStmt, ok := s.(*ast.LineNumStmt)
 	if !ok {
 		t.Errorf("s not *ast.LineNumStmt. got=%T", s)
@@ -1126,7 +1126,7 @@ func Test_ReadStatement(t *testing.T) {
 	tests := []struct {
 		inp     string
 		stmtNum int              // expected count of statments
-		lineNum int32            // line number
+		lineNum uint16           // line number
 		vars    int              // number of expressions expected
 		exp     []ast.Expression // expected values
 	}{
@@ -1643,7 +1643,7 @@ func TestParsingInfixExpressions(t *testing.T) {
 		leftValue  int16
 		operator   string
 		rightValue int16
-		lineNum    int32
+		lineNum    uint16
 	}{
 		{"10 5 + 5", 5, "+", 5, 10},
 		{"20 5 - 5", 5, "-", 5, 20},
@@ -1858,6 +1858,18 @@ func Test_ParseInkeyExpression(t *testing.T) {
 		}
 	}
 
+}
+
+func Test_ParseSourceLine(t *testing.T) {
+	tests := []struct {
+		inp string
+	}{
+		{inp: `PRINT 10`},
+	}
+
+	for _, tt := range tests {
+		sl := object.NewSourceLine(tt.inp, 0)
+	}
 }
 
 func TestGotoStatements(t *testing.T) {

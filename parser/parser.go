@@ -71,6 +71,30 @@ type TokenIzer interface {
 	PassOff()               // turns off passing whitespace
 }
 
+// ParseSourceLine gets a SourceLine struct and parses the source line.
+// This function is only called the first time the line is executed.
+// Subsequent execution will just go directly to execution.
+
+func ParseSourceLine(src *object.SourceLine) {
+	l := lexer.New(src.Inspect())
+	p := &Parser{
+		l:       l,
+		curLine: 0,
+	}
+
+	p.registerPrefixFunctions()
+	p.registerInfixFunctions()
+
+	if p.curTokenIs(token.INT) || p.curTokenIs(token.INTD) {
+		line := p.parseLineNumber()
+		src.SetLineNumber(line.Value)
+	}
+
+	for !p.curTokenIs(token.EOF) {
+		p.nextToken()
+	}
+}
+
 // New create and return a Parser instance
 func New(l TokenIzer) *Parser {
 	p := &Parser{
@@ -122,6 +146,31 @@ func New(l TokenIzer) *Parser {
 	return p
 }
 
+func (p *Parser) registerPrefixFunctions() {
+
+}
+
+// Build a map of all the Infix operations in the language
+func (p *Parser) registerInfixFunctions() {
+	p.infixParseFns = make(map[token.TokenType]infixParseFn)
+	p.registerInfix(token.ASTERISK, p.parseInfixExpression)
+	p.registerInfix(token.BSLASH, p.parseInfixExpression)
+	p.registerInfix(token.EQ, p.parseInfixExpression)
+	p.registerInfix(token.GT, p.parseInfixExpression)
+	p.registerInfix(token.GTE, p.parseInfixExpression)
+	p.registerInfix(token.INKEY, p.parseInKeyExpression)
+	p.registerInfix(token.LBRACKET, p.parseIndexExpression)
+	p.registerInfix(token.LPAREN, p.parseCallExpression)
+	p.registerInfix(token.LT, p.parseInfixExpression)
+	p.registerInfix(token.LTE, p.parseInfixExpression)
+	p.registerInfix(token.MINUS, p.parseInfixExpression)
+	p.registerInfix(token.MOD, p.parseInfixExpression)
+	p.registerInfix(token.NOT_EQ, p.parseInfixExpression)
+	p.registerInfix(token.PLUS, p.parseInfixExpression)
+	p.registerInfix(token.RPAREN, p.parseInfixExpression)
+	p.registerInfix(token.SLASH, p.parseInfixExpression)
+}
+
 func (p *Parser) nextToken() {
 	p.curToken = p.peekToken
 	p.peekToken = p.l.NextToken()
@@ -149,16 +198,6 @@ func (p *Parser) ParseProgram(env *object.Environment) {
 	}
 
 	env.Parsed()
-}
-
-// ParseSourceLine gets a SourceLine struct and parses the source line.
-// This function is only called the first time the line is executed.
-// Subsequent execution will just go directly to execution.
-// Note! Program source lines have the line number stripped
-// and stored as a separate value in the struct.
-
-func (p *Parser) ParseSourceLine(src *object.SourceLine) {
-
 }
 
 // ParseInput checks the input line to determine if it is a command
@@ -708,13 +747,13 @@ func (p *Parser) parseDataElement(elem string) ast.Expression {
 
 	if ok {
 		// line number is actually a int or double int
-		if (ln.Value < 32767) && (ln.Value > -32768) {
+		if ln.Value < 65535 {
 			tk := token.Token{Type: token.INT, Literal: "INT"}
 			return &ast.IntegerLiteral{Token: tk, Value: int16(ln.Value)}
 		}
 
 		tk := token.Token{Type: token.INTD, Literal: "INTD"}
-		return &ast.DblIntegerLiteral{Token: tk, Value: ln.Value}
+		return &ast.DblIntegerLiteral{Token: tk, Value: int32(ln.Value)}
 	}
 
 	exp, ok := stmt.(*ast.ExpressionStatement)
@@ -1001,7 +1040,7 @@ func (p *Parser) parseLineNumber() *ast.LineNumStmt {
 		return stmt
 	}
 
-	stmt.Value = int32(tv)
+	stmt.Value = uint16(tv)
 	p.curLine = tv
 
 	// little detour here, if I see linenum*EOL AND auto is on

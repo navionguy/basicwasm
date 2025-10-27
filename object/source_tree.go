@@ -42,6 +42,12 @@ func (src *SourceLine) AppendStatement(stmt ast.Statement) {
 	src.statements = append(src.statements, stmt)
 }
 
+// Change the line number for the source line
+// TODO: what does this do to the tree?
+func (src *SourceLine) SetLineNumber(num uint16) {
+	src.lineNum = num
+}
+
 // SourceTree is a binary tree of all the source code for the loaded program.
 type SourceTree struct {
 	tree *btree.BTree

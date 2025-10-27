@@ -627,7 +627,7 @@ func (ls *LetStatement) String() string {
 // LineNumStmt holds the line number
 type LineNumStmt struct {
 	Token token.Token
-	Value int32
+	Value uint16
 	Trash []TrashStatement
 }
 
