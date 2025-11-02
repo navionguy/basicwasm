@@ -96,6 +96,7 @@ func execCommand(input string, env *object.Environment) {
 	l := lexer.New(input)
 	p := parser.New(l)
 
+	// parse the keyboard input
 	p.ParseSourceLine(sl)
 
 	// go parse the input

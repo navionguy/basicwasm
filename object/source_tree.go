@@ -14,6 +14,7 @@ type SourceLine struct {
 	lineNum    uint16 // Basic actually has a max line number of 65529
 	source     string // text of the source line
 	statements []ast.Statement
+	itr        uint16 //used to traverse the statements
 }
 
 func (sl *SourceLine) Inspect() string { return sl.source }
@@ -32,14 +33,28 @@ func (sl *SourceLine) Less(than btree.Item) bool {
 
 // create a new SourceLine
 func NewSourceLine(src string, lNumber uint16) *SourceLine {
-	sl := &SourceLine{source: src, lineNum: lNumber}
-
-	return sl
+	return &SourceLine{source: src, lineNum: lNumber, itr: 0}
 }
 
 // AppendStatement grows the list of statements on a source line
 func (src *SourceLine) AppendStatement(stmt ast.Statement) {
 	src.statements = append(src.statements, stmt)
+}
+
+// LineLength returns the count of statements in the line
+func (src *SourceLine) LineLength() uint16 {
+	return uint16(len(src.statements))
+}
+
+func (src *SourceLine) NextStatement() ast.Statement {
+	if src.itr > src.LineLength() {
+		return nil
+	}
+
+	s := src.statements[src.itr]
+	src.itr++
+
+	return s
 }
 
 // Change the line number for the source line

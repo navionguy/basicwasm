@@ -51,8 +51,7 @@ type Parser struct {
 
 	curToken  token.Token
 	peekToken token.Token
-	curLine   int  // current line number being parsed
-	cmdInput  bool // are we parsing from the terminal?
+	curLine   int // current line number being parsed
 	env       *object.Environment
 
 	prefixParseFns map[token.TokenType]prefixParseFn
@@ -71,12 +70,8 @@ type TokenIzer interface {
 	PassOff()               // turns off passing whitespace
 }
 
-// ParseSourceLine gets a SourceLine struct and parses the source line.
-// This function is only called the first time the line is executed.
-// Subsequent execution will just go directly to execution.
-
-func ParseSourceLine(src *object.SourceLine) {
-	l := lexer.New(src.Inspect())
+// New create and return a Parser instance
+func New(l TokenIzer) *Parser {
 	p := &Parser{
 		l:       l,
 		curLine: 0,
@@ -85,24 +80,14 @@ func ParseSourceLine(src *object.SourceLine) {
 	p.registerPrefixFunctions()
 	p.registerInfixFunctions()
 
-	if p.curTokenIs(token.INT) || p.curTokenIs(token.INTD) {
-		line := p.parseLineNumber()
-		src.SetLineNumber(line.Value)
-	}
-
-	for !p.curTokenIs(token.EOF) {
-		p.nextToken()
-	}
+	// Read two tokens, so curToken and peekToken are both set
+	p.nextToken()
+	p.nextToken()
+	return p
 }
 
-// New create and return a Parser instance
-func New(l TokenIzer) *Parser {
-	p := &Parser{
-		l:       l,
-		curLine: 0,
-	}
-
-	// create map parsers for prefix elements
+// create a map of the parsers for prefix elements
+func (p *Parser) registerPrefixFunctions() {
 	p.prefixParseFns = make(map[token.TokenType]prefixParseFn)
 	p.registerPrefix(token.AMPERSAND, p.parseHexOctalConstant)
 	p.registerPrefix(token.CSRLIN, p.parseCsrLinVar)
@@ -120,34 +105,6 @@ func New(l TokenIzer) *Parser {
 	p.registerPrefix(token.ON, p.parseOnExpression)
 	p.registerPrefix(token.STRING, p.parseStringLiteral)
 	p.registerPrefix(token.USING, p.parseUsingExpression)
-
-	// and infix elements
-	p.infixParseFns = make(map[token.TokenType]infixParseFn)
-	p.registerInfix(token.ASTERISK, p.parseInfixExpression)
-	p.registerInfix(token.BSLASH, p.parseInfixExpression)
-	p.registerInfix(token.EQ, p.parseInfixExpression)
-	p.registerInfix(token.GT, p.parseInfixExpression)
-	p.registerInfix(token.GTE, p.parseInfixExpression)
-	p.registerInfix(token.INKEY, p.parseInKeyExpression)
-	p.registerInfix(token.LBRACKET, p.parseIndexExpression)
-	p.registerInfix(token.LPAREN, p.parseCallExpression)
-	p.registerInfix(token.LT, p.parseInfixExpression)
-	p.registerInfix(token.LTE, p.parseInfixExpression)
-	p.registerInfix(token.MINUS, p.parseInfixExpression)
-	p.registerInfix(token.MOD, p.parseInfixExpression)
-	p.registerInfix(token.NOT_EQ, p.parseInfixExpression)
-	p.registerInfix(token.PLUS, p.parseInfixExpression)
-	p.registerInfix(token.RPAREN, p.parseInfixExpression)
-	p.registerInfix(token.SLASH, p.parseInfixExpression)
-
-	// Read two tokens, so curToken and peekToken are both set
-	p.nextToken()
-	p.nextToken()
-	return p
-}
-
-func (p *Parser) registerPrefixFunctions() {
-
 }
 
 // Build a map of all the Infix operations in the language
@@ -202,33 +159,53 @@ func (p *Parser) ParseProgram(env *object.Environment) {
 
 // ParseInput checks the input line to determine if it is a command
 // or a line of source code being added/changed in the current file.
-func (p *Parser) ParseInput(env *object.Environment) {
+func ParseInput(inp string, env *object.Environment) *object.SourceLine {
+	l := lexer.New(inp)
+	p := New(l)
+	sl := object.NewSourceLine(inp, 0)
+
+	// if the input line entered does not have a line number,
+	// parse the whole thing for immediate execution.
+	if !p.peekTokenIs(token.LINENUM) {
+		p.ParseSourceLine(sl)
+
+		return sl
+	}
+
 	// if the input line entered starts with a line number
 	// we add it to the current program
-	if p.peekTokenIs(token.LINENUM) {
-		p.nextToken()
-		value, err := strconv.ParseUint(p.curToken.Literal, 16, 16)
-		if err != nil {
-			// syntax error
-		}
-		v2 := uint16(value)
-		_ = object.NewSourceLine(p.curToken.Literal, v2)
+
+	p.nextToken()
+	value, _ := strconv.Atoi(p.curToken.Literal)
+	v2 := uint16(value)
+	sl.SetLineNumber(v2)
+	env.Source.AddSourceLine(sl) // line will be parsed when it is time to execute it
+
+	return sl
+}
+
+// Called when a line of code is about to execute
+func FinishParseSourceLine(sl *object.SourceLine) {
+	// check to see if he has already been parsed
+	if sl.LineLength() > 0 {
 		return
 	}
 
-	p.env = env
+	l := lexer.New(sl.Inspect())
+	p := New(l)
+	p.ParseSourceLine(sl)
+}
 
-	// command line has his own AST
-	p.cmdInput = true
+// parse all the statements on the line
+// and place the AST nodes into the source line
+func (p *Parser) ParseSourceLine(sl *object.SourceLine) {
 	for !p.curTokenIs(token.EOF) {
 		stmt := p.parseStatement()
 		if stmt != nil {
-			env.AddCmdStmt(stmt)
+			sl.AppendStatement(stmt)
 		}
 		p.nextToken()
 	}
-
-	env.CmdParsed()
 }
 
 // ParseUsingRunTime takes the using expression and parses it into
@@ -747,7 +724,7 @@ func (p *Parser) parseDataElement(elem string) ast.Expression {
 
 	if ok {
 		// line number is actually a int or double int
-		if ln.Value < 65535 {
+		if ln.Value < 32767 {
 			tk := token.Token{Type: token.INT, Literal: "INT"}
 			return &ast.IntegerLiteral{Token: tk, Value: int16(ln.Value)}
 		}
@@ -1040,7 +1017,7 @@ func (p *Parser) parseLineNumber() *ast.LineNumStmt {
 		return stmt
 	}
 
-	stmt.Value = uint16(tv)
+	stmt.Value = tv
 	p.curLine = tv
 
 	// little detour here, if I see linenum*EOL AND auto is on

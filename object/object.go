@@ -1,4 +1,4 @@
-// Package object how the interpretor holds objects during execution
+// Package object how the interpreter holds objects during execution
 package object
 
 import (
