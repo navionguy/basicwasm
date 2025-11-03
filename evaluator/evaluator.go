@@ -26,7 +26,7 @@ import (
 
 // Eval evaluates the current node in the AST.  It generally returns nil, but
 // it can return an error object or a halt object.
-func Eval(tnode ast.Node, code *ast.Code, env *object.Environment) object.Object {
+func Eval(tnode ast.Node, sl *object.SourceLine, code *ast.Code, sourceTree *object.SourceTree, env *object.Environment) object.Object {
 
 	trash := checkForTrash(tnode, env)
 	if trash != nil {
@@ -98,7 +98,7 @@ func Eval(tnode ast.Node, code *ast.Code, env *object.Environment) object.Object
 		if node.Token.Literal == ":" {
 			return nil
 		}
-		return Eval(node.Expression, code, env)
+		return Eval(node.Expression, sl, code, sourceTree, env)
 
 	case *ast.FilesCommand:
 		return evalFilesCommand(node, code, env)
@@ -113,7 +113,7 @@ func Eval(tnode ast.Node, code *ast.Code, env *object.Environment) object.Object
 		return evalGotoStatement(node, code, env)
 
 	case *ast.GroupedExpression:
-		return Eval(node.Exp, code, env)
+		return Eval(node.Exp, sl, code, sourceTree, env)
 
 	case *ast.HexConstant:
 		return evalHexConstant(node, env)
@@ -125,7 +125,7 @@ func Eval(tnode ast.Node, code *ast.Code, env *object.Environment) object.Object
 		return evalKeyStatement(node, code, env)
 
 	case *ast.LetStatement:
-		val := Eval(node.Value, code, env)
+		val := Eval(node.Value, sl, code, sourceTree, env)
 		if isError(val) {
 			return val
 		}
@@ -201,12 +201,12 @@ func Eval(tnode ast.Node, code *ast.Code, env *object.Environment) object.Object
 		return evalImpliedLetStatement(node, env)
 
 	case *ast.PrefixExpression:
-		right := Eval(node.Right, code, env)
+		right := Eval(node.Right, sl, code, sourceTree, env)
 		return evalPrefixExpression(node.Operator, right, env)
 
 	case *ast.InfixExpression:
-		left := Eval(node.Left, code, env)
-		right := Eval(node.Right, code, env)
+		left := Eval(node.Left, sl, code, sourceTree, env)
+		right := Eval(node.Right, sl, code, sourceTree, env)
 		return evalInfixExpression(node.Operator, left, right, env)
 
 	case *ast.IfStatement:
@@ -244,7 +244,7 @@ func Eval(tnode ast.Node, code *ast.Code, env *object.Environment) object.Object
 		return evalStopStatement(code, env)
 
 	case *ast.CallExpression:
-		function := Eval(node.Function, code, env)
+		function := Eval(node.Function, sl, code, sourceTree, env)
 		if isError(function) {
 			// looking up the function failed, must be undefined
 			return object.StdError(env, berrors.UndefinedFunction)
@@ -387,7 +387,7 @@ func evalBeepStatement(env *object.Environment) {
 
 // evaluate the user defined expression
 func evalBlockExpression(Exp *ast.BlockExpression, code *ast.Code, env *object.Environment) object.Object {
-	return Eval(Exp.Exp, code, env)
+	return Eval(Exp.Exp, nil, code, nil, env)
 }
 
 // evals a user defined function, need to rename this
@@ -395,7 +395,7 @@ func evalBlockStatement(block *ast.BlockStatement, code *ast.Code, env *object.E
 	var result object.Object
 
 	for _, statement := range block.Statements {
-		result = Eval(statement, code, env)
+		result = Eval(statement, nil, code, nil, env)
 
 		if result != nil {
 			rt := result.Type()
@@ -409,6 +409,7 @@ func evalBlockStatement(block *ast.BlockStatement, code *ast.Code, env *object.E
 }
 
 // execute a built in function
+// ToDo Dead code?
 /*func evalBuiltinExpression(builtin *ast.BuiltinExpression, code *ast.Code, env *object.Environment) object.Object {
 
 	// if I can't find the function, it isn't really built in
@@ -428,7 +429,7 @@ func evalBlockStatement(block *ast.BlockStatement, code *ast.Code, env *object.E
 // tries to load a new program and start it's execution.
 func evalChainStatement(chain *ast.ChainStatement, code *ast.Code, env *object.Environment) object.Object {
 	// eval the path to get a string
-	res := Eval(chain.Path, code, env)
+	res := Eval(chain.Path, nil, code, nil, env)
 
 	// make sure the result is a string
 	fn, ok := res.(*object.String)
@@ -702,7 +703,7 @@ func evalStatements(code *ast.Code, env *object.Environment) object.Object {
 	for halt := false; ok && !halt; {
 
 		if code.Value() != nil {
-			rc = Eval(code.Value(), code, env)
+			rc = Eval(code.Value(), nil, code, nil, env)
 		} else {
 			rc = object.StdError(env, berrors.Syntax)
 		}
@@ -826,14 +827,14 @@ func evalReadStatement(rd *ast.ReadStatement, code *ast.Code, env *object.Enviro
 		case *ast.DblIntegerLiteral:
 			value = &object.IntDbl{Value: val.Value}
 		case *ast.FixedLiteral:
-			fval := Eval(val, code, env)
+			fval := Eval(val, nil, code, nil, env)
 			value, _ = fval.(*object.Fixed)
 		case *ast.FloatSingleLiteral:
 			value = &object.FloatSgl{Value: val.Value}
 		case *ast.FloatDoubleLiteral:
 			value = &object.FloatDbl{Value: val.Value}
 		default:
-			value = Eval(val, code, env)
+			value = Eval(val, nil, code, nil, env)
 
 			// yes, the default case would work for all cases
 			// but I wanted to be clear what was going on
@@ -949,7 +950,7 @@ func evalRunCommand(run *ast.RunCommand, code *ast.Code, env *object.Environment
 // pull the file down from the server
 func evalRunLoad(run *ast.RunCommand, code *ast.Code, env *object.Environment) object.Object {
 
-	val := Eval(run.LoadFile, code, env)
+	val := Eval(run.LoadFile, nil, code, nil, env)
 
 	fn, ok := val.(*object.String)
 
@@ -1003,7 +1004,7 @@ func evalRunCheckStartLineNum(run *ast.RunCommand, env *object.Environment) obje
 // actually go execute the code
 func evalRunStart(code *ast.Code, env *object.Environment) object.Object {
 	env.SetRun(true)
-	rc := Eval(&ast.Program{}, code, env)
+	rc := Eval(&ast.Program{}, nil, code, nil, env)
 	env.SetRun(false)
 
 	return rc
@@ -1019,7 +1020,7 @@ func evalScreenStatement(scrn *ast.ScreenStatement, code *ast.Code, env *object.
 		if scrn.Params[i] == nil {
 			continue
 		}
-		id, err := coerceIndex(Eval(scrn.Params[i], code, env), env)
+		id, err := coerceIndex(Eval(scrn.Params[i], nil, code, nil, env), env)
 
 		if err != nil {
 			return err
@@ -1089,7 +1090,7 @@ func evalDimStatement(dim *ast.DimStatement, code *ast.Code, env *object.Environ
 }
 
 func allocArray(typeid string, dims []*ast.IndexExpression, code *ast.Code, env *object.Environment) object.Object {
-	d := Eval(dims[0].Index, code, env)
+	d := Eval(dims[0].Index, nil, code, nil, env)
 	if isError(d) {
 		return d
 	}
@@ -1273,7 +1274,7 @@ func evalForStatement(four *ast.ForStatement, code *ast.Code, env *object.Enviro
 	}
 
 	// initialize my counter
-	rc := Eval(four.Init, code, env)
+	rc := Eval(four.Init, nil, code, nil, env)
 
 	if rc != nil {
 		return object.StdError(env, berrors.Syntax)
@@ -1623,7 +1624,7 @@ func evalListStatement(stmt *ast.ListStatement, env *object.Environment) {
 // evalLoadCommand - load and parse the target program
 func evalLoadCommand(stmt *ast.LoadCommand, code *ast.Code, env *object.Environment) object.Object {
 	// get the target file name
-	res := Eval(stmt.Path, code, env)
+	res := Eval(stmt.Path, nil, code, nil, env)
 	str, ok := res.(*object.String)
 
 	if !ok {
@@ -1916,9 +1917,9 @@ func evalOnGoJump(ind int32, node *ast.OnGoStatement, code *ast.Code, env *objec
 
 	switch node.MidTok.Literal {
 	case "GOTO":
-		return Eval(&ast.GotoStatement{JmpTo: []token.Token{{Type: token.INT, Literal: strconv.Itoa(int(jmp))}}}, code, env)
+		return Eval(&ast.GotoStatement{JmpTo: []token.Token{{Type: token.INT, Literal: strconv.Itoa(int(jmp))}}}, nil, code, nil, env)
 	case "GOSUB":
-		return Eval(&ast.GosubStatement{Gosub: []token.Token{{Type: token.INT, Literal: strconv.Itoa(int(jmp))}}}, code, env)
+		return Eval(&ast.GosubStatement{Gosub: []token.Token{{Type: token.INT, Literal: strconv.Itoa(int(jmp))}}}, nil, code, nil, env)
 	}
 	return object.StdError(env, berrors.Syntax)
 }
@@ -2065,7 +2066,7 @@ func evalPrintItems(node *ast.PrintStatement, code *ast.Code, env *object.Enviro
 		return rc.Inspect()*/
 
 		case *ast.CallExpression:
-			obj = Eval(node, code, env)
+			obj = Eval(node, nil, code, nil, env)
 
 		case *ast.Identifier:
 			obj = evalPrintIdentifier(node, code, env)
@@ -2080,7 +2081,7 @@ func evalPrintItems(node *ast.PrintStatement, code *ast.Code, env *object.Enviro
 		case *ast.DblIntegerLiteral:
 			obj = &object.IntDbl{Value: node.Value}
 		case *ast.FixedLiteral:
-			fval := Eval(node, code, env)
+			fval := Eval(node, nil, code, nil, env)
 			obj = fval.(*object.Fixed)
 		case *ast.UsingExpression:
 			obj = evalUsingExpression(node, code, env)
@@ -2365,7 +2366,7 @@ func evalFloatDblInfixExpression(operator string, leftVal, rightVal float64, env
 }
 
 func evalIfStatement(ie *ast.IfStatement, code *ast.Code, env *object.Environment) object.Object {
-	condition := Eval(ie.Condition, code, env)
+	condition := Eval(ie.Condition, nil, code, nil, env)
 	if isError(condition) {
 		return condition
 	}
@@ -2374,10 +2375,10 @@ func evalIfStatement(ie *ast.IfStatement, code *ast.Code, env *object.Environmen
 		if ie.Alternative == nil {
 			return nil // continues at next statement
 		}
-		return Eval(ie.Alternative, code, env)
+		return Eval(ie.Alternative, nil, code, nil, env)
 	}
 
-	return Eval(ie.Consequence, code, env)
+	return Eval(ie.Consequence, nil, code, nil, env)
 }
 
 // take an array of expressions and evaluate them
@@ -2411,7 +2412,7 @@ func evalExpressionNode(node ast.Node, code *ast.Code, env *object.Environment) 
 		return object.StdError(env, berrors.IllegalFuncCallErr)
 	}
 
-	rc := Eval(node, code, env)
+	rc := Eval(node, nil, code, nil, env)
 
 	if rc == nil {
 		return object.StdError(env, berrors.IllegalFuncCallErr)
@@ -2426,7 +2427,7 @@ func applyFunction(fn object.Object, args []object.Object, code *ast.Code, env *
 	switch fn := fn.(type) {
 	case *object.Function:
 		extendedEnv := extendFunctionEnv(fn, args)
-		obj := Eval(fn.Body, code, extendedEnv)
+		obj := Eval(fn.Body, nil, code, nil, extendedEnv)
 		return obj
 
 	case *object.Builtin:
@@ -2475,7 +2476,7 @@ func evalIdentifier(node *ast.Identifier, code *ast.Code, env *object.Environmen
 func evalIndexArray(index []*ast.IndexExpression, array, newVal object.Object, code *ast.Code, env *object.Environment) object.Object {
 
 	// get the first index value
-	indObj := Eval(index[0].Index, code, env)
+	indObj := Eval(index[0].Index, nil, code, nil, env)
 	if isError(indObj) {
 		return indObj
 	}

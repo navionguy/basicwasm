@@ -100,10 +100,8 @@ func execCommand(input string, env *object.Environment) {
 	// finish parsing the command
 	parser.FinishParseSourceLine(sl)
 
-	iter := env.CmdLineIter()
-
 	// if command line is empty, nothing to execute
-	if iter.Len() == 0 {
+	if sl.LineLength() == 0 {
 		// if auto is turned on, prompt next line number
 		if env.GetSetting(settings.Auto) != nil {
 			prompt(env)
@@ -111,22 +109,21 @@ func execCommand(input string, env *object.Environment) {
 		return
 	}
 
-	parseCmdExecute(iter, env)
+	parsedCmdExecute(sl, env)
 
 }
 
 // once you have a parsed command line, go execute it
-func parseCmdExecute(iter *ast.Code, env *object.Environment) {
+func parsedCmdExecute(sl *object.SourceLine, env *object.Environment) {
 
-	for iter.Value() != nil {
-		cmd := iter.Value()
-		srcIter := env.StatementIter()
-		obj := evaluator.Eval(cmd, srcIter, env)
+	node := sl.NextStatement()
+	for node != nil {
+		obj := evaluator.Eval(node, sl, nil, env.Source, env)
 
 		if handleExitMsgs(obj, env) {
 			return
 		}
-		iter.Next()
+		node = sl.NextStatement()
 	}
 	env.CmdComplete()
 	prompt(env)
