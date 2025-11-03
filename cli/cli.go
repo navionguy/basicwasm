@@ -2,17 +2,13 @@ package cli
 
 import (
 	"fmt"
-	"strconv"
 	"time"
 
 	"github.com/navionguy/basicwasm/ast"
-	"github.com/navionguy/basicwasm/berrors"
 	"github.com/navionguy/basicwasm/evaluator"
-	"github.com/navionguy/basicwasm/lexer"
 	"github.com/navionguy/basicwasm/object"
 	"github.com/navionguy/basicwasm/parser"
 	"github.com/navionguy/basicwasm/settings"
-	"github.com/navionguy/basicwasm/token"
 )
 
 var stopTerminal bool
@@ -92,15 +88,17 @@ func evalKeyCodes(keys []byte, env *object.Environment) {
 // should be either a command or a line of source code
 func execCommand(input string, env *object.Environment) {
 
-	sl := object.NewSourceLine(input, 0)
-	l := lexer.New(input)
-	p := parser.New(l)
-
 	// parse the keyboard input
-	p.ParseSourceLine(sl)
+	sl := parser.ParseInput(input, env)
 
-	// go parse the input
-	chkForCmd(input, env)
+	if sl.Value() > 0 {
+		// it is a line of code for the program
+		env.Source.AddSourceLine(sl)
+		return
+	}
+
+	// finish parsing the command
+	parser.FinishParseSourceLine(sl)
 
 	iter := env.CmdLineIter()
 
@@ -113,44 +111,8 @@ func execCommand(input string, env *object.Environment) {
 		return
 	}
 
-	//parseCmdExecute(iter, env)
+	parseCmdExecute(iter, env)
 
-}
-
-// see if I can successfully parse the command line entered
-func chkForCmd(input string, env *object.Environment) object.Object {
-	l := lexer.New(input)
-
-	if l.NextToken().Type == token.EOL {
-		// skip over the starting EOL
-		t := l.NextToken()
-		if (t.Type == token.INT) || (t.Type == token.INTD) {
-			// it starts with a line number, go add to the source code tree
-			return addOrReplaceSourceLine(t.Literal, input, env)
-		} else {
-			// appears to be a command, go parse it
-		}
-	}
-	return nil
-}
-
-// I have a source line, add it to the tree
-func addOrReplaceSourceLine(line string, input string, env *object.Environment) object.Object {
-	val, err := strconv.ParseUint(line, 10, 16)
-
-	if err != nil {
-		// can't extract the line number, return an error
-		rc := &object.Error{
-			Message: berrors.TextForError(berrors.UnDefinedLineNumber),
-			Code:    berrors.UnDefinedLineNumber,
-		}
-		return rc
-	}
-
-	l := uint16(val)
-	sl := object.NewSourceLine(input, l)
-	env.Source.AddSourceLine(sl)
-	return nil
 }
 
 // once you have a parsed command line, go execute it

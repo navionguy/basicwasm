@@ -12,33 +12,6 @@ import (
 	"github.com/stretchr/testify/assert"
 )
 
-func Test_AddOrReplaceSourceLine(t *testing.T) {
-	tests := []struct {
-		num   string
-		src   string
-		lines int
-	}{
-		{"10", "10 REM A test line", 1},
-	}
-
-	for _, tt := range tests {
-		trm := mocks.MockTerm{}
-		mocks.InitMockTerm(&trm)
-		env := object.NewTermEnvironment(trm)
-		addOrReplaceSourceLine(tt.num, tt.src, env)
-
-		//assert.Equal(t, tt.lines, env.Source)
-	}
-}
-
-func Test_ChkForCmd(t *testing.T) {
-	trm := mocks.MockTerm{}
-	mocks.InitMockTerm(&trm)
-	env := object.NewTermEnvironment(trm)
-
-	chkForCmd("10 REM", env)
-}
-
 func Test_StartStop(t *testing.T) {
 	trm := mocks.MockTerm{}
 	mocks.InitMockTerm(&trm)
