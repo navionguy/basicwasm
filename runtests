@@ -1,5 +1,5 @@
 go test ./afile -coverprofile=afile.out
-go test ./ast -coverprofile=ast.out
+go test ./ast/* -coverprofile=ast.out
 go test ./berrors -coverprofile=berrors.out
 go test ./builtins -coverprofile=builtins.out
 go test ./cli -coverprofile=cli.out
@@ -14,6 +14,8 @@ go test ./lexer -coverprofile=lexer.out
 go test ./localfiles -coverprofile=localfiles.out
 go test ./ -coverprofile=main.out
 go test ./object -coverprofile=object.out
+go test ./object/openfiles -coverprofile=openfiles.out
+go test ./object/source_tree -coverprofile=source_tree.out
 go test ./parser -coverprofile=parser.out
 go test ./token -coverprofile=token.out
 

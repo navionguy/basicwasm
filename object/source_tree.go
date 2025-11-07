@@ -47,7 +47,7 @@ func (src *SourceLine) LineLength() uint16 {
 }
 
 func (src *SourceLine) NextStatement() ast.Statement {
-	if src.itr > src.LineLength() {
+	if src.itr >= src.LineLength() {
 		return nil
 	}
 
@@ -57,20 +57,18 @@ func (src *SourceLine) NextStatement() ast.Statement {
 	return s
 }
 
-// Change the line number for the source line
-// TODO: what does this do to the tree?
-func (src *SourceLine) SetLineNumber(num uint16) {
-	src.lineNum = num
-}
-
 // SourceTree is a binary tree of all the source code for the loaded program.
 type SourceTree struct {
-	tree *btree.BTree
+	cur_line uint16       // current source line executing
+	tree     *btree.BTree // Holds the source lines for a program
 }
 
 // Initialize a new source tree for the environment
-func initSourceTree() *SourceTree {
-	t := &SourceTree{tree: btree.New(2)}
+func InitSourceTree() *SourceTree {
+	t := &SourceTree{
+		cur_line: 1,
+		tree:     btree.New(2),
+	}
 
 	return t
 }
@@ -78,6 +76,44 @@ func initSourceTree() *SourceTree {
 // Puts the passed source line into the tree.
 // If it is replacing an existing line, ReplaceOrInsert()
 // returns the line.  Callers to this function don't care.
-func (src *SourceTree) AddSourceLine(sl *SourceLine) {
-	src.tree.ReplaceOrInsert(sl)
+func (srcTree *SourceTree) AddSourceLine(sl *SourceLine) {
+	srcTree.tree.ReplaceOrInsert(sl)
+}
+
+// Perform a "GOTO" jump to a new source line.
+// Unlike a "GOSUB", I don't have to remember how to get back.
+func (srcTree *SourceTree) JumpToLine(l uint16) uint16 {
+	test := srcTree.tree.Get(NewSourceLine("", l))
+	line, ok := test.(*SourceLine)
+
+	if !ok {
+		return 0 // line not found
+	}
+
+	// only if I found the line
+	return line.lineNum
+}
+
+// Fetches the next line of code to execute.
+func (srcTree *SourceTree) NextLine() *SourceLine {
+	var got []btree.Item
+	l := NewSourceLine("", srcTree.cur_line+1)
+
+	srcTree.tree.AscendGreaterOrEqual(l, func(a btree.Item) bool {
+		got = append(got, a)
+		return true
+	})
+
+	// if nothing found, end of tree reached
+	if len(got) == 0 {
+		return nil
+	}
+
+	// Try to convert the Item to a SourceLine
+	nl, _ := got[0].(*SourceLine)
+
+	// remember which line number I'm on
+	srcTree.cur_line = nl.lineNum
+
+	return nl
 }

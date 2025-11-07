@@ -185,7 +185,7 @@ func newEnvironment() *Environment {
 	e.SetClient(dc)
 
 	// using the default tree layout until I can get some performance data
-	e.Source = initSourceTree()
+	e.Source = InitSourceTree()
 	return e
 }
 
