@@ -162,11 +162,11 @@ func (p *Parser) ParseProgram(env *object.Environment) {
 func ParseInput(inp string, env *object.Environment) *object.SourceLine {
 	l := lexer.New(inp)
 	p := New(l)
-	sl := object.NewSourceLine(inp, 0)
 
 	// if the input line entered does not have a line number,
 	// parse the whole thing for immediate execution.
 	if !p.peekTokenIs(token.LINENUM) {
+		sl := object.NewSourceLine(inp, 0)
 		p.ParseSourceLine(sl)
 
 		return sl
@@ -178,7 +178,7 @@ func ParseInput(inp string, env *object.Environment) *object.SourceLine {
 	p.nextToken()
 	value, _ := strconv.Atoi(p.curToken.Literal)
 	v2 := uint16(value)
-	sl.SetLineNumber(v2)
+	sl := object.NewSourceLine(inp, v2)
 	env.Source.AddSourceLine(sl) // line will be parsed when it is time to execute it
 
 	return sl

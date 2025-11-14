@@ -1,9 +1,11 @@
 package object
 
 import (
+	"strings"
 	"testing"
 
 	"github.com/navionguy/basicwasm/ast"
+	"github.com/navionguy/basicwasm/berrors"
 	"github.com/navionguy/basicwasm/token"
 	"github.com/stretchr/testify/assert"
 )
@@ -35,6 +37,41 @@ func Test_LineLength(t *testing.T) {
 	sl.AppendStatement(&tst)
 
 	assert.EqualValues(t, 1, sl.LineLength())
+}
+
+func Test_FixLineNumber(t *testing.T) {
+	tests := []struct {
+		src      string
+		line     uint16
+		old_line uint16
+		exp      string
+		rc       Object
+	}{
+		{src: "10 REM A comment",
+			line: 20, old_line: 10,
+			exp: "20 REM A comment", rc: nil},
+		{src: "10 REM A comment",
+			line: 20, old_line: 30,
+			exp: "10 REM A comment",
+			rc: &Error{Code: berrors.IllegalFuncCallErr,
+				Message: berrors.TextForError(berrors.IllegalFuncCallErr)}},
+	}
+
+	for _, tt := range tests {
+		sl := NewSourceLine(tt.src, tt.line)
+		r := sl.fixLineNumber(tt.old_line)
+
+		assert.True(t, strings.EqualFold(tt.exp, sl.source))
+
+		if tt.rc == nil {
+			assert.Nil(t, r)
+		} else {
+			e, ok := r.(*Error)
+
+			assert.True(t, ok)
+			assert.Equal(t, tt.rc, e)
+		}
+	}
 }
 
 func Test_NextStatement(t *testing.T) {
@@ -168,7 +205,6 @@ func Test_NextLine(t *testing.T) {
 	// load all the source lines
 	st := InitSourceTree()
 	for _, tt := range tests {
-		NewSourceLine(tt.txt, tt.num)
 		sl := NewSourceLine(tt.txt, tt.num)
 		st.AddSourceLine(sl)
 	}
@@ -184,5 +220,102 @@ func Test_NextLine(t *testing.T) {
 	}
 
 	assert.Nil(t, st.NextLine())
+}
 
+func Test_Renumber(t *testing.T) {
+	lines := []struct {
+		txt string
+		num uint16
+	}{
+		{txt: `10 REM Comment`, num: 10},
+		{txt: `50 END`, num: 50},
+		{txt: `20 Print "Hello World`, num: 20},
+		{txt: `40 Print "Goodbye`, num: 40},
+		{txt: `30 REM Testing NextLine()`, num: 30},
+	}
+
+	tests := []struct {
+		new uint16
+		old uint16
+		inc uint16
+	}{
+		{new: 15, old: 0, inc: 10},
+		{new: 35, old: 30, inc: 10},
+	}
+
+	// load all the source lines
+	st := InitSourceTree()
+	for _, l := range lines {
+		sl := NewSourceLine(l.txt, l.num)
+		st.AddSourceLine(sl)
+	}
+
+	for _, tt := range tests {
+		st.Renumber(tt.new, tt.old, tt.inc)
+	}
+}
+
+func Test_fixUpJumps(t *testing.T) {
+	tests := []struct {
+		inp string
+		exp string
+	}{
+		{inp: `10 GOTO 20`, exp: `10 GOTO 25`},
+	}
+
+	lineMap := []struct {
+		old uint16
+		new uint16
+	}{
+		{20, 25},
+	}
+
+	rd := new_renumber_data()
+	for _, line := range lineMap {
+		rd.mapping[line.old] = line.new
+	}
+
+	for _, tt := range tests {
+		sl := NewSourceLine(tt.inp, 10)
+		rd.tempTree.AddSourceLine(sl)
+		rd.fixUpJumps()
+	}
+}
+
+func Test_updateTree(t *testing.T) {
+	lines := []struct {
+		txt string
+		num uint16
+	}{
+		{txt: `10 REM Comment`, num: 10},
+		{txt: `50 END`, num: 50},
+		{txt: `20 Print "Hello World`, num: 20},
+		{txt: `40 Print "Goodbye`, num: 40},
+		{txt: `30 REM Testing NextLine()`, num: 30},
+	}
+
+	newLines := []struct {
+		txt string
+		num uint16
+	}{
+		{txt: `50 END`, num: 50},
+		{txt: `40 Print "Goodbye`, num: 40},
+		{txt: `30 REM Testing NextLine()`, num: 30},
+	}
+
+	// load all the source lines
+	st := InitSourceTree()
+	for _, l := range lines {
+		sl := NewSourceLine(l.txt, l.num)
+		st.AddSourceLine(sl)
+	}
+
+	// load the replacement lines
+	rd := new_renumber_data()
+	for _, rl := range newLines {
+		nsl := NewSourceLine(rl.txt, rl.num)
+		rd.tempTree.AddSourceLine(nsl)
+	}
+
+	st.updateTree(rd)
 }

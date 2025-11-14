@@ -653,7 +653,7 @@ func evalContCommand(env *object.Environment) object.Object {
 	}
 
 	// recover the object.SourceLine object
-	cd := np.(*object.SourceLine)
+	cd, ok := np.(*object.SourceLine)
 
 	if cd == nil {
 		return object.StdError(env, berrors.CantContinue)
@@ -679,7 +679,7 @@ func evalContStart(sl *object.SourceLine, env *object.Environment) object.Object
 func evalContChkInput(sl *object.SourceLine) {
 	switch sl.Value() {
 	default:
-		sl.Next()
+		sl.NextStatement()
 	}
 }
 
@@ -697,13 +697,13 @@ func evalStatements(sl *object.SourceLine, env *object.Environment) object.Objec
 	var rc object.Object
 
 	// make sure there are statements to evaluate
-	t := sl.Len()
+	t := sl.LineLength()
 	ok := t > 0
 	// loop until you run out of sl
 	for halt := false; ok && !halt; {
 
-		if sl.Value() != nil {
-			rc = Eval(sl.Value(), nil, sl, env)
+		if sl.Value() != 0 {
+			rc = Eval(sl.NextStatement(), sl, env)
 		} else {
 			rc = object.StdError(env, berrors.Syntax)
 		}
@@ -718,14 +718,14 @@ func evalStatements(sl *object.SourceLine, env *object.Environment) object.Objec
 			halt, sl, rc = evalStatementResult(rc, sl, env)
 
 			if !halt {
-				halt = !sl.Next()
+				halt = !sl.NextStatement()
 			}
 		} else {
 			if env.Terminal().BreakCheck() {
 				rc = evalStatementsBreakChk(sl, env)
 				halt = true
 			} else {
-				halt = !sl.Next()
+				halt = !sl.NextStatement()
 			}
 		}
 	}
