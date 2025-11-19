@@ -413,6 +413,13 @@ func Test_HaltSingal(t *testing.T) {
 	assert.Equal(t, "HALT", hs.Inspect(), "HaltSignal, Inspect incorrect value")
 }
 
+func Test_LineNumber(t *testing.T) {
+	ln := LineNumber{Line: uint16(10)}
+
+	assert.Equal(t, ObjectType("LINENUM"), ln.Type())
+	assert.Equal(t, "10", ln.Inspect())
+}
+
 func Test_Restart(t *testing.T) {
 	tests := []struct {
 		title string

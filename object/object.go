@@ -259,6 +259,7 @@ func (rs *RestartSignal) Type() ObjectType { return RESTART_SIGNAL }
 func (rs *RestartSignal) Inspect() string  { return "RESTART" }
 
 // LineNumber holds a line number
+// Largest valid number is 65529
 type LineNumber struct {
 	Line uint16
 }

@@ -22,14 +22,14 @@ type SourceLine struct {
 	itr        uint16 //used to traverse the statements
 }
 
-func (sl *SourceLine) Inspect() string { return sl.source }
-func (sl *SourceLine) Value() uint16   { return sl.lineNum }
+func (sl *SourceLine) TokenLiteral() string { return fmt.Sprint(sl.lineNum) }
+func (sl *SourceLine) String() string       { return sl.source }
 
 // BTree required interface
 func (sl *SourceLine) Less(than btree.Item) bool {
 	switch nl := than.(type) {
 	case *SourceLine:
-		if sl.Value() < nl.Value() {
+		if sl.TokenLiteral() < nl.TokenLiteral() {
 			return true
 		}
 	}
@@ -203,6 +203,9 @@ func (srcTree *SourceTree) Renumber(new uint16, old uint16, inc uint16) *Object 
 			// go fix the line number in the source line
 			rc = nl.fixLineNumber(ol.lineNum)
 			if rc != nil {
+				rc = &Error{Code: berrors.InternalErr,
+					Message: fmt.Sprintf("Line %d not found!", ol.lineNum)}
+
 				return false
 			}
 			// add tree to the new tree
@@ -223,13 +226,18 @@ func (srcTree *SourceTree) Renumber(new uint16, old uint16, inc uint16) *Object 
 }
 
 // Now we need to clean up all the various transfers to a line number
-func (rd renumber_data) fixUpJumps() {
+func (rd renumber_data) fixUpJumps() Object {
+	lines := Array{}
+	rc := Object(&lines)
+
 	rd.tempTree.tree.Ascend(func(a btree.Item) bool {
 		l, ok := a.(*SourceLine)
 
 		// This should not happen
 		if !ok {
-			return true
+			rc = &Error{Code: berrors.IllegalFuncCallErr,
+				Message: berrors.TextForError(berrors.IllegalFuncCallErr)}
+			return false
 		}
 
 		if strings.Contains(l.source, "GOTO") ||
@@ -238,25 +246,36 @@ func (rd renumber_data) fixUpJumps() {
 			strings.Contains(l.source, "ELSE") ||
 			strings.Contains(l.source, "RESTORE") ||
 			strings.Contains(l.source, "RESUME") {
+
 			fmt.Println("got em!")
+			needsFixing := &LineNumber{Line: l.lineNum}
+			lines.Elements = append(lines.Elements, needsFixing)
 		}
 
 		return true
 	})
+
+	return rc
 }
 
 // Once we have renumbered the lines, and fixed all the jumps
 // It is time to replace the old tree with the new one
-func (srcTree *SourceTree) updateTree(rd renumber_data) {
+func (srcTree *SourceTree) updateTree(rd renumber_data) Object {
+	var rc *Error
+
 	srcTree.tree.Clear(false) // ToDo: Add a FreeList to the source tree
 
 	rd.tempTree.tree.Ascend(func(a btree.Item) bool {
 		l, ok := a.(*SourceLine)
 
 		if !ok {
-			return true
+			rc = &Error{Code: berrors.IllegalFuncCallErr,
+				Message: berrors.TextForError(berrors.IllegalFuncCallErr)}
+			return false
 		}
 		srcTree.AddSourceLine(l)
 		return true
 	})
+
+	return rc
 }

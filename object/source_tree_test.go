@@ -4,6 +4,7 @@ import (
 	"strings"
 	"testing"
 
+	"github.com/google/btree"
 	"github.com/navionguy/basicwasm/ast"
 	"github.com/navionguy/basicwasm/berrors"
 	"github.com/navionguy/basicwasm/token"
@@ -23,7 +24,7 @@ func Test_SourceLine(t *testing.T) {
 
 		assert.NotNil(t, sl)
 		assert.EqualValues(t, tt.src, sl.source)
-		assert.EqualValues(t, sl.source, sl.Inspect())
+		assert.EqualValues(t, sl.source, sl.String())
 	}
 }
 
@@ -229,8 +230,8 @@ func Test_Renumber(t *testing.T) {
 	}{
 		{txt: `10 REM Comment`, num: 10},
 		{txt: `50 END`, num: 50},
-		{txt: `20 Print "Hello World`, num: 20},
-		{txt: `40 Print "Goodbye`, num: 40},
+		{txt: `20 Print "Hello World"`, num: 20},
+		{txt: `40 Print "Goodbye"`, num: 40},
 		{txt: `30 REM Testing NextLine()`, num: 30},
 	}
 
@@ -238,29 +239,64 @@ func Test_Renumber(t *testing.T) {
 		new uint16
 		old uint16
 		inc uint16
+		err bool
 	}{
-		{new: 15, old: 0, inc: 10},
-		{new: 35, old: 30, inc: 10},
+		{new: 15, old: 0, inc: 10, err: false},
+		{new: 35, old: 30, inc: 10, err: false},
+		// now we force an error
+		{new: 15, old: 0, inc: 10, err: true},
 	}
 
-	// load all the source lines
-	st := InitSourceTree()
-	for _, l := range lines {
-		sl := NewSourceLine(l.txt, l.num)
-		st.AddSourceLine(sl)
+	exp := []ExpectedValues{
+		{src: []string{
+			`15 REM Comment`,
+			`25 Print "Hello World"`,
+			`35 REM Testing NextLine()`,
+			`45 Print "Goodbye"`,
+			`55 END`,
+		}, lines: []uint16{15, 25, 35, 45, 55}},
+		{src: []string{
+			`10 REM Comment`,
+			`20 Print "Hello World"`,
+			`35 REM Testing NextLine()`,
+			`45 Print "Goodbye"`,
+			`55 END`,
+		}, lines: []uint16{10, 20, 35, 45, 55}},
 	}
 
-	for _, tt := range tests {
-		st.Renumber(tt.new, tt.old, tt.inc)
+	for i, tt := range tests {
+		// load all the source lines
+		st := InitSourceTree()
+
+		for _, l := range lines {
+			sl := NewSourceLine(l.txt, l.num)
+			st.AddSourceLine(sl)
+		}
+
+		if tt.err {
+			sl := NewSourceLine(`100 REM Forced Error`, 200)
+			st.AddSourceLine(sl)
+		}
+		rc := st.Renumber(tt.new, tt.old, tt.inc)
+
+		if !tt.err {
+			assert.Nil(t, *rc)
+
+			exp[i].checkFinalLines(t, st)
+		} else {
+			assert.NotNil(t, *rc)
+		}
 	}
 }
 
 func Test_fixUpJumps(t *testing.T) {
 	tests := []struct {
 		inp string
-		exp string
+		exp []uint16
+		err bool
 	}{
-		{inp: `10 GOTO 20`, exp: `10 GOTO 25`},
+		{inp: `10 GOTO 20`, exp: []uint16{25}, err: false},
+		{inp: `20 GOTO 10`, exp: []uint16{25}, err: true},
 	}
 
 	lineMap := []struct {
@@ -278,7 +314,18 @@ func Test_fixUpJumps(t *testing.T) {
 	for _, tt := range tests {
 		sl := NewSourceLine(tt.inp, 10)
 		rd.tempTree.AddSourceLine(sl)
-		rd.fixUpJumps()
+		if tt.err {
+			bad := &badTestItem{bad: 0}
+			rd.tempTree.tree.ReplaceOrInsert(bad)
+		}
+		rc := rd.fixUpJumps()
+
+		switch rc.(type) {
+		case *Array:
+			assert.False(t, tt.err)
+		case *Error:
+			assert.True(t, tt.err)
+		}
 	}
 }
 
@@ -298,9 +345,18 @@ func Test_updateTree(t *testing.T) {
 		txt string
 		num uint16
 	}{
-		{txt: `50 END`, num: 50},
-		{txt: `40 Print "Goodbye`, num: 40},
-		{txt: `30 REM Testing NextLine()`, num: 30},
+		{txt: `50 Print "I'm out of here!"`, num: 50},
+		{txt: `40 Print "See-ya!"`, num: 40},
+		{txt: `30 REM Testing updateTree()`, num: 30},
+	}
+
+	exp := ExpectedValues{
+		src: []string{
+			`30 REM Testing updateTree()`,
+			`40 Print "See-ya!"`,
+			`50 Print "I'm out of here!"`,
+		},
+		lines: []uint16{30, 40, 50},
 	}
 
 	// load all the source lines
@@ -317,5 +373,61 @@ func Test_updateTree(t *testing.T) {
 		rd.tempTree.AddSourceLine(nsl)
 	}
 
-	st.updateTree(rd)
+	// change the entire source tree
+	rc := st.updateTree(rd)
+	assert.Nil(t, rc)
+
+	// did it work as expected?
+	exp.checkFinalLines(t, st)
+}
+
+// test for the almost impossible case where a non SourceLine
+// item is pushed into the tree.
+func Test_updateTree_Fail(t *testing.T) {
+	st := InitSourceTree()
+	rd := new_renumber_data()
+	bad := &badTestItem{bad: 0}
+	rd.tempTree.tree.ReplaceOrInsert(bad)
+
+	rc := st.updateTree(rd)
+
+	assert.NotNil(t, rc)
+}
+
+// helper struct to test the final contents of a tree
+type ExpectedValues struct {
+	src   []string
+	lines []uint16
+}
+
+// a non-SourceLine Item to push into the tree
+type badTestItem struct{ bad uint16 }
+
+func (btt *badTestItem) Less(than btree.Item) bool {
+	return true
+}
+
+// make sure source code matches expectations
+func (ev *ExpectedValues) checkFinalLines(t *testing.T, tree *SourceTree) {
+	// first check the line counts match
+	assert.Equal(t, len(ev.src), tree.tree.Len())
+	assert.Equal(t, len(ev.lines), tree.tree.Len())
+
+	// now validate all the values
+
+	i := uint16(0)
+	tree.tree.Ascend(func(a btree.Item) bool {
+		l, ok := a.(*SourceLine)
+
+		if !ok {
+			return false
+		}
+
+		// check for expected values
+		assert.Equal(t, l.source, ev.src[i])
+		assert.Equal(t, l.lineNum, ev.lines[i])
+
+		i++
+		return true
+	})
 }
