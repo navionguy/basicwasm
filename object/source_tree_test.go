@@ -279,17 +279,18 @@ func Test_Renumber(t *testing.T) {
 		}
 		rc := st.Renumber(tt.new, tt.old, tt.inc)
 
+		_, ok := rc.(*Array)
 		if !tt.err {
-			assert.Nil(t, *rc)
+			assert.True(t, ok)
 
 			exp[i].checkFinalLines(t, st)
 		} else {
-			assert.NotNil(t, *rc)
+			assert.False(t, ok)
 		}
 	}
 }
 
-func Test_fixUpJumps(t *testing.T) {
+func Test_findJumpLines(t *testing.T) {
 	tests := []struct {
 		inp string
 		exp []uint16
@@ -306,7 +307,7 @@ func Test_fixUpJumps(t *testing.T) {
 		{20, 25},
 	}
 
-	rd := new_renumber_data()
+	rd := newRenumberData()
 	for _, line := range lineMap {
 		rd.mapping[line.old] = line.new
 	}
@@ -318,7 +319,7 @@ func Test_fixUpJumps(t *testing.T) {
 			bad := &badTestItem{bad: 0}
 			rd.tempTree.tree.ReplaceOrInsert(bad)
 		}
-		rc := rd.fixUpJumps()
+		rc := rd.findJumpLines()
 
 		switch rc.(type) {
 		case *Array:
@@ -329,6 +330,7 @@ func Test_fixUpJumps(t *testing.T) {
 	}
 }
 
+/*
 func Test_updateTree(t *testing.T) {
 	lines := []struct {
 		txt string
@@ -367,7 +369,7 @@ func Test_updateTree(t *testing.T) {
 	}
 
 	// load the replacement lines
-	rd := new_renumber_data()
+	rd := newRenumberData()
 	for _, rl := range newLines {
 		nsl := NewSourceLine(rl.txt, rl.num)
 		rd.tempTree.AddSourceLine(nsl)
@@ -385,7 +387,7 @@ func Test_updateTree(t *testing.T) {
 // item is pushed into the tree.
 func Test_updateTree_Fail(t *testing.T) {
 	st := InitSourceTree()
-	rd := new_renumber_data()
+	rd := newRenumberData()
 	bad := &badTestItem{bad: 0}
 	rd.tempTree.tree.ReplaceOrInsert(bad)
 
@@ -393,7 +395,7 @@ func Test_updateTree_Fail(t *testing.T) {
 
 	assert.NotNil(t, rc)
 }
-
+*/
 // helper struct to test the final contents of a tree
 type ExpectedValues struct {
 	src   []string

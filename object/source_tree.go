@@ -84,15 +84,15 @@ func (src *SourceLine) NextStatement() ast.Statement {
 
 // SourceTree is a binary tree of all the source code for the loaded program.
 type SourceTree struct {
-	cur_line uint16       // current source line executing
-	tree     *btree.BTree // Holds the source lines for a program
+	curLine uint16       // current source line executing
+	tree    *btree.BTree // Holds the source lines for a program
 }
 
 // Initialize a new source tree for the environment
 func InitSourceTree() *SourceTree {
 	t := &SourceTree{
-		cur_line: 1,
-		tree:     btree.New(2),
+		curLine: 1,
+		tree:    btree.New(2),
 	}
 
 	return t
@@ -122,7 +122,7 @@ func (srcTree *SourceTree) JumpToLine(l uint16) uint16 {
 // Fetches the next line of code to execute.
 func (srcTree *SourceTree) NextLine() *SourceLine {
 	var got []btree.Item
-	l := NewSourceLine("", srcTree.cur_line+1)
+	l := NewSourceLine("", srcTree.curLine+1)
 
 	srcTree.tree.AscendGreaterOrEqual(l, func(a btree.Item) bool {
 		got = append(got, a)
@@ -138,20 +138,20 @@ func (srcTree *SourceTree) NextLine() *SourceLine {
 	nl, _ := got[0].(*SourceLine)
 
 	// remember which line number I'm on
-	srcTree.cur_line = nl.lineNum
+	srcTree.curLine = nl.lineNum
 
 	return nl
 }
 
-// renumber_data holds information about a in progress renumber operation
-type renumber_data struct {
+// renumberData holds information about a in progress renumber operation
+type renumberData struct {
 	tempTree *SourceTree
 	mapping  map[uint16]uint16
 }
 
 // create a new structure and initialize the tree
-func new_renumber_data() renumber_data {
-	rd := renumber_data{tempTree: InitSourceTree(), mapping: make(map[uint16]uint16)}
+func newRenumberData() renumberData {
+	rd := renumberData{tempTree: InitSourceTree(), mapping: make(map[uint16]uint16)}
 	return rd
 }
 
@@ -175,17 +175,44 @@ Command Examples:
 
 Once the renumbered tree is scanned so that all ELSE, GOTO, GOSUB,
 THEN, ON...GOTO, ON...GOSUB, RESTORE, RESUME, and ERL statements
-reflect the new line numbers.
+are identified as needing updates.  The CLI package will handle
+parsing each line and then calling for an update to the various
+statements that to be fixed.
 
 Replaces the current source tree in the environment if successful.
 
 If the command fails, returns an Error otherwise nil.
 */
 
-func (srcTree *SourceTree) Renumber(new uint16, old uint16, inc uint16) *Object {
+func (srcTree *SourceTree) Renumber(new uint16, old uint16, inc uint16) Object {
+	// create data structure for processing the command
+	rd := newRenumberData() // contains a SourceTree and a map of old#->new#
+
+	// go build the new source tree
+	rc := srcTree.buildRenumberedTree(&rd, new, old, inc)
+
+	// rc should be nil, if not an error was encountered
+	if rc != nil {
+		return rc
+	}
+
+	rc = rd.findJumpLines()
+
+	// if an error was found return it
+	_, ok := rc.(*Error)
+	if ok {
+		return rc
+	}
+
+	// update the tree pointer and we are done!
+	srcTree.tree = rd.tempTree.tree
+
+	return rc
+}
+
+func (srcTree *SourceTree) buildRenumberedTree(rd *renumberData, new uint16, old uint16, inc uint16) Object {
 	var rc Object
 	// create data structure for processing the command
-	rd := new_renumber_data()
 	start := NewSourceLine("", old)
 
 	// iterate over the old tree
@@ -217,17 +244,15 @@ func (srcTree *SourceTree) Renumber(new uint16, old uint16, inc uint16) *Object 
 		return true
 	})
 
-	// if no error occurred, go update the source code tree
-	if rc == nil {
-		srcTree.updateTree(rd)
-	}
-
-	return &rc
+	return rc
 }
 
-// Now we need to clean up all the various transfers to a line number
-func (rd renumber_data) fixUpJumps() Object {
-	lines := Array{}
+// Now we need to find all the lines that jump to a line number
+// This include GOTO, ON GOTO, GOSUB, ON GOSUB, THEN, ELSE, RESTORE, RESUME
+// We use this to build an array of lines that need to be fixed once the
+// renumber operation is complete
+func (rd renumberData) findJumpLines() Object {
+	lines := Array{TypeID: LINE_NUMBER}
 	rc := Object(&lines)
 
 	rd.tempTree.tree.Ascend(func(a btree.Item) bool {
@@ -245,35 +270,13 @@ func (rd renumber_data) fixUpJumps() Object {
 			strings.Contains(l.source, "THEN") ||
 			strings.Contains(l.source, "ELSE") ||
 			strings.Contains(l.source, "RESTORE") ||
-			strings.Contains(l.source, "RESUME") {
+			strings.Contains(l.source, "RESUME") ||
+			strings.Contains(l.source, "ERL") {
 
-			fmt.Println("got em!")
 			needsFixing := &LineNumber{Line: l.lineNum}
 			lines.Elements = append(lines.Elements, needsFixing)
 		}
 
-		return true
-	})
-
-	return rc
-}
-
-// Once we have renumbered the lines, and fixed all the jumps
-// It is time to replace the old tree with the new one
-func (srcTree *SourceTree) updateTree(rd renumber_data) Object {
-	var rc *Error
-
-	srcTree.tree.Clear(false) // ToDo: Add a FreeList to the source tree
-
-	rd.tempTree.tree.Ascend(func(a btree.Item) bool {
-		l, ok := a.(*SourceLine)
-
-		if !ok {
-			rc = &Error{Code: berrors.IllegalFuncCallErr,
-				Message: berrors.TextForError(berrors.IllegalFuncCallErr)}
-			return false
-		}
-		srcTree.AddSourceLine(l)
 		return true
 	})
 
