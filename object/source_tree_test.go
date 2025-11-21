@@ -314,12 +314,13 @@ func Test_findJumpLines(t *testing.T) {
 
 	for _, tt := range tests {
 		sl := NewSourceLine(tt.inp, 10)
+		st := InitSourceTree()
 		rd.tempTree.AddSourceLine(sl)
 		if tt.err {
 			bad := &badTestItem{bad: 0}
 			rd.tempTree.tree.ReplaceOrInsert(bad)
 		}
-		rc := rd.findJumpLines()
+		rc := st.findJumpLines(&rd)
 
 		switch rc.(type) {
 		case *Array:
@@ -330,72 +331,6 @@ func Test_findJumpLines(t *testing.T) {
 	}
 }
 
-/*
-func Test_updateTree(t *testing.T) {
-	lines := []struct {
-		txt string
-		num uint16
-	}{
-		{txt: `10 REM Comment`, num: 10},
-		{txt: `50 END`, num: 50},
-		{txt: `20 Print "Hello World`, num: 20},
-		{txt: `40 Print "Goodbye`, num: 40},
-		{txt: `30 REM Testing NextLine()`, num: 30},
-	}
-
-	newLines := []struct {
-		txt string
-		num uint16
-	}{
-		{txt: `50 Print "I'm out of here!"`, num: 50},
-		{txt: `40 Print "See-ya!"`, num: 40},
-		{txt: `30 REM Testing updateTree()`, num: 30},
-	}
-
-	exp := ExpectedValues{
-		src: []string{
-			`30 REM Testing updateTree()`,
-			`40 Print "See-ya!"`,
-			`50 Print "I'm out of here!"`,
-		},
-		lines: []uint16{30, 40, 50},
-	}
-
-	// load all the source lines
-	st := InitSourceTree()
-	for _, l := range lines {
-		sl := NewSourceLine(l.txt, l.num)
-		st.AddSourceLine(sl)
-	}
-
-	// load the replacement lines
-	rd := newRenumberData()
-	for _, rl := range newLines {
-		nsl := NewSourceLine(rl.txt, rl.num)
-		rd.tempTree.AddSourceLine(nsl)
-	}
-
-	// change the entire source tree
-	rc := st.updateTree(rd)
-	assert.Nil(t, rc)
-
-	// did it work as expected?
-	exp.checkFinalLines(t, st)
-}
-
-// test for the almost impossible case where a non SourceLine
-// item is pushed into the tree.
-func Test_updateTree_Fail(t *testing.T) {
-	st := InitSourceTree()
-	rd := newRenumberData()
-	bad := &badTestItem{bad: 0}
-	rd.tempTree.tree.ReplaceOrInsert(bad)
-
-	rc := st.updateTree(rd)
-
-	assert.NotNil(t, rc)
-}
-*/
 // helper struct to test the final contents of a tree
 type ExpectedValues struct {
 	src   []string

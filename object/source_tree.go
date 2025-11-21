@@ -70,7 +70,7 @@ func (src *SourceLine) fixLineNumber(old uint16) Object {
 }
 
 // get the next statement in the source line
-// reutrn nil to signal end of line
+// return nil to signal end of line
 func (src *SourceLine) NextStatement() ast.Statement {
 	if src.itr >= src.LineLength() {
 		return nil
@@ -196,20 +196,13 @@ func (srcTree *SourceTree) Renumber(new uint16, old uint16, inc uint16) Object {
 		return rc
 	}
 
-	rc = rd.findJumpLines()
-
-	// if an error was found return it
-	_, ok := rc.(*Error)
-	if ok {
-		return rc
-	}
-
-	// update the tree pointer and we are done!
-	srcTree.tree = rd.tempTree.tree
+	// find all the lines are mark them for updating when they are parsed
+	rc = srcTree.findJumpLines(&rd)
 
 	return rc
 }
 
+// Traverses the tree and renumbers the portion indicated by the "old" param.
 func (srcTree *SourceTree) buildRenumberedTree(rd *renumberData, new uint16, old uint16, inc uint16) Object {
 	var rc Object
 	// create data structure for processing the command
@@ -250,8 +243,10 @@ func (srcTree *SourceTree) buildRenumberedTree(rd *renumberData, new uint16, old
 // Now we need to find all the lines that jump to a line number
 // This include GOTO, ON GOTO, GOSUB, ON GOSUB, THEN, ELSE, RESTORE, RESUME
 // We use this to build an array of lines that need to be fixed once the
-// renumber operation is complete
-func (rd renumberData) findJumpLines() Object {
+// renumber operation is complete.
+//
+// If an invalid item is encountered, a Error object will be returned.
+func (srcTree *SourceTree) findJumpLines(rd *renumberData) Object {
 	lines := Array{TypeID: LINE_NUMBER}
 	rc := Object(&lines)
 
@@ -279,6 +274,9 @@ func (rd renumberData) findJumpLines() Object {
 
 		return true
 	})
+
+	// update the tree pointer and we are done!
+	srcTree.tree = rd.tempTree.tree
 
 	return rc
 }
