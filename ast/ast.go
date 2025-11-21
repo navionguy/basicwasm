@@ -1641,6 +1641,25 @@ func (rem *RemStatement) String() string {
 	return strings.ToUpper(rem.Token.Literal) + " " + strings.TrimRight(rem.Comment, " ")
 }
 
+/* RenumCommand updates line numbers for the source as specified
+RENUM takes three optional parameters:
+
+	new is the first line number in the new sequence, defaults to 10
+	old is the line in the current program where renumber will begin, defaults to 0
+	inc is the increment to be used in the new sequence, defaults to 10
+*/
+
+type RenumCommand struct {
+	Token token.Token
+	new   uint16
+	old   uint16
+	inc   uint16
+	Trash []TrashStatement
+}
+
+func (renum *RenumCommand) statementNode()       {}
+func (renum *RenumCommand) TokenLiteral() string { return strings.ToUpper(renum.Token.Literal) }
+
 // Resume execution after recovering from an error
 type ResumeStatement struct {
 	Token   token.Token  // "RESUME"
