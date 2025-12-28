@@ -112,6 +112,7 @@ const (
 	RANDOM  = "RANDOM"
 	READ    = "READ"
 	REM     = "REM"
+	RENUM   = "RENUM"
 	RESTORE = "RESTORE"
 	RESUME  = "RESUME"
 	RETURN  = "RETURN"
@@ -186,6 +187,7 @@ var keywords = map[string]TokenType{
 	"random":  RANDOM,
 	"read":    READ,
 	"rem":     REM,
+	"renum":   RENUM,
 	"restore": RESTORE,
 	"resume":  RESUME,
 	"return":  RETURN,

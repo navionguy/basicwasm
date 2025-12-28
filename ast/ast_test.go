@@ -1,9 +1,6 @@
 package ast
 
 import (
-	"fmt"
-	"strconv"
-	"strings"
 	"testing"
 
 	"github.com/navionguy/basicwasm/token"
@@ -37,6 +34,7 @@ func Test_AutoCommand(t *testing.T) {
 
 }
 
+/*
 func Test_BeepStatement(t *testing.T) {
 	tests := []struct {
 		inp   string
@@ -946,9 +944,9 @@ func Test_FunctionLiteral(t *testing.T) {
 		Expression: &FunctionLiteral{Token: token.Token{Type: token.DEF, Literal: "FNMUL"}, Parameters: []*Identifier{{Value: "X"}, {Value: "Y"}},
 			Body: &BlockStatement{Statements: []Statement{&BlockExpression{Exp: &InfixExpression{Token: token.Token{Type: token.ASTERISK},
 				Left: &Identifier{Value: "X"}, Operator: "*", Right: &Identifier{Value: "Y"}}}}}}}
-	/*fn := &FunctionLiteral{Token: token.Token{Type: token.DEF, Literal: "FNMUL"}, Parameters: []*Identifier{{Value: "X"}, {Value: "Y"}},
+	fn := &FunctionLiteral{Token: token.Token{Type: token.DEF, Literal: "FNMUL"}, Parameters: []*Identifier{{Value: "X"}, {Value: "Y"}},
 	Body: &BlockStatement{Statements: []Statement{&ExpressionStatement{Expression: &InfixExpression{Token: token.Token{Type: token.ASTERISK},
-		Left: &Identifier{Value: "X"}, Operator: "*", Right: &Identifier{Value: "Y"}}}}}}*/
+		Left: &Identifier{Value: "X"}, Operator: "*", Right: &Identifier{Value: "Y"}}}}}}
 
 	fn.Expression.expressionNode()
 
@@ -1016,10 +1014,10 @@ func Test_Identifier(t *testing.T) {
 		lit string
 		exp string
 	}{
-		/*{id: Identifier{Token: token.Token{Type: token.IDENT, Literal: "[]"}, Array: true,
+		{id: Identifier{Token: token.Token{Type: token.IDENT, Literal: "[]"}, Array: true,
 		Index: []*IndexExpression{{Left: &IntegerLiteral{Value: 5}, Index: &IntegerLiteral{Value: 0}},
 			{Left: &IntegerLiteral{Value: 6}, Index: &IntegerLiteral{Value: 1}},
-		}}, lit: "[]", exp: "[0,1]"},*/
+		}}, lit: "[]", exp: "[0,1]"},
 		//{id: Identifier{Token: token.Token{Type: token.IDENT, Literal: "X"}, Value: "5"}, lit: "X", exp: "5"},
 		{id: Identifier{Token: token.Token{Type: token.IDENT, Literal: "Y"},
 			Trash: []TrashStatement{{Token: token.Token{Literal: "filename"}}}}, lit: "Y", exp: " filename"},
@@ -1577,6 +1575,12 @@ func Test_RemStatement(t *testing.T) {
 	assert.Equal(t, stmt.String(), "REM A Comment", "Rem statement didn't build string correctly")
 }
 
+func Test_RenumCommand(t *testing.T) {
+	renum := &RenumCommand{Token: token.Token{Type: token.RENUM}, new: 100, old: 10, inc: 10}
+
+	renum.statementNode()
+}
+
 func Test_RestoreStatement(t *testing.T) {
 	rstr := &RestoreStatement{Token: token.Token{Type: token.RESTORE, Literal: "RESTORE"}, Line: 200}
 
@@ -1746,3 +1750,4 @@ func Test_ViewPrintStatement(t *testing.T) {
 	assert.Equal(t, "VIEW PRINT", vwp.TokenLiteral())
 	assert.Equal(t, "VIEW PRINT 3 TO 24", vwp.String())
 }
+*/

@@ -1,8 +1,10 @@
-// Defines all statements, commands, and expressions that form the Abstract Syntax Tree (AST)
 package ast
+
+// Defines all statements, commands, and expressions that form the Abstract Syntax Tree (AST)
 
 import (
 	"bytes"
+	"errors"
 	"fmt"
 	"strconv"
 	"strings"
@@ -30,10 +32,104 @@ type Expression interface {
 }
 
 // TrashCan defines interface for all nodes that store parser trash
-// This allows the evaluation loop to catch when ast.Node has trash
+// This allows the evaluation loop to catch when a Node has trash
 // and simply return a syntax error.
 type TrashCan interface {
 	HasTrash() bool
+}
+
+// Parsed lets me know the parser has finished and I should expect the next input from the command line
+func (p *Program) Parsed() {
+	p.code.srcCode.curLine = 0
+}
+
+// CmdParsed gets the command line ready to execute
+func (p *Program) CmdParsed() {
+	p.cmdLine.srcLine.itr = 0
+}
+
+// CmdComplete execution is complete, empty the command line
+func (p *Program) CmdComplete() {
+	p.cmdLine.srcLine = NewSourceLine("", 0)
+}
+
+// TokenLiteral returns string representation of the program
+func (p *Program) TokenLiteral() string { return "GWBasic" }
+
+// AddStatement adds a new statement to the AST
+func (p *Program) AddStatement(stmt Statement) {
+	lNum, ok := stmt.(*LineNumStmt)
+
+	if ok {
+		// we are starting a new line
+		p.code.addLine(lNum.Value)
+		p.code.currLine.lineNum = lNum.Value
+	}
+
+	if len(p.code.lines) == 0 {
+		p.code.err = errors.New("invalid line number")
+		return
+	}
+
+	p.code.lines[p.code.currIndex].stmts = append(p.code.lines[p.code.currIndex].stmts, stmt)
+}
+
+// Stuff for my Code object
+func (cd *Code) TokenLiteral() string { return "" }
+func (cd *Code) String() string       { return "The Code" }
+
+func (cd *Code) Restart() {
+	cd.srcCode.curLine = 0
+	if cd.srcCode.tree.Len() > 0 {
+		cd.currLine.lineNum = cd.srcCode.JumpToLine(0)
+	}
+}
+
+// going to add, or possibly replace, a line of code
+func (cd *Code) addLine(lineNum uint16) {
+	// create a new codeLine struct
+	/*	nl := SourceLine{
+			lineNum: lineNum,
+		}
+
+		// *most* of the time, adding to the end of the program
+		if lineNum > cd.MaxLineNum() {
+			cd.lines = append(cd.lines, nl)
+			cd.currIndex = len(cd.lines) - 1
+			cd.currLine = lineNum
+			return
+		}
+
+		i, found := cd.findLine(lineNum)
+
+		if found {
+			cd.lines[i] = nl
+			cd.currIndex = i
+			cd.currLine = lineNum
+			return
+		}
+
+		// insert it into the array
+		cd.lines = append(cd.lines[:i], append([]codeLine{nl}, cd.lines[i:]...)...)
+		cd.currIndex = i
+		cd.currLine = lineNum*/
+}
+
+// ConstData provides access to DATA elements
+type ConstData struct {
+	code *Code // pointer to the current lines of code
+	line int   // index into code.lines[]
+	stmt int   // index into code.lines[line].stmts
+
+	data *DataStatement // the data statment I'm working from
+	exp  int            // index into data.exp[]
+}
+
+// RetPoint holds the line and statement we want to return to after
+// a GOSUB executes
+type RetPoint struct {
+	currIndex uint16 // index into lines
+	currStmt  uint16 // current statment executing
 }
 
 // AutoCommand turns on automatic line numbering during entry
@@ -627,7 +723,7 @@ func (ls *LetStatement) String() string {
 // LineNumStmt holds the line number
 type LineNumStmt struct {
 	Token token.Token
-	Value int
+	Value uint16
 	Trash []TrashStatement
 }
 

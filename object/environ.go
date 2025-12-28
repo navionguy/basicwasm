@@ -136,18 +136,18 @@ type Environment struct {
 	settings  map[string]ast.Node           // environment settings
 	readOnly  map[string]bool               // my read only environment variables
 	outer     *Environment                  // possibly a temporary containing environment, or nil
-	program   *ast.Program                  // current Abstract Syntax Tree
+	program   *Program                      // current Abstract Syntax Tree
 	term      Console                       // the terminal console object
 	fgrColors map[int]string                // foreground terminal colors
 	bgrColors map[int]string                // background terminal colors
 
 	// The following hold "state" information controlled by commands/statements
-	client  HttpClient     // for making server requests
-	rnd     *rand.Rand     // random number generator
-	rndVal  float32        // most recent generated value
-	run     bool           // program is currently executing, if false, a command is executing
-	stack   []ast.RetPoint // return addresses for GOSUB/RETURN
-	traceOn bool           // is tracing turned on
+	client  HttpClient // for making server requests
+	rnd     *rand.Rand // random number generator
+	rndVal  float32    // most recent generated value
+	run     bool       // program is currently executing, if false, a command is executing
+	stack   RetPoint   // return addresses for GOSUB/RETURN
+	traceOn bool       // is tracing turned on
 }
 
 type variable struct {
@@ -171,7 +171,7 @@ func newEnvironment() *Environment {
 	e.CloseAllFiles()
 	e.ClearVars()
 	if e.program == nil {
-		e.program = &ast.Program{}
+		e.program = &Program{}
 	}
 	e.program.New()
 	e.setDefaults()
@@ -443,13 +443,13 @@ func (e *Environment) SaveSetting(name string, obj ast.Node) {
 }
 
 // Push an address, returns stack size
-func (e *Environment) Push(ret ast.RetPoint) int {
+func (e *Environment) Push(ret RetPoint) int {
 	e.stack = append(e.stack, ret)
 	return len(e.stack)
 }
 
 // Pop a return address, nil means stack is empty
-func (e *Environment) Pop() *ast.RetPoint {
+func (e *Environment) Pop() *RetPoint {
 	l := len(e.stack)
 	if l == 0 {
 		return nil
@@ -526,13 +526,13 @@ func (e *Environment) Randomize(seed int64) {
 // Functions below talk to my program object
 
 // Add a statement to the ast
-func (e *Environment) AddStatement(stmt ast.Statement) {
+func (e *Environment) AddStatement(stmt Statement) {
 	delete(e.settings, settings.Restart) // clear any restart point since the ast is changing
 
 	e.program.AddStatement(stmt)
 }
 
-func (e *Environment) StatementIter() *ast.Code {
+func (e *Environment) StatementIter() *Code {
 	return e.program.StatementIter()
 }
 
@@ -541,11 +541,11 @@ func (e *Environment) Parsed() {
 	e.program.Parsed()
 }
 
-func (e *Environment) AddCmdStmt(stmt ast.Statement) {
+func (e *Environment) AddCmdStmt(stmt Statement) {
 	e.program.AddCmdStmt(stmt)
 }
 
-func (e *Environment) CmdLineIter() *ast.Code {
+func (e *Environment) CmdLineIter() *Code {
 	return e.program.CmdLineIter()
 }
 

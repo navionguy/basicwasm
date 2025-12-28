@@ -118,7 +118,7 @@ func parsedCmdExecute(sl *object.SourceLine, env *object.Environment) {
 
 	node := sl.NextStatement()
 	for node != nil {
-		obj := evaluator.Eval(node, sl, nil, env.Source, env)
+		obj := evaluator.Eval(node, sl, env)
 
 		if handleExitMsgs(obj, env) {
 			return

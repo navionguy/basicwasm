@@ -270,7 +270,7 @@ func Eval(node ast.Node, sl *object.SourceLine, env *object.Environment) object.
 		return evalViewStatement()
 
 	default:
-		msg := fmt.Sprintf("unsupported slpoint at line %d, %T", sl.Inspect(), node)
+		msg := fmt.Sprintf("unsupported command at line %d, %T", sl.Value(), node)
 		env.Terminal().Println(msg)
 		return &object.HaltSignal{}
 	}
@@ -476,7 +476,7 @@ func evalChainStart(env *object.Environment) object.Object {
 
 // executing a command entry, start program execution
 func evalChainExecute(env *object.Environment) object.Object {
-	sl := object.NewSourceLine()
+	sl := object.NewSourceLine("", 0)
 	env.ConstData().Restore()
 
 	rc := evalRunStart(sl, env)
@@ -655,7 +655,7 @@ func evalContCommand(env *object.Environment) object.Object {
 	// recover the object.SourceLine object
 	cd, ok := np.(*object.SourceLine)
 
-	if cd == nil {
+	if !ok {
 		return object.StdError(env, berrors.CantContinue)
 	}
 
@@ -693,7 +693,7 @@ func evalCsrLinExpression(env *object.Environment) object.Object {
 	return &res
 }
 
-func evalStatements(sl *object.SourceLine, env *object.Environment) object.Object {
+func evalStatements(sl *ast.SourceLine, env *object.Environment) object.Object {
 	var rc object.Object
 
 	// make sure there are statements to evaluate
@@ -718,7 +718,7 @@ func evalStatements(sl *object.SourceLine, env *object.Environment) object.Objec
 			halt, sl, rc = evalStatementResult(rc, sl, env)
 
 			if !halt {
-				halt = !sl.NextStatement()
+				sl.NextStatement()
 			}
 		} else {
 			if env.Terminal().BreakCheck() {

@@ -191,7 +191,7 @@ func FinishParseSourceLine(sl *object.SourceLine) {
 		return
 	}
 
-	l := lexer.New(sl.Inspect())
+	l := lexer.New(sl.String())
 	p := New(l)
 	p.ParseSourceLine(sl)
 }
