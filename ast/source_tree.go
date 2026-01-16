@@ -12,32 +12,6 @@ import (
 // First up, the structures dealing with source code.
 /***************************************************************************/
 
-// Program holds the root of the AST (Abstract Syntax Tree)
-type Program struct {
-	code    *Code
-	cmdLine *CmdLine
-	data    *ConstData
-}
-
-// Code allows iterating over the code lines subject to control transfer
-type Code struct {
-	srcCode  *SourceTree // a BTree holding all of the source code
-	currLine *SourceLine // current line executing
-	err      error
-}
-
-// CmdLine holds one line entered from the terminal that will be
-// immediately parsed and executed.
-// Fun fact, running a program from the command is done with the
-// "RUN" command, or "RUN line#".  But you can also "GOTO line#"
-// or "GOSUB line#".  Burger King is not the only place you can
-// "Have it your way!"
-
-type CmdLine struct {
-	srcLine *SourceLine // as entered from the terminal
-	err     error       // nil unless we encounter an error
-}
-
 // renumberData holds information about a in progress renumber operation
 type renumberData struct {
 	tempTree *SourceTree
@@ -50,8 +24,9 @@ type SourceTree struct {
 	tree    *btree.BTree // Holds the source lines for a program
 }
 
+// The implementation for sourceTree
 // Initialize a new source tree for the environment
-func InitSourceTree() *SourceTree {
+func initSourceTree() *SourceTree {
 	t := &SourceTree{
 		curLine: 1,
 		tree:    btree.New(2),
@@ -63,8 +38,18 @@ func InitSourceTree() *SourceTree {
 // Puts the passed source line into the tree.
 // If it is replacing an existing line, ReplaceOrInsert()
 // returns the line.  Callers to this function don't care.
-func (srcTree *SourceTree) AddSourceLine(sl *SourceLine) {
+func (srcTree *SourceTree) addSourceLine(sl *SourceLine) Statement {
+	// This should not happen
+	if sl.lineNum == 0 {
+		rc := ErrorStatement{
+			Token:  token.Token{Type: token.ERROR, Literal: "ERROR"},
+			ErrNum: &IntegerLiteral{Value: berrors.IllegalFuncCallErr},
+		}
+		return &rc
+	}
 	srcTree.tree.ReplaceOrInsert(sl)
+
+	return nil
 }
 
 // Perform a "GOTO" jump to a new source line.
@@ -81,7 +66,16 @@ func (srcTree *SourceTree) JumpToLine(l uint16) uint16 {
 	return line.lineNum
 }
 
+// Fetches the first line of code based on line number.
+// The iterator for the line is zeroed before returning.
+// If the tree is empty, returns a nill value.
+func (srcTree *SourceTree) FirstLine() *SourceLine {
+	srcTree.curLine = 0
+	return srcTree.NextLine()
+}
+
 // Fetches the next line of code to execute.
+// Returns nil if there is no next line.
 func (srcTree *SourceTree) NextLine() *SourceLine {
 	var got []btree.Item
 	l := NewSourceLine("", srcTree.curLine+1)
@@ -111,7 +105,7 @@ func (srcTree *SourceTree) NextLine() *SourceLine {
 
 // create a new structure and initialize the tree
 func newRenumberData() renumberData {
-	rd := renumberData{tempTree: InitSourceTree(), mapping: make(map[uint16]uint16)}
+	rd := renumberData{tempTree: initSourceTree(), mapping: make(map[uint16]uint16)}
 	return rd
 }
 
@@ -134,7 +128,7 @@ Command Examples:
 						with line number 1000 and increment by 20.
 
 Once the renumbered tree is scanned so that all ELSE, GOTO, GOSUB,
-THEN, ON...GOTO, ON...GOSUB, RESTORE, RESUME, and ERL statements
+THEN, ON...GOTO, ON...GOSUB, RESTORE, and RESUME statements
 are identified as needing updates.  The CLI package will handle
 parsing each line and then calling for an update to the various
 statements that to be fixed.
@@ -156,7 +150,7 @@ func (srcTree *SourceTree) Renumber(new uint16, old uint16, inc uint16) Statemen
 		return rc
 	}
 
-	// find all the lines are mark them for updating when they are parsed
+	// find all the lines and mark them for updating when they are parsed
 	srcTree.findJumpLines(&rd)
 
 	return rc
@@ -174,7 +168,7 @@ func (srcTree *SourceTree) buildRenumberedTree(rd *renumberData, new uint16, old
 		ol, _ := a.(*SourceLine)
 		if a.Less(start) {
 			// add the line as is
-			rd.tempTree.AddSourceLine(ol)
+			rd.tempTree.addSourceLine(ol)
 		} else {
 			// create a SourceLine with the existing source but new line number
 			nl := NewSourceLine(ol.source, new)
@@ -186,7 +180,7 @@ func (srcTree *SourceTree) buildRenumberedTree(rd *renumberData, new uint16, old
 				return false
 			}
 			// add tree to the new tree
-			rd.tempTree.AddSourceLine(nl)
+			rd.tempTree.addSourceLine(nl)
 
 			new += inc
 		}
@@ -205,14 +199,17 @@ func (srcTree *SourceTree) buildRenumberedTree(rd *renumberData, new uint16, old
 // If an invalid item is encountered, a Error object will be returned.
 func (srcTree *SourceTree) findJumpLines(rd *renumberData) ([]*SourceLine, Statement) {
 	var lines []*SourceLine
-	rc := ErrorStatement{}
+	var rc ErrorStatement
 
 	rd.tempTree.tree.Ascend(func(a btree.Item) bool {
 		l, ok := a.(*SourceLine)
 
 		// This should not happen
 		if !ok {
-			rc = ErrorStatement{Token: token.Token{Type: token.ERROR, Literal: "ERROR"}, ErrNum: &IntegerLiteral{Value: berrors.IllegalFuncCallErr}}
+			rc = ErrorStatement{
+				Token:  token.Token{Type: token.ERROR, Literal: "ERROR"},
+				ErrNum: &IntegerLiteral{Value: berrors.IllegalFuncCallErr},
+			}
 			return false
 		}
 
@@ -221,8 +218,7 @@ func (srcTree *SourceTree) findJumpLines(rd *renumberData) ([]*SourceLine, State
 			strings.Contains(l.source, "THEN") ||
 			strings.Contains(l.source, "ELSE") ||
 			strings.Contains(l.source, "RESTORE") ||
-			strings.Contains(l.source, "RESUME") ||
-			strings.Contains(l.source, "ERL") {
+			strings.Contains(l.source, "RESUME") {
 
 			lines = append(lines, l)
 		}
@@ -233,5 +229,9 @@ func (srcTree *SourceTree) findJumpLines(rd *renumberData) ([]*SourceLine, State
 	// update the tree pointer and we are done!
 	srcTree.tree = rd.tempTree.tree
 
-	return lines, &rc
+	if rc.ErrNum != nil {
+		return lines, &rc
+	}
+
+	return lines, nil
 }

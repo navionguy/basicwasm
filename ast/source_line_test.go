@@ -37,7 +37,7 @@ func Test_LineLength(t *testing.T) {
 	}
 
 	sl := NewSourceLine(tst.Token.Literal, 10)
-	sl.AppendStatement(&tst)
+	sl.AddStatement(&tst)
 
 	assert.EqualValues(t, 1, sl.LineLength())
 }
@@ -52,7 +52,7 @@ func Test_FixLineNumber(t *testing.T) {
 	}{
 		{src: "10 REM A comment",
 			line: 20, old_line: 10,
-			exp: "20 REM A comment", rc: &ErrorStatement{}},
+			exp: "20 REM A comment"},
 		{src: "10 REM A comment",
 			line: 20, old_line: 30,
 			exp: "10 REM A comment",
@@ -76,7 +76,7 @@ func Test_FixLineNumber(t *testing.T) {
 	}
 }
 
-func Test_NextStatement(t *testing.T) {
+func Test_StmtIter(t *testing.T) {
 	tst := LineNumStmt{
 		Token: token.Token{Type: token.LINENUM, Literal: "10"},
 		Value: 10,
@@ -87,8 +87,8 @@ func Test_NextStatement(t *testing.T) {
 	}
 
 	sl := NewSourceLine(tst.Token.Literal, 10)
-	sl.AppendStatement(&tst)
-	sl.AppendStatement(&tst2)
+	sl.AddStatement(&tst)
+	sl.AddStatement(&tst2)
 
 	assert.EqualValues(t, 2, sl.LineLength())
 

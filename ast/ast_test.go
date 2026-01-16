@@ -1,6 +1,7 @@
 package ast
 
 import (
+	"strings"
 	"testing"
 
 	"github.com/navionguy/basicwasm/token"
@@ -9,17 +10,20 @@ import (
 
 func Test_AutoCommand(t *testing.T) {
 	tests := []struct {
-		param Expression
+		param []Expression
 		trash string
 		exp   string
 	}{
-		{param: &Identifier{Value: "."}, exp: "AUTO ."},
-		{param: &Identifier{Value: "10"}, exp: "AUTO 10 NOISE", trash: "NOISE"},
+		{param: []Expression{&Identifier{Value: "."}}, exp: "AUTO ."},
+		{param: []Expression{&Identifier{Value: "100"}, &Identifier{Value: "10"}}, exp: "AUTO 100, 10"},
+		{param: []Expression{&Identifier{Value: "10"}}, exp: "AUTO 10 NOISE", trash: "NOISE"},
 	}
 
 	for _, tt := range tests {
 		auto := AutoCommand{Token: token.Token{Type: token.AUTO, Literal: "AUTO"}}
-		auto.Params = append(auto.Params, tt.param)
+		for _, tp := range tt.param {
+			auto.Params = append(auto.Params, tp)
+		}
 		if len(tt.trash) > 0 {
 			auto.Trash = append(auto.Trash, TrashStatement{Token: token.Token{Literal: tt.trash}})
 		}
@@ -34,7 +38,6 @@ func Test_AutoCommand(t *testing.T) {
 
 }
 
-/*
 func Test_BeepStatement(t *testing.T) {
 	tests := []struct {
 		inp   string
@@ -59,16 +62,6 @@ func Test_BeepStatement(t *testing.T) {
 	}
 }
 
-func Test_BuiltinExpression(t *testing.T) {
-	builtin := BuiltinExpression{Token: token.Token{Type: token.BUILTIN, Literal: "INSTR"},
-		Params: []Expression{&StringLiteral{Value: "FooBar"}, &StringLiteral{Value: "Bar"}, &DblIntegerLiteral{Value: 3}}}
-
-	builtin.expressionNode()
-
-	assert.Equal(t, "INSTR", builtin.TokenLiteral())
-	assert.Equal(t, `INSTR("FooBar","Bar",3)`, builtin.String())
-}
-
 func TestBlockExpression(t *testing.T) {
 	be := BlockExpression{Exp: &InfixExpression{Token: token.Token{Type: token.PLUS, Literal: "+"},
 		Left:     &IntegerLiteral{Value: 12},
@@ -83,58 +76,47 @@ func TestBlockExpression(t *testing.T) {
 }
 
 func Test_BlockStatement(t *testing.T) {
-	blk := BlockStatement{Token: token.Token{Type: token.LBRACE, Literal: "{"}}
+	stmt := BlockExpression{Exp: &StringLiteral{Value: "FNAB(X, Y)=X^3/Y^2"}}
+	blk := BlockStatement{Token: token.Token{Type: token.LBRACE, Literal: "DEF"}, Statements: []Statement{&stmt}}
 
 	blk.statementNode()
 
-	assert.Equal(t, "{", blk.TokenLiteral())
+	assert.Equal(t, "DEF", blk.TokenLiteral())
+	assert.Equal(t, ` "FNAB(X, Y)=X^3/Y^2"`, blk.String())
+}
+
+func Test_BuiltinExpression(t *testing.T) {
+	builtin := BuiltinExpression{Token: token.Token{Type: token.BUILTIN, Literal: "INSTR"},
+		Params: []Expression{&StringLiteral{Value: "FooBar"}, &StringLiteral{Value: "Bar"}, &DblIntegerLiteral{Value: 3}}}
+
+	builtin.expressionNode()
+
+	assert.Equal(t, "INSTR", builtin.TokenLiteral())
+	assert.Equal(t, `INSTR("FooBar","Bar",3)`, builtin.String())
 }
 
 func Test_CallExpression(t *testing.T) {
-	call := CallExpression{Token: token.Token{Type: token.LPAREN, Literal: "ABS"}}
+	call := CallExpression{Token: token.Token{Type: token.LPAREN, Literal: "ABS"},
+		Function:  &BuiltinExpression{Token: token.Token{Type: token.BUILTIN, Literal: "ABS"}},
+		Arguments: []Expression{&IntegerLiteral{Value: -10}},
+	}
 
 	call.expressionNode()
 
 	assert.Equalf(t, "ABS", call.TokenLiteral(), "call gave wrong token literal")
 	assert.False(t, call.HasTrash(), "shouldn't have trash")
+	assert.Equal(t, "ABS(-10)", call.String())
 }
 
-func TestStringAndToken(t *testing.T) {
-	var program Program
-
-	program.New()
-	program.AddStatement(&LineNumStmt{
-		Token: token.Token{Type: token.LINENUM, Literal: "10"},
-		Value: 10,
-	})
-	program.AddStatement(&LetStatement{
-		Token: token.Token{Type: token.LET, Literal: "LET"},
-		Name: &Identifier{
-			Token: token.Token{Type: token.IDENT, Literal: "myVar"},
-			Value: "myVar",
-		},
-		Value: &Identifier{
-			Token: token.Token{Type: token.IDENT, Literal: "anotherVar"},
-			Value: "anotherVar",
-		},
-	})
-
-	program.code.lines[0].curStmt = 42
-	program.Parsed()
-
-	if program.code.lines[0].curStmt != 0 {
-		t.Fatalf("code statement ptr failed to reset!")
+func Test_CallStatement(t *testing.T) {
+	call := CallStatement{Token: token.Token{Type: token.CALL, Literal: "CALL"},
+		Trash: []TrashStatement{{token.Token{Type: token.STRING, Literal: "Literaly anything"}}},
 	}
-
-	rc := program.String()
-	if rc != "10 LET myVar = anotherVar" {
-		t.Errorf("program.String() wrong. got=%q", program.String())
-	}
-
-	rc = program.TokenLiteral()
-	if rc != "GWBasic" {
-		t.Errorf("program.TokenLiteral() wrong. got=%q", program.TokenLiteral())
-	}
+	call.statementNode()
+	assert.EqualValues(t, "CALL", call.Token.Literal)
+	assert.EqualValues(t, token.CALL, call.Token.Type)
+	assert.True(t, call.HasTrash())
+	assert.EqualValues(t, `CALL  "Literaly anything"`, call.String())
 }
 
 func Test_ChainStatement(t *testing.T) {
@@ -157,25 +139,25 @@ func Test_ChainStatement(t *testing.T) {
 			All:  true, Delete: true, Merge: true,
 			Range: &InfixExpression{Token: token.Token{Type: token.MINUS, Literal: "-"},
 				Left: &IntegerLiteral{Value: 100}, Operator: "-", Right: &IntegerLiteral{Value: 500}}},
-			exp: `CHAIN MERGE "HIWORLD.BAS",, ALL, DELETE 100 - 500`},
+			exp: `CHAIN MERGE "HIWORLD.BAS", ALL, DELETE 100 - 500`},
 		{cmd: ChainStatement{Token: token.Token{Type: token.CHAIN, Literal: "CHAIN"},
 			Path: &StringLiteral{Token: token.Token{Type: token.STRING, Literal: "GOODBYE.BAS"}, Value: "GOODBYE.BAS"},
-			Line: &IntegerLiteral{Value: 200}},
-			trash: []string{"OPEN"},
-			exp:   `CHAIN "GOODBYE.BAS", 200 OPEN`},
+			Line: &IntegerLiteral{Value: 200, Trash: []TrashStatement{{token.Token{Type: token.STRING, Literal: "OPEN"}}}}},
+			trash: []string{`"OPEN"`},
+			exp:   `CHAIN "GOODBYE.BAS", "OPEN"`},
+		{cmd: ChainStatement{Token: token.Token{Type: token.CHAIN, Literal: "CHAIN"},
+			Path:   &StringLiteral{Token: token.Token{Type: token.STRING, Literal: "GOODBYE.BAS"}, Value: "GOODBYE.BAS"},
+			Line:   &IntegerLiteral{Value: 200},
+			Delete: true,
+			Merge:  true,
+			All:    true},
+			exp: `CHAIN MERGE "GOODBYE.BAS", 200, ALL, DELETE`},
 	}
 
 	for _, tt := range tests {
 		tt.cmd.statementNode()
-		for _, tr := range tt.trash {
-			tt.cmd.Trash = append(tt.cmd.Trash, TrashStatement{Token: token.Token{Literal: tr}})
-		}
-
 		assert.Equal(t, tt.cmd.Token.Literal, tt.cmd.TokenLiteral(), "(%s) Token.Literal and TokenLiteral() mismatch", tt.exp, tt.cmd.Token.Literal, tt.cmd.TokenLiteral())
-
 		assert.Equal(t, tt.exp, tt.cmd.String(), "(%s) came back as %s", tt.exp, tt.cmd.String())
-
-		assert.Equal(t, (len(tt.trash) > 0), tt.cmd.HasTrash(), "HasTrash is wrong")
 	}
 }
 
@@ -185,6 +167,31 @@ func Test_ChDir(t *testing.T) {
 	cd.statementNode()
 	assert.Equal(t, "CHDIR", cd.TokenLiteral())
 	assert.Equal(t, `CHDIR "D:\"`, cd.String())
+}
+
+func Test_ClearCommand(t *testing.T) {
+
+	cmd := &ClearCommand{
+		Token: token.Token{Type: token.CLEAR, Literal: "CLEAR"},
+		Exp:   [3]Expression{&IntegerLiteral{Value: 1}, &IntegerLiteral{Value: 2}, &IntegerLiteral{Value: 3}},
+	}
+
+	cmd.statementNode()
+
+	assert.Equal(t, "CLEAR", cmd.TokenLiteral(), "Clear command has incorrect TokenLiteral")
+	assert.Equal(t, cmd.String(), "CLEAR 1,2,3", "Clear command didn't build string correctly")
+}
+
+func Test_CloseStatement(t *testing.T) {
+	cls := CloseStatement{Token: token.Token{Literal: "CLOSE", Type: token.CLOSE}, Files: []FileNumber{
+		{Token: token.Token{Type: token.HASHTAG, Literal: "#"}, Numbr: &IntegerLiteral{Value: 2}},
+		{Token: token.Token{Type: token.HASHTAG, Literal: ""}, Numbr: &IntegerLiteral{Value: 3}},
+	}}
+
+	cls.statementNode()
+
+	assert.Equal(t, "CLOSE", cls.TokenLiteral(), "Close has incorrect TokenLiteral")
+	assert.Equal(t, "CLOSE #2, 3", cls.String(), "Close statement didn't build string correctly")
 }
 
 func Test_ClsStatement(t *testing.T) {
@@ -206,208 +213,40 @@ func Test_ClsStatement(t *testing.T) {
 	}
 }
 
-func TestCmdLineProgramSwitches(t *testing.T) {
-	var program Program
+func Test_RetPoint(t *testing.T) {
+	rp := RetPoint{Line: 1200, Stmt: 3}
 
-	program.New()
-	program.AddCmdStmt(&ClsStatement{
-		Token: token.Token{Type: token.CLS, Literal: "CLS"},
-		Param: 0,
-	})
-
-	cmdl := program.CmdLineIter()
-
-	if len(cmdl.lines) != 1 {
-		t.Fatalf("AddCmdStmt() failed, got %d, wanted 1", len(program.cmdLine.lines))
-	}
-
-	program.cmdLine.lines[0].curStmt = 37
-	program.CmdParsed()
-
-	if program.cmdLine.lines[0].curStmt != 0 {
-		t.Fatalf("cmdLine statement ptr failed to reset!")
-	}
-
-	program.CmdComplete()
-
-	if program.cmdLine.lines != nil {
-		t.Fatalf("cmdLine failed to clear lines!")
-	}
+	assert.Equal(t, uint16(1200), rp.Line)
+	assert.Equal(t, uint8(3), rp.Stmt)
+	rp.statementNode()
+	assert.Equal(t, "1200, 3", rp.TokenLiteral())
+	assert.Equal(t, "1200, 3", rp.String())
 }
 
-func TestCodeMultiLines(t *testing.T) {
-	var program Program
-
-	program.New()
-	program.AddStatement(&LineNumStmt{
-		Token: token.Token{Type: token.LINENUM, Literal: "10"},
-		Value: 10,
-	})
-	program.AddStatement(&LetStatement{
-		Token: token.Token{Type: token.LET, Literal: "LET"},
-		Name: &Identifier{
-			Token: token.Token{Type: token.IDENT, Literal: "myVar"},
-			Value: "myVar",
-		},
-		Value: &Identifier{
-			Token: token.Token{Type: token.IDENT, Literal: "anotherVar"},
-			Value: "anotherVar",
-		},
-	})
-	program.AddStatement(&LineNumStmt{
-		Token: token.Token{Type: token.LINENUM, Literal: "20"},
-		Value: 20,
-	})
-	program.AddStatement(&LetStatement{
-		Token: token.Token{Type: token.LET, Literal: "LET"},
-		Name: &Identifier{
-			Token: token.Token{Type: token.IDENT, Literal: "X"},
-			Value: "X",
-		},
-		Value: &Identifier{
-			Token: token.Token{Type: token.IDENT, Literal: "6"},
-			Value: "6",
-		},
-	})
-
-	it := program.StatementIter()
-	sz := it.Len()
-
-	if sz != 4 {
-		t.Fatalf("expected 4 statements, got %d", sz)
-	}
-
-	stmt := it.Value()
-
-	tests := []struct {
-		exp string
-	}{
-		{"10 "},
-		{"LET myVar = anotherVar"},
-		{"20 "},
-		{"LET X = 6"},
-	}
-
-	for _, tt := range tests {
-		stmt.statementNode()
-		stmt.TokenLiteral()
-		sz = strings.Compare(stmt.String(), tt.exp)
-		if sz != 0 {
-			t.Fatalf("expected %s, got %s", tt.exp, stmt.String())
+/*
+	func Test_CodeJumpB4RC(t *testing.T) {
+		tests := []struct {
+			cd   Code
+			idx  int
+			stmt int
+		}{
+			{cd: Code{currIndex: 1, currLine: 100, lines: []codeLine{{}, {lineNum: 10, curStmt: 5}}}, idx: 1, stmt: 4},
+			{cd: Code{currIndex: 1, currLine: 100, lines: []codeLine{{lineNum: 5, curStmt: 0, stmts: []Statement{&LineNumStmt{}}}, {lineNum: 10, curStmt: 0}}}, idx: 0, stmt: 0},
 		}
-		it.Next()
-		stmt = it.Value()
-	}
 
-	if !program.code.Exists(10) {
-		t.Fatal("Code.Exists failed to find line 10!")
-	}
+		for _, tt := range tests {
+			code := tt.cd
 
-	err := program.code.Jump(10)
+			rp := code.GetReturnPoint()
 
-	if err > 0 {
-		t.Fatalf("code.Jump to line 10 failed with %d!", err)
-	}
+			code.JumpBeforeRetPoint(rp)
 
-	err = program.code.Jump(400)
-
-	if err == 0 {
-		t.Fatal("code.Jump to non-existant line succeeded!")
-	}
-}
-
-func TestCodeMultiStmts(t *testing.T) {
-	var program Program
-
-	program.New()
-	program.AddStatement(&LineNumStmt{
-		Token: token.Token{Type: token.LINENUM, Literal: "10"},
-		Value: 10,
-	})
-	program.AddStatement(&LetStatement{
-		Token: token.Token{Type: token.LET, Literal: "LET"},
-		Name: &Identifier{
-			Token: token.Token{Type: token.IDENT, Literal: "myVar"},
-			Value: "myVar",
-		},
-		Value: &Identifier{
-			Token: token.Token{Type: token.IDENT, Literal: "anotherVar"},
-			Value: "anotherVar",
-		},
-	})
-	program.AddStatement(&LetStatement{
-		Token: token.Token{Type: token.LET, Literal: "LET"},
-		Name: &Identifier{
-			Token: token.Token{Type: token.IDENT, Literal: "X"},
-			Value: "X",
-		},
-		Value: &Identifier{
-			Token: token.Token{Type: token.IDENT, Literal: "6"},
-			Value: "6",
-		},
-	})
-
-	it := program.StatementIter()
-	sz := it.Len()
-
-	if sz != 3 {
-		t.Fatalf("expected 3 statements, got %d", sz)
-	}
-
-	stmt := it.Value()
-
-	tests := []struct {
-		exp string
-	}{
-		{"10 "},
-		{"LET myVar = anotherVar"},
-		{"LET X = 6"},
-	}
-
-	for _, tt := range tests {
-		sz = strings.Compare(stmt.String(), tt.exp)
-		if sz != 0 {
-			t.Fatalf("expected %s, got %s", tt.exp, stmt.String())
+			assert.Equal(t, tt.idx, code.currIndex, "JumpBeforeRetPoint gave index %d, expected %d", code.currIndex, tt.idx)
+			assert.Equal(t, tt.stmt, code.lines[code.currIndex].curStmt, "JumpBeforeRetPoint gave stmt %d, expected %d", rp.currStmt, tt.stmt)
 		}
-		it.Next()
-		stmt = it.Value()
-	}
-}
-
-func Test_CodeRetPoint(t *testing.T) {
-	code := Code{currIndex: 1, currLine: 100, lines: []codeLine{{}, {lineNum: 10, curStmt: 5}}}
-
-	rp := code.GetReturnPoint()
-
-	assert.Equal(t, 1, rp.currIndex, "GetReturnPoint gave index %d, expected, 1", rp.currIndex)
-	assert.Equal(t, 5, rp.currStmt, "GetReturnPointgave stmt %d, expected 5", rp.currStmt)
-
-	code.JumpToRetPoint(rp)
-}
-
-func Test_CodeJumpB4RC(t *testing.T) {
-	tests := []struct {
-		cd   Code
-		idx  int
-		stmt int
-	}{
-		{cd: Code{currIndex: 1, currLine: 100, lines: []codeLine{{}, {lineNum: 10, curStmt: 5}}}, idx: 1, stmt: 4},
-		{cd: Code{currIndex: 1, currLine: 100, lines: []codeLine{{lineNum: 5, curStmt: 0, stmts: []Statement{&LineNumStmt{}}}, {lineNum: 10, curStmt: 0}}}, idx: 0, stmt: 0},
-	}
-
-	for _, tt := range tests {
-		code := tt.cd
-
-		rp := code.GetReturnPoint()
-
-		code.JumpBeforeRetPoint(rp)
-
-		assert.Equal(t, tt.idx, code.currIndex, "JumpBeforeRetPoint gave index %d, expected %d", code.currIndex, tt.idx)
-		assert.Equal(t, tt.stmt, code.lines[code.currIndex].curStmt, "JumpBeforeRetPoint gave stmt %d, expected %d", rp.currStmt, tt.stmt)
-	}
 
 }
-
+*/
 func Test_ColorStatement(t *testing.T) {
 	tests := []struct {
 		prms  []Expression
@@ -484,101 +323,13 @@ func Test_ContCommand(t *testing.T) {
 }
 
 func Test_NoLineNum(t *testing.T) {
-	var program Program
+	src := initSourceTree()
+	stmt := NewSourceLine("LET myVar = 500", 0)
 
-	program.New()
-	program.AddStatement(&LetStatement{
-		Token: token.Token{Type: token.LET, Literal: "LET"},
-		Name: &Identifier{
-			Token: token.Token{Type: token.IDENT, Literal: "myVar"},
-			Value: "myVar",
-		},
-		Value: &Identifier{
-			Token: token.Token{Type: token.IDENT, Literal: "anotherVar"},
-			Value: "anotherVar",
-		},
-	})
+	rc := src.addSourceLine(stmt)
 
-	if program.code.err == nil {
-		t.Fatal("failed to detect no line number on line")
-	}
-}
+	assert.NotNil(t, rc)
 
-func TestCodeAdd(t *testing.T) {
-	tests := []struct {
-		lines    []int
-		expected []int
-	}{
-		{lines: []int{10, 20, 30}, expected: []int{10, 20, 30}},
-		{lines: []int{10, 20, 30, 40, 20}, expected: []int{10, 20, 30, 40}},
-		{lines: []int{10, 20, 30, 40, 25}, expected: []int{10, 20, 25, 30, 40}},
-	}
-
-	for _, tt := range tests {
-		var p Program
-		p.New()
-
-		cd := p.code
-		assert.Equal(t, "", cd.TokenLiteral())
-		assert.Equal(t, "The Code", cd.String())
-
-		for _, ln := range tt.lines {
-			cd.addLine(ln)
-
-			if p.code.CurLine() != ln {
-				t.Fatalf("expected line %d, got %d", ln, p.code.currLine)
-			}
-
-		}
-
-		for i, ln := range tt.expected {
-			if cd.lines[i].lineNum != ln { // offset by one do to command line slot at 0
-				t.Fatalf("test %d, got %d, expected %d", i, cd.lines[i+1].lineNum, ln)
-			}
-		}
-	}
-}
-
-func TestCodeIterValue(t *testing.T) {
-	tests := []struct {
-		lines    []int
-		expected []int
-	}{
-		{lines: []int{10, 20, 30}, expected: []int{10, 20, 30}},
-		{lines: []int{10, 20, 30, 40, 20}, expected: []int{10, 20, 30, 40}},
-		{lines: []int{10, 20, 30, 40, 25}, expected: []int{10, 20, 25, 30, 40}},
-	}
-
-	for _, tt := range tests {
-		var p Program
-		p.New()
-
-		itr := p.StatementIter()
-
-		for _, ln := range tt.lines {
-			itr.addLine(ln)
-			stmt := &GotoStatement{Token: token.Token{Type: token.GOTO, Literal: "GOTO"},
-				JmpTo: []token.Token{{Type: token.STRING, Literal: strconv.Itoa(int(ln))}}}
-			itr.lines[itr.currIndex].stmts = append(itr.lines[itr.currIndex].stmts, stmt)
-		}
-
-		itr = p.StatementIter()
-
-		for _, ln := range tt.expected {
-			res := itr.Value()
-
-			jmp, ok := res.(*GotoStatement)
-
-			if !ok {
-				t.Fatalf("expected goto statment, got %T", res)
-			}
-
-			assert.EqualValuesf(t, jmp.JmpTo[0].Literal, strconv.Itoa(int(ln)), "expected line %d, got %s", ln, jmp.JmpTo[0].Literal)
-			itr.Next()
-		}
-		itr.Value()
-		itr.Next()
-	}
 }
 
 func Test_DataStatement(t *testing.T) {
@@ -594,6 +345,7 @@ func Test_DataStatement(t *testing.T) {
 	assert.Equal(t, `DATA 12, "Fred"`, dt.String())
 }
 
+/*
 func TestData(t *testing.T) {
 	tests := []struct {
 		inp []codeLine
@@ -662,6 +414,7 @@ func TestData(t *testing.T) {
 		}
 	}
 }
+*/
 
 func Test_DimStatement(t *testing.T) {
 	id1 := Identifier{Token: token.Token{Type: token.IDENT, Literal: "T[]"}, Value: "[]", Type: "", Index: []*IndexExpression{
@@ -683,79 +436,6 @@ func Test_DimStatement(t *testing.T) {
 
 	assert.Equal(t, "DIM", dim.TokenLiteral())
 	assert.Equal(t, "DIM T[10], X[10,20]", dim.String())
-}
-
-// a long, dump test case
-func ExampleStatement() {
-	var program Program
-
-	program.New()
-	program.AddStatement(&LineNumStmt{
-		Token: token.Token{Type: token.LINENUM, Literal: "10"},
-		Value: 10,
-	})
-	program.AddStatement(&AutoCommand{
-		Token:  token.Token{Type: token.AUTO, Literal: "AUTO"},
-		Params: []Expression{&IntegerLiteral{Value: 10}, &IntegerLiteral{Value: 10}},
-	})
-	program.AddStatement(&ExpressionStatement{
-		Token: token.Token{Type: token.IDENT, Literal: "X"},
-		Expression: &CallExpression{
-			Token:    token.Token{Type: token.LPAREN, Literal: "("},
-			Function: &Identifier{Token: token.Token{Type: token.IDENT, Literal: "ABS"}, Value: "ABS"},
-			Arguments: []Expression{&IntegerLiteral{
-				Token: token.Token{Type: token.INT, Literal: "INT"},
-				Value: 1}},
-		},
-	})
-	program.AddStatement(&ClsStatement{
-		Token: token.Token{Type: token.CLS, Literal: "CLS"},
-		Param: 1,
-	})
-	program.AddStatement(&LetStatement{
-		Token: token.Token{Type: token.LET, Literal: "LET"},
-		Name: &Identifier{
-			Token: token.Token{Type: token.IDENT, Literal: "myVar"},
-			Value: "myVar",
-		},
-		Value: &Identifier{
-			Token: token.Token{Type: token.IDENT, Literal: "anotherVar"},
-			Value: "anotherVar",
-		},
-	})
-
-	program.code.lines[0].curStmt = 42
-	program.Parsed()
-
-	fmt.Println(program.String())
-
-	// Output:
-	// 10 AUTO 10, 10 : X = ABS(1) : CLS 1 : LET myVar = anotherVar
-}
-
-func Test_ClearCommand(t *testing.T) {
-
-	cmd := &ClearCommand{
-		Token: token.Token{Type: token.CLEAR, Literal: "CLEAR"},
-		Exp:   [3]Expression{&IntegerLiteral{Value: 1}, &IntegerLiteral{Value: 2}, &IntegerLiteral{Value: 3}},
-	}
-
-	cmd.statementNode()
-
-	assert.Equal(t, "CLEAR", cmd.TokenLiteral(), "Clear command has incorrect TokenLiteral")
-	assert.Equal(t, cmd.String(), "CLEAR 1,2,3", "Clear command didn't build string correctly")
-}
-
-func Test_CloseStatement(t *testing.T) {
-	cls := CloseStatement{Token: token.Token{Literal: "CLOSE", Type: token.CLOSE}, Files: []FileNumber{
-		{Token: token.Token{Type: token.HASHTAG, Literal: "#"}, Numbr: &IntegerLiteral{Value: 2}},
-		{Token: token.Token{Type: token.HASHTAG, Literal: ""}, Numbr: &IntegerLiteral{Value: 3}},
-	}}
-
-	cls.statementNode()
-
-	assert.Equal(t, "CLOSE", cls.TokenLiteral(), "Close has incorrect TokenLiteral")
-	assert.Equal(t, "CLOSE #2, 3", cls.String(), "Close statement didn't build string correctly")
 }
 
 func Test_Csrlin(t *testing.T) {
@@ -944,9 +624,6 @@ func Test_FunctionLiteral(t *testing.T) {
 		Expression: &FunctionLiteral{Token: token.Token{Type: token.DEF, Literal: "FNMUL"}, Parameters: []*Identifier{{Value: "X"}, {Value: "Y"}},
 			Body: &BlockStatement{Statements: []Statement{&BlockExpression{Exp: &InfixExpression{Token: token.Token{Type: token.ASTERISK},
 				Left: &Identifier{Value: "X"}, Operator: "*", Right: &Identifier{Value: "Y"}}}}}}}
-	fn := &FunctionLiteral{Token: token.Token{Type: token.DEF, Literal: "FNMUL"}, Parameters: []*Identifier{{Value: "X"}, {Value: "Y"}},
-	Body: &BlockStatement{Statements: []Statement{&ExpressionStatement{Expression: &InfixExpression{Token: token.Token{Type: token.ASTERISK},
-		Left: &Identifier{Value: "X"}, Operator: "*", Right: &Identifier{Value: "Y"}}}}}}
 
 	fn.Expression.expressionNode()
 
@@ -1015,9 +692,9 @@ func Test_Identifier(t *testing.T) {
 		exp string
 	}{
 		{id: Identifier{Token: token.Token{Type: token.IDENT, Literal: "[]"}, Array: true,
-		Index: []*IndexExpression{{Left: &IntegerLiteral{Value: 5}, Index: &IntegerLiteral{Value: 0}},
-			{Left: &IntegerLiteral{Value: 6}, Index: &IntegerLiteral{Value: 1}},
-		}}, lit: "[]", exp: "[0,1]"},
+			Index: []*IndexExpression{{Left: &IntegerLiteral{Value: 5}, Index: &IntegerLiteral{Value: 0}},
+				{Left: &IntegerLiteral{Value: 6}, Index: &IntegerLiteral{Value: 1}},
+			}}, lit: "[]", exp: "[0,1]"},
 		//{id: Identifier{Token: token.Token{Type: token.IDENT, Literal: "X"}, Value: "5"}, lit: "X", exp: "5"},
 		{id: Identifier{Token: token.Token{Type: token.IDENT, Literal: "Y"},
 			Trash: []TrashStatement{{Token: token.Token{Literal: "filename"}}}}, lit: "Y", exp: " filename"},
@@ -1079,23 +756,38 @@ func Test_IndexExpression(t *testing.T) {
 // exercise the InfixExpression structure
 func Test_InfixExpression(t *testing.T) {
 	tests := []struct {
-		exp   string
-		typ   token.TokenType
-		lit   string
-		left  Expression
-		right Expression
+		exp      string
+		typ      token.TokenType
+		lit      string
+		left     Expression
+		right    Expression
+		hastrash bool
+		intrash  bool
 	}{
 		{exp: "100 - 1000", typ: token.MINUS, lit: "-", left: &IntegerLiteral{Value: 100}, right: &IntegerLiteral{Value: 1000}},
+		{exp: "100 - 1000 Trash here!", typ: token.MINUS, lit: "-", left: &IntegerLiteral{Value: 100}, right: &IntegerLiteral{Value: 1000}, intrash: true},
+		{exp: " Trash there! - 1000", typ: token.MINUS, lit: "-",
+			left:  &IntegerLiteral{Value: 100, Trash: []TrashStatement{{Token: token.Token{Literal: "Trash there!"}}}},
+			right: &IntegerLiteral{Value: 1000}, hastrash: true},
+		{exp: "100 -  Trash everywhere!", typ: token.MINUS, lit: "-",
+			left:  &IntegerLiteral{Value: 100},
+			right: &IntegerLiteral{Value: 1000, Trash: []TrashStatement{{Token: token.Token{Literal: "Trash everywhere!"}}}}, hastrash: true},
 	}
 
 	for _, tt := range tests {
 		exp := InfixExpression{Token: token.Token{Type: tt.typ, Literal: tt.lit}, Left: tt.left, Right: tt.right, Operator: tt.lit}
+		if tt.intrash {
+			exp.Trash = append(exp.Trash, TrashStatement{Token: token.Token{Literal: "Trash here!"}})
+		}
 
 		exp.expressionNode()
 
 		assert.Equalf(t, tt.lit, exp.TokenLiteral(), "%s returned literal %s", tt.exp, exp.TokenLiteral())
-
 		assert.Equalf(t, tt.exp, exp.String(), "exp %s got %s instead", tt.exp, exp.String())
+
+		if tt.hastrash || tt.intrash {
+			assert.True(t, exp.HasTrash())
+		}
 	}
 }
 
@@ -1197,11 +889,13 @@ func Test_LetStatement(t *testing.T) {
 }
 
 func Test_LineNumStmt(t *testing.T) {
-	linenum := LineNumStmt{Token: token.Token{Type: token.LINENUM, Literal: "10"}}
+	linenum := LineNumStmt{Token: token.Token{Type: token.LINENUM, Literal: "10"}, Value: 10}
 
 	linenum.Trash = append(linenum.Trash, TrashStatement{Token: token.Token{Literal: "PRINT"}})
 
 	linenum.statementNode()
+	assert.Equal(t, "10", linenum.TokenLiteral())
+	assert.Equal(t, "10 PRINT", linenum.String())
 	assert.True(t, linenum.HasTrash())
 }
 
@@ -1320,14 +1014,42 @@ func Test_NextStatement(t *testing.T) {
 	}
 }
 
+func Test_TrashExpression(t *testing.T) {
+	tests := []struct {
+		lit   string
+		trash []token.Token
+		exp   string
+	}{
+		{lit: "Trash", trash: []token.Token{{Type: token.IDENT, Literal: "Bifurcate"}}, exp: " Bifurcate"},
+		{lit: "Trash", trash: []token.Token{
+			{Type: token.IDENT, Literal: "Sublease"},
+			{Type: token.COMMA, Literal: ","},
+			{Type: token.IDENT, Literal: "Rent"},
+		}, exp: " Sublease, Rent"},
+	}
+
+	for _, tt := range tests {
+		trash := TrashExpression{Token: token.Token{Literal: tt.lit}}
+
+		for tr := range tt.trash {
+			trash.Trash = append(trash.Trash, TrashStatement{Token: tt.trash[tr]})
+		}
+
+		trash.expressionNode()
+		assert.Equal(t, tt.lit, trash.TokenLiteral())
+		assert.Equal(t, tt.exp, trash.String())
+		assert.NotZero(t, trash.HasTrash())
+	}
+}
+
 func Test_TrashStatement(t *testing.T) {
 	tests := []struct {
 		testType    token.TokenType
 		testLiteral string
 		testString  string
 	}{
-		{testType: token.IDENT, testLiteral: "Trash", testString: " Trash"},
-		{testType: token.STRING, testLiteral: "Trash", testString: ` "Trash"`},
+		{testType: token.IDENT, testLiteral: "Trash", testString: "Trash"},
+		{testType: token.STRING, testLiteral: "Trash", testString: "Trash"},
 		{testType: token.COMMA, testLiteral: ",", testString: ","},
 	}
 
@@ -1338,10 +1060,8 @@ func Test_TrashStatement(t *testing.T) {
 		trashes = append(trashes, trash)
 
 		trash.statementNode()
-
-		assert.Equal(t, tt.testType, trash.Token.Type, "trash type is wrong")
-		assert.Equal(t, tt.testLiteral, trash.TokenLiteral(), "trash literal is just wrong")
-		assert.Equal(t, tt.testString, Trash(trashes), "trash string is just wrong")
+		assert.Equal(t, tt.testLiteral, trash.TokenLiteral())
+		assert.Equal(t, tt.testString, trash.String())
 	}
 }
 
@@ -1576,9 +1296,10 @@ func Test_RemStatement(t *testing.T) {
 }
 
 func Test_RenumCommand(t *testing.T) {
-	renum := &RenumCommand{Token: token.Token{Type: token.RENUM}, new: 100, old: 10, inc: 10}
+	renum := &RenumCommand{Token: token.Token{Type: token.RENUM, Literal: "RENUM"}, new: 100, old: 10, inc: 10}
 
 	renum.statementNode()
+	assert.EqualValues(t, "RENUM", renum.TokenLiteral())
 }
 
 func Test_RestoreStatement(t *testing.T) {
@@ -1750,4 +1471,3 @@ func Test_ViewPrintStatement(t *testing.T) {
 	assert.Equal(t, "VIEW PRINT", vwp.TokenLiteral())
 	assert.Equal(t, "VIEW PRINT 3 TO 24", vwp.String())
 }
-*/

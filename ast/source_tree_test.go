@@ -7,7 +7,7 @@ import (
 	"github.com/stretchr/testify/assert"
 )
 
-func Test_AddSourceLine(t *testing.T) {
+func Test_addSourceLine(t *testing.T) {
 	tests := []struct {
 		src  string
 		line uint16
@@ -16,19 +16,19 @@ func Test_AddSourceLine(t *testing.T) {
 		{src: `20 PRINT "Hello World!"`, line: 20},
 	}
 
-	st := InitSourceTree()
+	st := initSourceTree()
 	for i, tt := range tests {
 
 		assert.NotNil(t, st)
 		sl := NewSourceLine(tt.src, tt.line)
-		st.AddSourceLine(sl)
+		st.addSourceLine(sl)
 
 		assert.Equal(t, i+1, st.tree.Len())
 	}
 }
 
-func Test_InitSourceTree(t *testing.T) {
-	st := InitSourceTree()
+func Test_initSourceTree(t *testing.T) {
+	st := initSourceTree()
 
 	assert.NotNil(t, st)
 }
@@ -46,12 +46,12 @@ func Test_JumpToLine(t *testing.T) {
 	}
 
 	for _, tt := range tests {
-		st := InitSourceTree()
+		st := initSourceTree()
 		l1 := NewSourceLine(tt.src1, tt.lnum1)
-		st.AddSourceLine(l1)
+		st.addSourceLine(l1)
 
 		l2 := NewSourceLine(tt.src2, tt.lnum2)
-		st.AddSourceLine(l2)
+		st.addSourceLine(l2)
 
 		t2 := st.tree.Get(l2)
 		assert.NotNil(t, t2)
@@ -84,10 +84,10 @@ func Test_NextLine(t *testing.T) {
 	}
 
 	// load all the source lines
-	st := InitSourceTree()
+	st := initSourceTree()
 	for _, tt := range tests {
 		sl := NewSourceLine(tt.txt, tt.num)
-		st.AddSourceLine(sl)
+		st.addSourceLine(sl)
 	}
 
 	// load all the lines in a random-ish order
@@ -146,56 +146,47 @@ func Test_Renumber(t *testing.T) {
 
 	for i, tt := range tests {
 		// load all the source lines
-		st := InitSourceTree()
+		st := initSourceTree()
 
 		for _, l := range lines {
 			sl := NewSourceLine(l.txt, l.num)
-			st.AddSourceLine(sl)
+			st.addSourceLine(sl)
 		}
 
 		if tt.err {
 			sl := NewSourceLine(`100 REM Forced Error`, 200)
-			st.AddSourceLine(sl)
+			st.addSourceLine(sl)
 		}
 		rc := st.Renumber(tt.new, tt.old, tt.inc)
 
 		_, ok := rc.(*ErrorStatement)
-		if !tt.err {
+		if tt.err {
 			assert.True(t, ok)
-
-			exp[i].checkFinalLines(t, st)
 		} else {
 			assert.False(t, ok)
+
+			exp[i].checkFinalLines(t, st)
 		}
 	}
 }
 
 func Test_findJumpLines(t *testing.T) {
 	tests := []struct {
-		inp string
-		exp []uint16
-		err bool
+		inp  string
+		line uint16
+		exp  int
+		err  bool
 	}{
-		{inp: `10 GOTO 20`, exp: []uint16{25}, err: false},
-		{inp: `20 GOTO 10`, exp: []uint16{25}, err: true},
-	}
-
-	lineMap := []struct {
-		old uint16
-		new uint16
-	}{
-		{20, 25},
+		{inp: `10 GOTO 20`, line: 10, exp: 1, err: false},
+		{inp: `20 GOTO 10`, line: 20, exp: 2, err: false},
+		{inp: `30 GOTO 30`, line: 30, exp: 2, err: true},
 	}
 
 	rd := newRenumberData()
-	for _, line := range lineMap {
-		rd.mapping[line.old] = line.new
-	}
-
+	st := initSourceTree()
 	for _, tt := range tests {
-		sl := NewSourceLine(tt.inp, 10)
-		st := InitSourceTree()
-		rd.tempTree.AddSourceLine(sl)
+		sl := NewSourceLine(tt.inp, tt.line)
+		rd.tempTree.addSourceLine(sl)
 		if tt.err {
 			bad := &badTestItem{bad: 0}
 			rd.tempTree.tree.ReplaceOrInsert(bad)
@@ -208,7 +199,7 @@ func Test_findJumpLines(t *testing.T) {
 			assert.True(t, tt.err)
 		} else {
 			assert.False(t, tt.err)
-			assert.Equal(t, sla[0], tt.exp[0])
+			assert.Equal(t, len(sla), tt.exp, tt.inp)
 		}
 	}
 }

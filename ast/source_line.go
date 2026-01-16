@@ -42,12 +42,8 @@ func NewSourceLine(src string, lNumber uint16) *SourceLine {
 	return &SourceLine{source: src, lineNum: lNumber, itr: 0}
 }
 
+// AddStatement grows the list of statements on a source line
 func (src *SourceLine) AddStatement(stmt Statement) {
-	src.statements = append(src.statements, stmt)
-}
-
-// AppendStatement grows the list of statements on a source line
-func (src *SourceLine) AppendStatement(stmt Statement) {
 	src.statements = append(src.statements, stmt)
 }
 
