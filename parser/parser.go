@@ -1,3 +1,9 @@
+// Parser takes the Basic source code and builds an AST that represents
+// the program.  In this version, the source code is stored in a BTree
+// and individual lines are not parsed until they are about to execute.
+//
+// Yes, this has a minor impact on execution time.  I just wanted to
+// see if I could make it work.  ;-}
 package parser
 
 import (
@@ -51,7 +57,7 @@ type Parser struct {
 
 	curToken  token.Token
 	peekToken token.Token
-	curLine   int // current line number being parsed
+	curLine   uint16 // current line number being parsed
 	env       *object.Environment
 
 	prefixParseFns map[token.TokenType]prefixParseFn
@@ -153,39 +159,42 @@ func (p *Parser) ParseProgram(env *object.Environment) {
 			p.nextToken()
 		}
 	}
-
-	env.Parsed()
 }
 
 // ParseInput checks the input line to determine if it is a command
 // or a line of source code being added/changed in the current file.
-func ParseInput(inp string, env *object.Environment) *object.SourceLine {
+//
+// If it is a command, it is parsed and the command line is returned
+// to the CLI to be evaluated.
+//
+// If it is a numbered line of source code, create a SourcLine object
+// and insert it into the AST.
+// Source lines are only parsed when they come up for execution.
+func ParseInput(inp string, env *object.Environment) *ast.CmdLine {
 	l := lexer.New(inp)
 	p := New(l)
 
 	// if the input line entered does not have a line number,
 	// parse the whole thing for immediate execution.
 	if !p.peekTokenIs(token.LINENUM) {
-		sl := object.NewSourceLine(inp, 0)
-		p.ParseSourceLine(sl)
-
-		return sl
+		cl := ast.NewCmdLine(inp)
+		p.ParseCmdLine(cl)
+		return cl
 	}
 
-	// if the input line entered starts with a line number
-	// we add it to the current program
+	// We know the line starts with a number from above.
+	// convert it to a uint16 and then add the source line to the AST
 
 	p.nextToken()
-	value, _ := strconv.Atoi(p.curToken.Literal)
+	value, _ := strconv.ParseUint(p.curToken.Literal, 10, 16)
 	v2 := uint16(value)
-	sl := object.NewSourceLine(inp, v2)
-	env.Source.AddSourceLine(sl) // line will be parsed when it is time to execute it
+	env.AddSourceLine(inp, v2) // line will be parsed when it is time to execute it
 
-	return sl
+	return nil
 }
 
 // Called when a line of code is about to execute
-func FinishParseSourceLine(sl *object.SourceLine) {
+func FinishParseSourceLine(sl *ast.SourceLine) {
 	// check to see if he has already been parsed
 	if sl.LineLength() > 0 {
 		return
@@ -196,13 +205,25 @@ func FinishParseSourceLine(sl *object.SourceLine) {
 	p.ParseSourceLine(sl)
 }
 
-// parse all the statements on the line
-// and place the AST nodes into the source line
-func (p *Parser) ParseSourceLine(sl *object.SourceLine) {
+// parse all the statements on the command line
+// and place the AST nodes into the command line AST
+func (p *Parser) ParseCmdLine(cl *ast.CmdLine) {
 	for !p.curTokenIs(token.EOF) {
 		stmt := p.parseStatement()
 		if stmt != nil {
-			sl.AppendStatement(stmt)
+			cl.AddStatement(stmt)
+		}
+		p.nextToken()
+	}
+}
+
+// parse all the statements on the line
+// and place the AST nodes into the source line
+func (p *Parser) ParseSourceLine(sl *ast.SourceLine) {
+	for !p.curTokenIs(token.EOF) {
+		stmt := p.parseStatement()
+		if stmt != nil {
+			sl.AddStatement(stmt)
 		}
 		p.nextToken()
 	}
@@ -239,6 +260,8 @@ func (p *Parser) parseStatement() ast.Statement {
 		return p.parseAutoCommand()
 	case token.BEEP:
 		return p.parseBeepStatement()
+	case token.CALL:
+		return p.parseCallStatement()
 	case token.CHAIN:
 		return p.parseChainStatement()
 	case token.CHDIR:
@@ -1010,15 +1033,16 @@ func (p *Parser) parseLineNumber() *ast.LineNumStmt {
 	stmt := &ast.LineNumStmt{Token: p.curToken}
 	stmt.Token.Literal = p.curToken.Literal
 
-	tv, err := strconv.Atoi(p.curToken.Literal)
+	tv, err := strconv.ParseUint(p.curToken.Literal, 10, 16)
+	ln := uint16(tv)
 
 	if err != nil {
 		p.parseTrash(&stmt.Trash)
 		return stmt
 	}
 
-	stmt.Value = tv
-	p.curLine = tv
+	stmt.Value = ln
+	p.curLine = ln
 
 	// little detour here, if I see linenum*EOL AND auto is on
 	// user has decided *not* to overwrite an existing line
@@ -2059,10 +2083,25 @@ func (p *Parser) parseCallArguments() []ast.Expression {
 	return args
 }
 
+// The CALL statement is used to call assembly or machine language routines
+// It is not supported at this time, I gather the CALL keyword and the
+// rest is trash
+func (p *Parser) parseCallStatement() ast.Statement {
+	stmt := &ast.CallStatement{Token: p.curToken}
+	p.nextToken()
+	if !p.chkEndOfStatement() && !p.atEndOfStatement() {
+		p.parseTrash(&stmt.Trash)
+	}
+	return stmt
+}
+
+// IndexExpressions start with the '[' character
 func (p *Parser) parseIndexExpression(left ast.Expression) ast.Expression {
 	return p.innerParseIndexExpression(left)
 }
 
+// innerParseIndexExpression is called from parseIndexExpression above,
+// and from parseCheckForArrayIndex(),
 func (p *Parser) innerParseIndexExpression(left ast.Expression) *ast.IndexExpression {
 	exp := &ast.IndexExpression{Token: p.curToken, Left: left}
 	p.nextToken()

@@ -26,7 +26,7 @@ import (
 
 // Eval evaluates the current node in the AST.  It generally returns nil, but
 // it can return an error object or a halt object.
-func Eval(node ast.Node, sl *object.SourceLine, env *object.Environment) object.Object {
+func Eval(node ast.Node, sl *ast.SourceLine, env *object.Environment) object.Object {
 
 	trash := checkForTrash(node, env)
 	if trash != nil {
@@ -36,7 +36,7 @@ func Eval(node ast.Node, sl *object.SourceLine, env *object.Environment) object.
 	// node parsed correctly, evaluate it
 	switch node := node.(type) {
 	// Statements
-	case *ast.Program:
+	case *ast.Code:
 		return evalStatements(sl, env)
 
 	case *ast.AutoCommand:
@@ -280,7 +280,7 @@ func Eval(node ast.Node, sl *object.SourceLine, env *object.Environment) object.
 
 // evaluate the parameters to the auto command and determine the starting
 // line number.  Once it is ready, save it into the environment for operating
-func evalAutoCommand(cmd *ast.AutoCommand, sl *object.SourceLine, env *object.Environment) object.Object {
+func evalAutoCommand(cmd *ast.AutoCommand, sl *ast.SourceLine, env *object.Environment) object.Object {
 	// if I have too many params, that's an error
 	if len(cmd.Params) > 2 {
 		return object.StdError(env, berrors.Syntax)
@@ -300,7 +300,7 @@ func evalAutoCommand(cmd *ast.AutoCommand, sl *object.SourceLine, env *object.En
 }
 
 // evaluate and use params to auto command
-func evalAutoCommandParams(cmd *ast.AutoCommand, sl *object.SourceLine, env *object.Environment) object.Object {
+func evalAutoCommandParams(cmd *ast.AutoCommand, sl *ast.SourceLine, env *object.Environment) object.Object {
 	auto := ast.AutoCommand{}
 
 	// if no starting value, assume default
@@ -330,7 +330,7 @@ func evalAutoCommandParams(cmd *ast.AutoCommand, sl *object.SourceLine, env *obj
 }
 
 // evaluate the first parameter of the Auto Command
-func evalAutoCommandParam1(auto, cmd *ast.AutoCommand, sl *object.SourceLine, env *object.Environment) object.Object {
+func evalAutoCommandParam1(auto, cmd *ast.AutoCommand, sl *ast.SourceLine, env *object.Environment) object.Object {
 	// if the first param is '.', then we use current line number
 
 	cl, ok := cmd.Params[0].(*ast.Identifier)
@@ -361,7 +361,7 @@ func evalAutoCommandParam1(auto, cmd *ast.AutoCommand, sl *object.SourceLine, en
 }
 
 // evaluate the second parameter of the Auto Command
-func evalAutoCommandParam2(auto, cmd *ast.AutoCommand, sl *object.SourceLine, env *object.Environment) object.Object {
+func evalAutoCommandParam2(auto, cmd *ast.AutoCommand, sl *ast.SourceLine, env *object.Environment) object.Object {
 	// eval the second parameter
 	val := evalExpressionNode(cmd.Params[1], sl, env)
 
@@ -386,12 +386,12 @@ func evalBeepStatement(env *object.Environment) {
 }
 
 // evaluate the user defined expression
-func evalBlockExpression(Exp *ast.BlockExpression, sl *object.SourceLine, env *object.Environment) object.Object {
+func evalBlockExpression(Exp *ast.BlockExpression, sl *ast.SourceLine, env *object.Environment) object.Object {
 	return Eval(Exp.Exp, sl, env)
 }
 
 // evals a user defined function, need to rename this
-func evalBlockStatement(block *ast.BlockStatement, sl *object.SourceLine, env *object.Environment) object.Object {
+func evalBlockStatement(block *ast.BlockStatement, sl *ast.SourceLine, env *object.Environment) object.Object {
 	var result object.Object
 
 	for _, statement := range block.Statements {
@@ -410,7 +410,7 @@ func evalBlockStatement(block *ast.BlockStatement, sl *object.SourceLine, env *o
 
 // execute a built in function
 // ToDo Dead sl?
-/*func evalBuiltinExpression(builtin *ast.BuiltinExpression, sl *object.SourceLine, env *object.Environment) object.Object {
+/*func evalBuiltinExpression(builtin *ast.BuiltinExpression, sl *ast.SourceLine, env *object.Environment) object.Object {
 
 	// if I can't find the function, it isn't really built in
 	blt, ok := builtins.Builtins[builtin.TokenLiteral()]
@@ -427,7 +427,7 @@ func evalBlockStatement(block *ast.BlockStatement, sl *object.SourceLine, env *o
 }*/
 
 // tries to load a new program and start it's execution.
-func evalChainStatement(chain *ast.ChainStatement, sl *object.SourceLine, env *object.Environment) object.Object {
+func evalChainStatement(chain *ast.ChainStatement, sl *ast.SourceLine, env *object.Environment) object.Object {
 	// eval the path to get a string
 	res := Eval(chain.Path, sl, env)
 
@@ -453,7 +453,7 @@ func evalChainLoad(file string, env *object.Environment) object.Object {
 
 // parse the file into an executable AST
 func evalChainParse(rdr *bufio.Reader, env *object.Environment) object.Object {
-	env.Source = object.InitSourceTree()
+
 	env.ClearVars()
 	fileserv.ParseFile(rdr, env)
 	env.ConstData().Restore() // start at the first DATA statement
@@ -485,7 +485,7 @@ func evalChainExecute(env *object.Environment) object.Object {
 }
 
 // executing a directory change
-func evalChDirStatement(chdir *ast.ChDirStatement, sl *object.SourceLine, env *object.Environment) object.Object {
+func evalChDirStatement(chdir *ast.ChDirStatement, sl *ast.SourceLine, env *object.Environment) object.Object {
 	// should be one, and only one, parameter
 	if len(chdir.Path) != 1 {
 		return object.StdError(env, berrors.Syntax)
@@ -514,7 +514,7 @@ func evalClearCommand(env *object.Environment) {
 }
 
 // close one or more files
-func evalCloseStatement(close *ast.CloseStatement, sl *object.SourceLine, env *object.Environment) object.Object {
+func evalCloseStatement(close *ast.CloseStatement, sl *ast.SourceLine, env *object.Environment) object.Object {
 	for _, fnum := range close.Files {
 		rc := evalExpressionNode(fnum.Numbr, sl, env)
 		switch val := rc.(type) {
@@ -532,7 +532,7 @@ func evalCloseStatement(close *ast.CloseStatement, sl *object.SourceLine, env *o
 }
 
 // change screen foreground/background color
-func evalColorStatement(color *ast.ColorStatement, sl *object.SourceLine, env *object.Environment) object.Object {
+func evalColorStatement(color *ast.ColorStatement, sl *ast.SourceLine, env *object.Environment) object.Object {
 	// get the current screen mode
 	scr := evalColorMode(env)
 
@@ -565,7 +565,7 @@ func evalColorMode(env *object.Environment) *ast.ScreenStatement {
 
 // for screen mode 0, the three parameters are foreground, background, border
 // ToDo: actually support border color if I ever see it used
-func evalColorScreen0(color *ast.ColorStatement, sl *object.SourceLine, env *object.Environment) object.Object {
+func evalColorScreen0(color *ast.ColorStatement, sl *ast.SourceLine, env *object.Environment) object.Object {
 	// reset to normal video mode
 	// TODO preserve foreground color
 	env.Terminal().Print(object.SGRReset)
@@ -652,8 +652,8 @@ func evalContCommand(env *object.Environment) object.Object {
 		return object.StdError(env, berrors.CantContinue)
 	}
 
-	// recover the object.SourceLine object
-	cd, ok := np.(*object.SourceLine)
+	// recover the ast.SourceLine object
+	cd, ok := np.(*ast.SourceLine)
 
 	if !ok {
 		return object.StdError(env, berrors.CantContinue)
@@ -664,7 +664,7 @@ func evalContCommand(env *object.Environment) object.Object {
 	return evalContStart(cd, env)
 }
 
-func evalContStart(sl *object.SourceLine, env *object.Environment) object.Object {
+func evalContStart(sl *ast.SourceLine, env *object.Environment) object.Object {
 	// see if I should move to the next statement
 	evalContChkInput(sl)
 
@@ -676,7 +676,7 @@ func evalContStart(sl *object.SourceLine, env *object.Environment) object.Object
 
 // skips moving to the next statement if current statement is an Input statement or function
 // Input functions will re-prompt and then accept input
-func evalContChkInput(sl *object.SourceLine) {
+func evalContChkInput(sl *ast.SourceLine) {
 	switch sl.Value() {
 	default:
 		sl.NextStatement()
@@ -725,7 +725,7 @@ func evalStatements(sl *ast.SourceLine, env *object.Environment) object.Object {
 				rc = evalStatementsBreakChk(sl, env)
 				halt = true
 			} else {
-				halt = !sl.NextStatement()
+				halt = (sl.NextStatement() == nil)
 			}
 		}
 	}
@@ -739,7 +739,7 @@ func evalStatements(sl *ast.SourceLine, env *object.Environment) object.Object {
 // if I should keep going, where should I start from
 // .
 // This is *really* clunky sl, I should rewrite once I'm smarter
-func evalStatementResult(rc object.Object, sl *object.SourceLine, env *object.Environment) (bool, *object.SourceLine, object.Object) {
+func evalStatementResult(rc object.Object, sl *ast.SourceLine, env *object.Environment) (bool, *ast.SourceLine, object.Object) {
 
 	halt := false
 
@@ -763,7 +763,7 @@ func evalStatementResult(rc object.Object, sl *object.SourceLine, env *object.En
 }
 
 // got an error, is an ON ERROR rule in place
-func evalErrorHandler(sl *object.SourceLine, env *object.Environment) bool {
+func evalErrorHandler(sl *ast.SourceLine, env *object.Environment) bool {
 	// if the setting doesn't exist, he returns a turned off value (zero)
 	oer, _ := env.GetSetting(settings.OnError).(*ast.OnErrorGoto)
 
@@ -773,15 +773,15 @@ func evalErrorHandler(sl *object.SourceLine, env *object.Environment) bool {
 	}
 
 	// save a resume point
-	env.SaveSetting(settings.Restart, &ast.ResumeStatement{ResmPt: sl.GetReturnPoint()})
+	env.SaveSetting(settings.Restart, &ast.ResumeStatement{ResmPt: e.GetReturnPoint()})
 	// jump to the defined error handler
-	sl.Jump(oer.Jump)
+	env.Goto(uint16(oer.Jump))
 
 	return false
 }
 
 // check for a user break - Ctrl-C, returns a halt if it was seen
-func evalStatementsBreakChk(sl *object.SourceLine, env *object.Environment) object.Object {
+func evalStatementsBreakChk(sl *ast.SourceLine, env *object.Environment) object.Object {
 	/*	if !env.Terminal().BreakCheck() {
 		return nil
 	}*/
@@ -798,7 +798,7 @@ func evalStatementsBreakChk(sl *object.SourceLine, env *object.Environment) obje
 }
 
 // read constant values out of data statements into variables
-func evalReadStatement(rd *ast.ReadStatement, sl *object.SourceLine, env *object.Environment) object.Object {
+func evalReadStatement(rd *ast.ReadStatement, sl *ast.SourceLine, env *object.Environment) object.Object {
 	var value object.Object
 
 	// if no vars, that's a problem
@@ -866,7 +866,7 @@ func evalRestoreStatement(rst *ast.RestoreStatement, env *object.Environment) ob
 }
 
 // user wants to resume after an ON ERROR routine
-func evalResumeStatement(res *ast.ResumeStatement, sl *object.SourceLine, env *object.Environment) object.Object {
+func evalResumeStatement(res *ast.ResumeStatement, sl *ast.SourceLine, env *object.Environment) object.Object {
 	if len(res.ResmDir) > 1 {
 		// too many directives, error
 		return evalResumeError(berrors.Syntax, env)
@@ -923,7 +923,7 @@ func evalResumeError(err int, env *object.Environment) object.Object {
 
 // evalReturnStatement gets you back to where the sub-routine was called
 // alternatively, allows you to recover from an event trap <- ToDo
-func evalReturnStatement(sl *object.SourceLine, env *object.Environment) object.Object {
+func evalReturnStatement(sl *ast.SourceLine, env *object.Environment) object.Object {
 	// get sl iterator pointing to where I need to be
 	rt := env.Pop()
 
@@ -938,7 +938,7 @@ func evalReturnStatement(sl *object.SourceLine, env *object.Environment) object.
 
 // actually run the program
 // ToDo: close open data files (as soon as I support data files)
-func evalRunCommand(run *ast.RunCommand, sl *object.SourceLine, env *object.Environment) object.Object {
+func evalRunCommand(run *ast.RunCommand, sl *ast.SourceLine, env *object.Environment) object.Object {
 	if run.LoadFile != nil {
 		// load the source file then run it
 		return evalRunLoad(run, sl, env)
@@ -948,7 +948,7 @@ func evalRunCommand(run *ast.RunCommand, sl *object.SourceLine, env *object.Envi
 }
 
 // pull the file down from the server
-func evalRunLoad(run *ast.RunCommand, sl *object.SourceLine, env *object.Environment) object.Object {
+func evalRunLoad(run *ast.RunCommand, sl *ast.SourceLine, env *object.Environment) object.Object {
 
 	val := Eval(run.LoadFile, nil, sl, env)
 
@@ -974,7 +974,7 @@ func evalRunFetch(file string, run *ast.RunCommand, env *object.Environment) obj
 // Parse the sl in the reader try to run it.
 func evalRunParse(rdr *bufio.Reader, run *ast.RunCommand, env *object.Environment) object.Object {
 	// create a new program sl space
-	env.NewProgram()
+	env.ClearProgramMemory()
 	if !run.KeepOpen {
 		env.CloseAllFiles()
 	}
@@ -986,7 +986,7 @@ func evalRunParse(rdr *bufio.Reader, run *ast.RunCommand, env *object.Environmen
 }
 
 func evalRunCheckStartLineNum(run *ast.RunCommand, env *object.Environment) object.Object {
-	sl := object.NewSourceLine(run.String(), 0)
+	sl := ast.NewSourceLine(run.String(), 0)
 	env.ConstData().Restore()
 
 	if run.StartLine > 0 {
@@ -1001,7 +1001,7 @@ func evalRunCheckStartLineNum(run *ast.RunCommand, env *object.Environment) obje
 }
 
 // actually go execute the sl
-func evalRunStart(sl *object.SourceLine, env *object.Environment) object.Object {
+func evalRunStart(sl *ast.SourceLine, env *object.Environment) object.Object {
 	env.SetRun(true)
 	rc := Eval(&ast.Program{}, sl, env)
 	env.SetRun(false)
@@ -1010,7 +1010,7 @@ func evalRunStart(sl *object.SourceLine, env *object.Environment) object.Object 
 }
 
 // set the screen mode
-func evalScreenStatement(scrn *ast.ScreenStatement, sl *object.SourceLine, env *object.Environment) object.Object {
+func evalScreenStatement(scrn *ast.ScreenStatement, sl *ast.SourceLine, env *object.Environment) object.Object {
 	// get the current settings object
 	cur := evalScreenGetCurrent(env)
 
@@ -1019,14 +1019,15 @@ func evalScreenStatement(scrn *ast.ScreenStatement, sl *object.SourceLine, env *
 		if scrn.Params[i] == nil {
 			continue
 		}
-		id, err := coerceIndex(Eval(scrn.Params[i], nil, sl, env), env)
+		id, err := coerceIndex(Eval(scrn.Params[i], sl, env), env)
 
 		if err != nil {
 			return err
 		}
 
 		// only valid values are 0,1,2,7,8,9,10
-		if (id < 0) || ((id > 2) && (id < 7)) || (id > 10) {
+		_, ok := env.ScrnModes[id]
+		if !ok {
 			return object.StdError(env, berrors.IllegalFuncCallErr)
 		}
 
@@ -1056,11 +1057,11 @@ func evalScreenDefaults() *ast.ScreenStatement {
 }
 
 // halt execution, if running, leave file opens, tell user where we are
-func evalStopStatement(sl *object.SourceLine, env *object.Environment) object.Object {
+func evalStopStatement(sl *ast.SourceLine, env *object.Environment) object.Object {
 	msg := "Break"
 
 	if env.ProgramRunning() {
-		msg = fmt.Sprintf("%s in line %d", msg, sl.CurLine())
+		msg = fmt.Sprintf("%s in line %d", msg, sl.Value())
 	}
 
 	halt := object.HaltSignal{Msg: msg}
@@ -1077,7 +1078,7 @@ func evalTronCommand(env *object.Environment) {
 	env.SetTrace(true)
 }
 
-func evalDimStatement(dim *ast.DimStatement, sl *object.SourceLine, env *object.Environment) {
+func evalDimStatement(dim *ast.DimStatement, sl *ast.SourceLine, env *object.Environment) {
 
 	for i, id := range dim.Vars {
 		typeid, _ := parseVarName(id.Token.Literal)
@@ -1088,7 +1089,7 @@ func evalDimStatement(dim *ast.DimStatement, sl *object.SourceLine, env *object.
 
 }
 
-func allocArray(typeid string, dims []*ast.IndexExpression, sl *object.SourceLine, env *object.Environment) object.Object {
+func allocArray(typeid string, dims []*ast.IndexExpression, sl *ast.SourceLine, env *object.Environment) object.Object {
 	d := Eval(dims[0].Index, nil, sl, env)
 	if isError(d) {
 		return d
@@ -1161,7 +1162,7 @@ func evalEndStatement(env *object.Environment) object.Object {
 }
 
 // ERROR statement, user wants to signal an error has occurred
-func evalErrorStatement(ers *ast.ErrorStatement, sl *object.SourceLine, env *object.Environment) object.Object {
+func evalErrorStatement(ers *ast.ErrorStatement, sl *ast.SourceLine, env *object.Environment) object.Object {
 	rc := evalExpressionNode(ers.ErrNum, sl, env)
 
 	// got to catch any potential errors from evaluating the expression
@@ -1191,7 +1192,7 @@ func evalErrorStatementNumber(errnum int32, env *object.Environment) object.Obje
 
 // FILES instruct the system to list filenames for current directory
 // FILES "path" lists all files in the specified directory
-func evalFilesCommand(files *ast.FilesCommand, sl *object.SourceLine, env *object.Environment) object.Object {
+func evalFilesCommand(files *ast.FilesCommand, sl *ast.SourceLine, env *object.Environment) object.Object {
 	// I should have at most one parameter
 	if len(files.Path) > 1 {
 		return object.StdError(env, berrors.Syntax)
@@ -1266,14 +1267,14 @@ type forStmtParams struct {
 }
 
 // FOR statement begins a for-loop
-func evalForStatement(four *ast.ForStatement, sl *object.SourceLine, env *object.Environment) object.Object {
+func evalForStatement(four *ast.ForStatement, sl *ast.SourceLine, env *object.Environment) object.Object {
 	// check for obvious problems
 	if (four.Init == nil) || (len(four.Final) == 0) {
 		return object.StdError(env, berrors.Syntax)
 	}
 
 	// initialize my counter
-	rc := Eval(four.Init, nil, sl, env)
+	rc := Eval(four.Init, sl, env)
 
 	if rc != nil {
 		return object.StdError(env, berrors.Syntax)
@@ -1282,7 +1283,7 @@ func evalForStatement(four *ast.ForStatement, sl *object.SourceLine, env *object
 	initial := env.Get(four.Init.Name.Value)
 
 	// need to save off the ForStatement and the current sl value
-	blk := object.ForBlock{sl: sl.GetReturnPoint(), Four: four}
+	blk := object.ForBlock{Code: env.GetReturnPoint(), Four: four}
 
 	forStmt := forStmtParams{forBlock: blk, initial: initial}
 
@@ -1292,7 +1293,7 @@ func evalForStatement(four *ast.ForStatement, sl *object.SourceLine, env *object
 // calculate the sign (+/-) of the step
 // need that to ensure initial value doesn't already
 // exceed the desired final value
-func evalForCalcStep(four forStmtParams, sl *object.SourceLine, env *object.Environment) object.Object {
+func evalForCalcStep(four forStmtParams, sl *ast.SourceLine, env *object.Environment) object.Object {
 	// build the default step value of one
 	step := []ast.Expression{&ast.IntegerLiteral{Value: 1}}
 
@@ -1309,7 +1310,7 @@ func evalForCalcStep(four forStmtParams, sl *object.SourceLine, env *object.Envi
 	return evalForTestSkip(four, sl, env)
 }
 
-func evalForTestSkip(four forStmtParams, sl *object.SourceLine, env *object.Environment) object.Object {
+func evalForTestSkip(four forStmtParams, sl *ast.SourceLine, env *object.Environment) object.Object {
 	_, start := evalNextComplete(four.stepSign, four.initial, four.forBlock.Four, sl, env)
 
 	if start {
@@ -1329,7 +1330,7 @@ func evalForStartLoop(fb object.ForBlock, env *object.Environment) object.Object
 
 // evalForSkipLoop initial condition exceeds final
 // just skip over statements until you find a NEXT
-func evalForSkipLoop(four *ast.ForStatement, sl *object.SourceLine, env *object.Environment) object.Object {
+func evalForSkipLoop(four *ast.ForStatement, sl *ast.SourceLine, env *object.Environment) object.Object {
 	// iterate over the sl until we find the next NEXT
 	for more := sl.Next(); more; {
 		switch typ := sl.Value().(type) {
@@ -1353,7 +1354,7 @@ func evalForSkipLoop(four *ast.ForStatement, sl *object.SourceLine, env *object.
 }
 
 // push current sl position then jump to new position
-func evalGosubStatement(gosub *ast.GosubStatement, sl *object.SourceLine, env *object.Environment) object.Object {
+func evalGosubStatement(gosub *ast.GosubStatement, sl *ast.SourceLine, env *object.Environment) object.Object {
 	// should only have one destination
 	if len(gosub.Gosub) != 1 || gosub.Gosub[0].Type != token.INT {
 		return object.StdError(env, berrors.Syntax)
@@ -1383,7 +1384,7 @@ func evalGosubStatement(gosub *ast.GosubStatement, sl *object.SourceLine, env *o
 
 // Transfer control to the indicated line number
 // If we aren't currently running, get started!
-func evalGotoStatement(node *ast.GotoStatement, sl *object.SourceLine, env *object.Environment) object.Object {
+func evalGotoStatement(node *ast.GotoStatement, sl *ast.SourceLine, env *object.Environment) object.Object {
 	// should only have one destination
 	if len(node.JmpTo) != 1 || node.JmpTo[0].Type != token.INT {
 		return object.StdError(env, berrors.Syntax)
@@ -1399,7 +1400,7 @@ func evalGotoStatement(node *ast.GotoStatement, sl *object.SourceLine, env *obje
 }
 
 // we are running, jump to new line
-func evalGotoJump(line int, sl *object.SourceLine, env *object.Environment) object.Object {
+func evalGotoJump(line int, sl *ast.SourceLine, env *object.Environment) object.Object {
 
 	err := sl.Jump(line)
 
@@ -1463,7 +1464,7 @@ func evalInKeyExpression(env *object.Environment) object.Object {
 }
 
 // defines, enables, disables and lists keyboard macros
-func evalKeyStatement(node *ast.KeyStatement, sl *object.SourceLine, env *object.Environment) object.Object {
+func evalKeyStatement(node *ast.KeyStatement, sl *ast.SourceLine, env *object.Environment) object.Object {
 	// get the current key definitions
 	keyDefs := evalKeyStatementGetKeyDefs(env)
 
@@ -1505,7 +1506,7 @@ func evalKeyStatementGetKeyDefs(env *object.Environment) *ast.KeySettings {
 }
 
 // user wants to redefine macro for F1 to F10
-func evalKeyStatementFKeyParams(keys *ast.KeySettings, node *ast.KeyStatement, sl *object.SourceLine, env *object.Environment) object.Object {
+func evalKeyStatementFKeyParams(keys *ast.KeySettings, node *ast.KeyStatement, sl *ast.SourceLine, env *object.Environment) object.Object {
 	// do the error checking first
 	// one and only one parameter for this form
 	if len(node.Data) != 1 {
@@ -1532,7 +1533,7 @@ func evalKeyStatementFKeyParams(keys *ast.KeySettings, node *ast.KeyStatement, s
 }
 
 // define a string to insert for a function key
-func evalKeyStatementMapFKey(key int16, keys *ast.KeySettings, val ast.Expression, sl *object.SourceLine, env *object.Environment) object.Object {
+func evalKeyStatementMapFKey(key int16, keys *ast.KeySettings, val ast.Expression, sl *ast.SourceLine, env *object.Environment) object.Object {
 	s := evalExpressionNodeTyped(val, sl, env, &object.String{})
 
 	if s == nil {
@@ -1545,7 +1546,7 @@ func evalKeyStatementMapFKey(key int16, keys *ast.KeySettings, val ast.Expressio
 	return nil
 }
 
-func evalKeyStatmentCustomKey(val ast.Expression, sl *object.SourceLine, env *object.Environment) object.Object {
+func evalKeyStatmentCustomKey(val ast.Expression, sl *ast.SourceLine, env *object.Environment) object.Object {
 	b := evalExpressionNodeTyped(val, sl, env, &object.String{})
 
 	if b == nil {
@@ -1621,7 +1622,7 @@ func evalListStatement(stmt *ast.ListStatement, env *object.Environment) {
 }
 
 // evalLoadCommand - load and parse the target program
-func evalLoadCommand(stmt *ast.LoadCommand, sl *object.SourceLine, env *object.Environment) object.Object {
+func evalLoadCommand(stmt *ast.LoadCommand, sl *ast.SourceLine, env *object.Environment) object.Object {
 	// get the target file name
 	res := Eval(stmt.Path, nil, sl, env)
 	str, ok := res.(*object.String)
@@ -1648,7 +1649,7 @@ func evalLoadGetFile(file string, stmt *ast.LoadCommand, env *object.Environment
 // parse in the loaded file
 func evalLoadParse(rdr *bufio.Reader, stmt *ast.LoadCommand, env *object.Environment) object.Object {
 	// flush the old program
-	env.NewProgram()
+	env.ClearProgramMemory()
 	fileserv.ParseFile(rdr, env)
 
 	if !stmt.KeepOpen {
@@ -1661,7 +1662,7 @@ func evalLoadParse(rdr *bufio.Reader, stmt *ast.LoadCommand, env *object.Environ
 }
 
 // eval where to LOCATE the cursor
-func evalLocateStatement(stmt *ast.LocateStatement, sl *object.SourceLine, env *object.Environment) object.Object {
+func evalLocateStatement(stmt *ast.LocateStatement, sl *ast.SourceLine, env *object.Environment) object.Object {
 	// check if I have too many parameters or not enough
 	if (len(stmt.Parms) > 5) || (len(stmt.Parms) == 0) {
 		return object.StdError(env, berrors.Syntax)
@@ -1672,7 +1673,7 @@ func evalLocateStatement(stmt *ast.LocateStatement, sl *object.SourceLine, env *
 }
 
 // figure out if/how the cursor needs to move
-func evalLocateCursorMove(stmt *ast.LocateStatement, sl *object.SourceLine, env *object.Environment) object.Object {
+func evalLocateCursorMove(stmt *ast.LocateStatement, sl *ast.SourceLine, env *object.Environment) object.Object {
 	row, col := env.Terminal().GetCursor()
 
 	// if no params for new position, I'm done here
@@ -1735,7 +1736,7 @@ func evalOctalConstant(stmt *ast.OctalConstant, env *object.Environment) object.
 
 // evalNewCommand clears the sl space and all the variables
 func evalNewCommand(env *object.Environment) object.Object {
-	env.NewProgram()
+	env.ClearProgramMemory()
 	env.ClearVars()
 
 	// send a halt signal if we are executing a program
@@ -1745,7 +1746,7 @@ func evalNewCommand(env *object.Environment) object.Object {
 }
 
 // evalNextStatement decides if I should do it all over again
-func evalNextStatement(stmt *ast.NextStatement, sl *object.SourceLine, env *object.Environment) object.Object {
+func evalNextStatement(stmt *ast.NextStatement, sl *ast.SourceLine, env *object.Environment) object.Object {
 	// make sure we are actually in a FOR loop
 	if len(env.ForLoops) == 0 {
 		return object.StdError(env, berrors.NextWithoutFor)
@@ -1765,7 +1766,7 @@ func evalNextStatement(stmt *ast.NextStatement, sl *object.SourceLine, env *obje
 }
 
 // time to bump the counter by the step value
-func evalNextStep(four object.ForBlock, sl *object.SourceLine, env *object.Environment) object.Object {
+func evalNextStep(four object.ForBlock, sl *ast.SourceLine, env *object.Environment) object.Object {
 	// get the counter variable
 	cntr := env.Get(four.Four.Init.Name.Token.Literal)
 
@@ -1819,7 +1820,7 @@ func evalNextStepSign(stepper object.Object, env *object.Environment) (bool, boo
 }
 
 // return possible err and keep going true/false
-func evalNextComplete(pos bool, cntr object.Object, four *ast.ForStatement, sl *object.SourceLine, env *object.Environment) (object.Object, bool) {
+func evalNextComplete(pos bool, cntr object.Object, four *ast.ForStatement, sl *ast.SourceLine, env *object.Environment) (object.Object, bool) {
 	// compute the final value
 	fnl := evalExpressions(four.Final, sl, env)
 
@@ -1844,7 +1845,7 @@ func evalNextComplete(pos bool, cntr object.Object, four *ast.ForStatement, sl *
 }
 
 // make sure the line is valid and then save it in the settings
-func evalOnErrorStatement(node *ast.OnErrorGoto, sl *object.SourceLine, env *object.Environment) object.Object {
+func evalOnErrorStatement(node *ast.OnErrorGoto, sl *ast.SourceLine, env *object.Environment) object.Object {
 	// make sure the statment is complete
 	if (!strings.EqualFold(node.Token.Literal, "ON ERROR GOTO")) || (node.Jump < 0) {
 		return object.StdError(env, berrors.Syntax)
@@ -1867,7 +1868,7 @@ func evalOnErrorStatement(node *ast.OnErrorGoto, sl *object.SourceLine, env *obj
 }
 
 // evalOnGoStatement, can be ON x GOTO or ON x GOSUB
-func evalOnGoStatement(node *ast.OnGoStatement, sl *object.SourceLine, env *object.Environment) object.Object {
+func evalOnGoStatement(node *ast.OnGoStatement, sl *ast.SourceLine, env *object.Environment) object.Object {
 	// make sure I have an expression
 	if node.Exp == nil {
 		return object.StdError(env, berrors.Syntax)
@@ -1894,7 +1895,7 @@ func evalOnGoStatement(node *ast.OnGoStatement, sl *object.SourceLine, env *obje
 }
 
 // figure out where to jump, how to jump then jump
-func evalOnGoJump(ind int32, node *ast.OnGoStatement, sl *object.SourceLine, env *object.Environment) object.Object {
+func evalOnGoJump(ind int32, node *ast.OnGoStatement, sl *ast.SourceLine, env *object.Environment) object.Object {
 	// if index to small/large, just continue
 	if (ind <= 0) || (int(ind) > len(node.Jumps)) {
 		return nil
@@ -2030,7 +2031,7 @@ func evalPaletteDefault(scrmode int) *ast.PaletteStatement {
 }
 
 // Process parameters of a Print statement
-func evalPrintStatement(node *ast.PrintStatement, sl *object.SourceLine, env *object.Environment) object.Object {
+func evalPrintStatement(node *ast.PrintStatement, sl *ast.SourceLine, env *object.Environment) object.Object {
 	var rc object.Object
 
 	// go print items, if there are any
@@ -2055,7 +2056,7 @@ func evalPrintStatement(node *ast.PrintStatement, sl *object.SourceLine, env *ob
 }
 
 // Print the individual items
-func evalPrintItems(node *ast.PrintStatement, sl *object.SourceLine, env *object.Environment) object.Object {
+func evalPrintItems(node *ast.PrintStatement, sl *ast.SourceLine, env *object.Environment) object.Object {
 	var obj object.Object
 	fmt := ""
 
@@ -2158,7 +2159,7 @@ func evalPrintItemValue(item object.Object, env *object.Environment) {
 }
 
 // get the value of the identifier
-func evalPrintIdentifier(item *ast.Identifier, sl *object.SourceLine, env *object.Environment) object.Object {
+func evalPrintIdentifier(item *ast.Identifier, sl *ast.SourceLine, env *object.Environment) object.Object {
 	id := evalIdentifier(item, sl, env)
 	return id
 }
@@ -2365,7 +2366,7 @@ func evalFloatDblInfixExpression(operator string, leftVal, rightVal float64, env
 	}
 }
 
-func evalIfStatement(ie *ast.IfStatement, sl *object.SourceLine, env *object.Environment) object.Object {
+func evalIfStatement(ie *ast.IfStatement, sl *ast.SourceLine, env *object.Environment) object.Object {
 	condition := Eval(ie.Condition, sl, env)
 	if isError(condition) {
 		return condition
@@ -2382,7 +2383,7 @@ func evalIfStatement(ie *ast.IfStatement, sl *object.SourceLine, env *object.Env
 }
 
 // take an array of expressions and evaluate them
-func evalExpressions(exps []ast.Expression, sl *object.SourceLine, env *object.Environment) []object.Object {
+func evalExpressions(exps []ast.Expression, sl *ast.SourceLine, env *object.Environment) []object.Object {
 	var result []object.Object
 	for _, e := range exps {
 		evaluated := evalExpressionNode(e, sl, env)
@@ -2395,7 +2396,7 @@ func evalExpressions(exps []ast.Expression, sl *object.SourceLine, env *object.E
 }
 
 // eval an expression looking for a specific type, return nil if wrong type
-func evalExpressionNodeTyped(node ast.Node, sl *object.SourceLine, env *object.Environment, want object.Object) object.Object {
+func evalExpressionNodeTyped(node ast.Node, sl *ast.SourceLine, env *object.Environment, want object.Object) object.Object {
 	val := evalExpressionNode(node, sl, env)
 
 	// see if the type is right
@@ -2407,7 +2408,7 @@ func evalExpressionNodeTyped(node ast.Node, sl *object.SourceLine, env *object.E
 }
 
 // evaluate a single node value
-func evalExpressionNode(node ast.Node, sl *object.SourceLine, env *object.Environment) object.Object {
+func evalExpressionNode(node ast.Node, sl *ast.SourceLine, env *object.Environment) object.Object {
 	if node == nil {
 		return object.StdError(env, berrors.IllegalFuncCallErr)
 	}
@@ -2422,7 +2423,7 @@ func evalExpressionNode(node ast.Node, sl *object.SourceLine, env *object.Enviro
 }
 
 // apply either a user defined function or a builtin function
-func applyFunction(fn object.Object, args []object.Object, sl *object.SourceLine, env *object.Environment) object.Object {
+func applyFunction(fn object.Object, args []object.Object, sl *ast.SourceLine, env *object.Environment) object.Object {
 
 	switch fn := fn.(type) {
 	case *object.Function:
@@ -2449,7 +2450,7 @@ func extendFunctionEnv(fn *object.Function, args []object.Object) *object.Enviro
 }
 
 // check if the Identifier has a known value saved in the environment
-func evalIdentifier(node *ast.Identifier, sl *object.SourceLine, env *object.Environment) object.Object {
+func evalIdentifier(node *ast.Identifier, sl *ast.SourceLine, env *object.Environment) object.Object {
 
 	val := env.Get(node.Value)
 
@@ -2473,7 +2474,7 @@ func evalIdentifier(node *ast.Identifier, sl *object.SourceLine, env *object.Env
 // if newVal is not nil, push newVal into correct element and get out
 
 // original caller will save the whole mess back to the environment
-func evalIndexArray(index []*ast.IndexExpression, array, newVal object.Object, sl *object.SourceLine, env *object.Environment) object.Object {
+func evalIndexArray(index []*ast.IndexExpression, array, newVal object.Object, sl *ast.SourceLine, env *object.Environment) object.Object {
 
 	// get the first index value
 	indObj := Eval(index[0].Index, sl, env)
@@ -2513,7 +2514,7 @@ func evalIndexArray(index []*ast.IndexExpression, array, newVal object.Object, s
 }
 
 // saveVariable into the environment
-func saveVariable(sl *object.SourceLine, env *object.Environment, name *ast.Identifier, val object.Object) object.Object {
+func saveVariable(sl *ast.SourceLine, env *object.Environment, name *ast.Identifier, val object.Object) object.Object {
 	sname := name.Value
 
 	typeid, isarray := parseVarName(sname)
@@ -2549,18 +2550,18 @@ func saveVariable(sl *object.SourceLine, env *object.Environment, name *ast.Iden
 // coerce a idx value into an int16 array index if you can
 // since originally writing this I have co-opted it for use in other
 // situations, ie: parameters to basic statements
-func coerceIndex(idx object.Object, env *object.Environment) (int16, object.Object) {
+func coerceIndex(idx object.Object, env *object.Environment) (uint16, object.Object) {
 	switch fx := idx.(type) {
 	case *object.Integer:
-		return fx.Value, nil
+		return uint16(fx.Value), nil
 	case *object.Fixed:
 		fx2 := fx.Value.Round(0)
 		ti := fx2.IntPart()
-		return int16(ti), nil
+		return uint16(ti), nil
 	case *object.FloatSgl:
-		return int16(math.Round(float64(fx.Value))), nil
+		return uint16(math.Round(float64(fx.Value))), nil
 	case *object.FloatDbl:
-		return int16(math.Round(fx.Value)), nil
+		return uint16(math.Round(fx.Value)), nil
 	}
 
 	return 0, object.StdError(env, berrors.Syntax)
@@ -2685,7 +2686,7 @@ func bool2int16(b bool) int16 {
 }
 
 // evalUsingExpression and return string object with format string
-func evalUsingExpression(stmt *ast.UsingExpression, sl *object.SourceLine, env *object.Environment) object.Object {
+func evalUsingExpression(stmt *ast.UsingExpression, sl *ast.SourceLine, env *object.Environment) object.Object {
 	frm := evalExpressionNode(stmt.Format, sl, env)
 	inp := ""
 	switch obj := frm.(type) {
@@ -2701,7 +2702,7 @@ func evalUsingExpression(stmt *ast.UsingExpression, sl *object.SourceLine, env *
 	return &object.String{Value: fmt}
 }
 
-func evalViewPrintStatement(stmt *ast.ViewPrintStatement, sl *object.SourceLine, env *object.Environment) object.Object {
+func evalViewPrintStatement(stmt *ast.ViewPrintStatement, sl *ast.SourceLine, env *object.Environment) object.Object {
 	// if no params, that means I should clear whatever portal is set
 	if len(stmt.Parms) == 0 {
 		// reset to full
@@ -2730,7 +2731,7 @@ func evalViewPrintOff(env *object.Environment) {
 }
 
 // going to turn ON a view range, get the start and end values
-func evalViewPrintOn(stmt *ast.ViewPrintStatement, sl *object.SourceLine, env *object.Environment) object.Object {
+func evalViewPrintOn(stmt *ast.ViewPrintStatement, sl *ast.SourceLine, env *object.Environment) object.Object {
 
 	// now eval the two expressions
 	// low value first

@@ -28,6 +28,13 @@ func (cl *CmdLine) AddStatement(s Statement) {
 	cl.stmts = append(cl.stmts, s)
 }
 
+// Called when a command line has been fully executed, or failed with an error
+func (cl *CmdLine) CmdComplete() {
+	cl.stmts = nil
+	cl.input = ""
+	cl.err = nil
+}
+
 // Return the statement count for the command input
 func (cl *CmdLine) LineLength() uint16 {
 	return uint16(len(cl.stmts))

@@ -1,3 +1,4 @@
+// Holds the current state of variables, subroutines, for loops, etc...
 package object
 
 import (
@@ -91,6 +92,17 @@ const (
 	SgrBgrBrtWhite   = CSI + "107m"
 )
 
+// Basic Screen Modes
+const (
+	TextOnly     = uint16(0)
+	MedRes       = uint16(1) // EGA & CGA
+	HighRes      = uint16(2) // EGA & CGA
+	MedResEGA    = uint16(7)
+	HighResEGA   = uint16(8)
+	EnhancedEGA  = uint16(9)
+	EnhancedEGA2 = uint16(10)
+)
+
 // size of arrays that haven't been DIM'd
 const DefaultDimSize = 10
 
@@ -129,25 +141,26 @@ type HttpClient interface {
 type Environment struct {
 	ForLoops  []ForBlock                    // any For Loops that are active
 	store     map[string]*variable          // variables and other program data
-	Source    *SourceTree                   // wraps a btree to hold the source lines
+	source    *ast.Code                     // holds the source code, the current line and the command line
+	cmdLine   *ast.CmdLine                  // manages the command line
 	common    map[string]*variable          // variables that live through a CHAIN
 	files     map[int16]gwtypes.AnOpenFile  // currently open files by file number
 	dir       map[string]gwtypes.AnOpenFile // locally cached files by full name
 	settings  map[string]ast.Node           // environment settings
 	readOnly  map[string]bool               // my read only environment variables
 	outer     *Environment                  // possibly a temporary containing environment, or nil
-	program   *Program                      // current Abstract Syntax Tree
 	term      Console                       // the terminal console object
 	fgrColors map[int]string                // foreground terminal colors
 	bgrColors map[int]string                // background terminal colors
+	ScrnModes map[uint16]struct{}           // screen display modes
 
 	// The following hold "state" information controlled by commands/statements
-	client  HttpClient // for making server requests
-	rnd     *rand.Rand // random number generator
-	rndVal  float32    // most recent generated value
-	run     bool       // program is currently executing, if false, a command is executing
-	stack   RetPoint   // return addresses for GOSUB/RETURN
-	traceOn bool       // is tracing turned on
+	client  HttpClient     // for making server requests
+	rnd     *rand.Rand     // random number generator
+	rndVal  float32        // most recent generated value
+	run     bool           // program is currently executing, if false, a command is executing
+	stack   []ast.RetPoint // return address for GOSUB/RETURN
+	traceOn bool           // is tracing turned on
 }
 
 type variable struct {
@@ -170,22 +183,20 @@ func newEnvironment() *Environment {
 	e.ClearCommon()
 	e.CloseAllFiles()
 	e.ClearVars()
-	if e.program == nil {
-		e.program = &Program{}
-	}
-	e.program.New()
 	e.setDefaults()
 	e.setReadOnlys()
 	e.setColorMap()
+	e.source = ast.InitCode()
+	e.cmdLine = nil
 
 	// initialize my random number generator
 	e.rnd = rand.New(rand.NewSource(37))
 	e.rndVal = e.rnd.Float32()
 	dc := http.DefaultClient
 	e.SetClient(dc)
+	e.ScrnModes = make(map[uint16]struct{})
+	e.setScreenModes()
 
-	// using the default tree layout until I can get some performance data
-	e.Source = InitSourceTree()
 	return e
 }
 
@@ -275,6 +286,17 @@ func (e *Environment) setColorMap() {
 	e.fgrColors[14] = SgrBgrBrtYellow
 	e.fgrColors[15] = SgrBgrBrtWhite
 
+}
+
+// build the map of valid screen modes
+func (e *Environment) setScreenModes() {
+	e.ScrnModes[TextOnly] = struct{}{}
+	e.ScrnModes[MedRes] = struct{}{}
+	e.ScrnModes[HighRes] = struct{}{}
+	e.ScrnModes[MedResEGA] = struct{}{}
+	e.ScrnModes[HighResEGA] = struct{}{}
+	e.ScrnModes[EnhancedEGA] = struct{}{}
+	e.ScrnModes[EnhancedEGA2] = struct{}{}
 }
 
 // preserve a variable across a chain
@@ -443,13 +465,13 @@ func (e *Environment) SaveSetting(name string, obj ast.Node) {
 }
 
 // Push an address, returns stack size
-func (e *Environment) Push(ret RetPoint) int {
+func (e *Environment) Push(ret ast.RetPoint) int {
 	e.stack = append(e.stack, ret)
 	return len(e.stack)
 }
 
 // Pop a return address, nil means stack is empty
-func (e *Environment) Pop() *RetPoint {
+func (e *Environment) Pop() *ast.RetPoint {
 	l := len(e.stack)
 	if l == 0 {
 		return nil
@@ -525,34 +547,71 @@ func (e *Environment) Randomize(seed int64) {
 
 // Functions below talk to my program object
 
+func (e *Environment) ClearProgramMemory() {
+	e.source = ast.InitCode()
+}
+
+// Add a source line to the tree
+func (e *Environment) AddSourceLine(src string, lnum uint16) {
+	e.source.AddSrcLine(src, lnum)
+
+	delete(e.settings, settings.Restart) // clear any restart point since the ast is changing
+}
+
 // Add a statement to the ast
-func (e *Environment) AddStatement(stmt Statement) {
+func (e *Environment) AddStatement(stmt ast.Statement) {
 	delete(e.settings, settings.Restart) // clear any restart point since the ast is changing
 
-	e.program.AddStatement(stmt)
+	//
 }
 
-func (e *Environment) StatementIter() *Code {
-	return e.program.StatementIter()
+// Returns the next statement to be executed
+// If no statements remain, returns nil
+func (e *Environment) NextStatement() ast.Statement {
+	s := e.source.NextStmt()
+	return s
 }
 
-// Signals that the program has been parsed
-func (e *Environment) Parsed() {
-	e.program.Parsed()
+// calls down to the source code to get the return point for GOSUB and ON GOSUB
+func (e *Environment) GetReturnPoint() ast.RetPoint {
+	return e.source.GetReturnPoint()
 }
 
-func (e *Environment) AddCmdStmt(stmt Statement) {
-	e.program.AddCmdStmt(stmt)
+// return the total number of lines in the program
+func (e *Environment) GetSrcLineCount() uint16 {
+	return e.source.GetSrcLineCount()
 }
 
-func (e *Environment) CmdLineIter() *Code {
-	return e.program.CmdLineIter()
+// Tells my Code object to move to the requested line
+// Returns an Error object if the line does not exist,
+// nil otherwise.
+func (e *Environment) Goto(l uint16) Object {
+	fl := e.source.Goto(l)
+
+	if fl == 0 {
+		// requested code line was not found return an error
+		return StdError(e, berrors.UnDefinedLineNumber)
+	}
+
+	return nil
 }
+
+/*
+func (e *Environment) AddCmdStmt(stmt ast.Statement) {
+	//e.Source.curLine.Add
+	//e.program.AddCmdStmt(stmt)
+}
+
+func (e *Environment) CmdLineIter() *ast.Code {
+	return e.source.CmdLineIter()
+}
+*/
 
 func (e *Environment) CmdComplete() {
-	e.program.CmdComplete()
+	e.cmdLine.CmdComplete()
 }
 
+/*
 // Command line has been parsed
 func (e *Environment) CmdParsed() {
 	e.program.CmdParsed()
@@ -562,12 +621,7 @@ func (e *Environment) CmdParsed() {
 func (e *Environment) ConstData() *ast.ConstData {
 	return e.program.ConstData()
 }
-
-// NewProgram makes sure the program has been initialized
-func (e *Environment) NewProgram() {
-	e.program = &ast.Program{}
-	e.program.New() // make sure to initialize the new program
-}
+*/
 
 // check if a variable name is defined read only
 func (e *Environment) ReadOnly(v string) bool {

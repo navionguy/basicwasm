@@ -5,7 +5,6 @@ import (
 	"time"
 
 	"github.com/navionguy/basicwasm/ast"
-	"github.com/navionguy/basicwasm/evaluator"
 	"github.com/navionguy/basicwasm/object"
 	"github.com/navionguy/basicwasm/parser"
 	"github.com/navionguy/basicwasm/settings"
@@ -88,45 +87,19 @@ func evalKeyCodes(keys []byte, env *object.Environment) {
 // should be either a command or a line of source code
 func execCommand(input string, env *object.Environment) {
 
-	// parse the keyboard input
-	sl := parser.ParseInput(input, env)
+	cl := parser.ParseInput(input, env)
 
-	if sl.Value() > 0 {
-		// it is a line of code for the program
-		env.Source.AddSourceLine(sl)
+	if cl == nil {
+		// it was a line of source for the AST
 		return
 	}
 
-	// finish parsing the command
-	parser.FinishParseSourceLine(sl)
-
-	// if command line is empty, nothing to execute
-	if sl.LineLength() == 0 {
-		// if auto is turned on, prompt next line number
-		if env.GetSetting(settings.Auto) != nil {
-			prompt(env)
-		}
-		return
-	}
-
-	parsedCmdExecute(sl, env)
-
+	// it was a command line, go execute it
+	parsedCmdExecute(cl, env)
 }
 
 // once you have a parsed command line, go execute it
-func parsedCmdExecute(sl *object.SourceLine, env *object.Environment) {
-
-	node := sl.NextStatement()
-	for node != nil {
-		obj := evaluator.Eval(node, sl, env)
-
-		if handleExitMsgs(obj, env) {
-			return
-		}
-		node = sl.NextStatement()
-	}
-	env.CmdComplete()
-	prompt(env)
+func parsedCmdExecute(cl *ast.CmdLine, env *object.Environment) {
 }
 
 // some special objects that can come back from command execution
@@ -142,7 +115,7 @@ func handleExitMsgs(rc object.Object, env *object.Environment) bool {
 		return false
 	}
 
-	env.CmdComplete()
+	env.CmdComplete() // signal that we have finished executing the command line
 	prompt(env)
 	return true
 }
