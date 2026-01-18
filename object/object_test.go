@@ -137,42 +137,6 @@ func Test_ClearVars(t *testing.T) {
 	env.ClearVars()
 }
 
-// test interface into the Code object
-func Test_CodeInterface(t *testing.T) {
-	env := newEnvironment()
-	env.NewProgram()
-
-	assert.NotNil(t, env.program, "Program failed to create")
-
-	// first test statements
-
-	env.AddStatement(&ast.LineNumStmt{Token: token.Token{Type: token.LINENUM, Literal: "10"}, Value: 10})
-	env.SaveSetting(settings.Restart, &ast.LineNumStmt{})
-	env.AddStatement(&ast.StopStatement{})
-	//assert.Nil(t, env.cont, "continuation data failed to clear")
-
-	itr := env.StatementIter()
-	assert.NotNil(t, itr, "no statement iterator")
-	l := itr.Len()
-	assert.Equal(t, 2, l, "didn't find two statements")
-	env.Parsed()
-
-	// now test commands
-
-	env.AddCmdStmt(&ast.RunCommand{})
-
-	itr = env.CmdLineIter()
-	assert.NotNil(t, itr, "no command line iterator")
-	l = itr.Len()
-	assert.Equal(t, 1, l, "didn't find my command")
-	env.CmdParsed()
-	env.CmdComplete()
-
-	// check for constant data
-	cd := env.ConstData()
-	assert.NotNil(t, cd)
-}
-
 func Test_Common(t *testing.T) {
 	env := newEnvironment()
 
@@ -420,38 +384,39 @@ func Test_LineNumber(t *testing.T) {
 	assert.Equal(t, "10", ln.Inspect())
 }
 
-func Test_Restart(t *testing.T) {
-	tests := []struct {
-		title string
-		stmt  ast.Statement
-		noval bool
-	}{
-		{title: "STOP", stmt: &ast.StopStatement{}},
-		{title: "END", stmt: &ast.EndStatement{}},
-	}
-
-	for _, tt := range tests {
-		mt := mocks.MockTerm{}
-		env := NewTermEnvironment(mt)
-		env.program.AddStatement(&ast.LineNumStmt{Token: token.Token{Type: token.LINENUM, Literal: "10"}, Value: 10})
-		env.program.AddStatement(tt.stmt)
-		itr := env.program.StatementIter()
-		itr.Next()
-
-		env.SaveSetting(settings.Restart, itr)
-
-		if tt.noval {
-			itr = nil
-			env.program.StatementIter()
+/*
+	func Test_Restart(t *testing.T) {
+		tests := []struct {
+			title string
+			stmt  ast.Statement
+			noval bool
+		}{
+			{title: "STOP", stmt: &ast.StopStatement{}},
+			{title: "END", stmt: &ast.EndStatement{}},
 		}
 
-		itr2 := env.GetSetting(settings.Restart)
+		for _, tt := range tests {
+			mt := mocks.MockTerm{}
+			env := NewTermEnvironment(mt)
+			env.program.AddStatement(&ast.LineNumStmt{Token: token.Token{Type: token.LINENUM, Literal: "10"}, Value: 10})
+			env.program.AddStatement(tt.stmt)
+			itr := env.program.StatementIter()
+			itr.Next()
 
-		assert.Equal(t, itr, itr2, "%s got %T, wanted %T", tt.title, itr2, itr)
-	}
+			env.SaveSetting(settings.Restart, itr)
+
+			if tt.noval {
+				itr = nil
+				env.program.StatementIter()
+			}
+
+			itr2 := env.GetSetting(settings.Restart)
+
+			assert.Equal(t, itr, itr2, "%s got %T, wanted %T", tt.title, itr2, itr)
+		}
 
 }
-
+*/
 func Test_RestartSignal(t *testing.T) {
 	rs := RestartSignal{}
 

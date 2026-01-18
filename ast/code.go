@@ -33,6 +33,13 @@ func (c *Code) GetReturnPoint() RetPoint {
 	return RetPoint{Line: c.currLine.lineNum, Stmt: uint8(c.currLine.itr + 1)}
 }
 
+// GetSrcLineCount returns the number lines in the tree
+func (c *Code) GetSrcLineCount() uint16 {
+	lc := c.srcCode.tree.Len()
+
+	return uint16(lc)
+}
+
 // Goto does a moves to the beginning of the requested line.
 // Returns the line number requested, zero if it was not found.
 func (c *Code) Goto(l uint16) uint16 {

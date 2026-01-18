@@ -6,9 +6,7 @@ import (
 	"fmt"
 	"math"
 
-	"github.com/navionguy/basicwasm/lexer"
 	"github.com/navionguy/basicwasm/object"
-	"github.com/navionguy/basicwasm/parser"
 )
 
 const (
@@ -31,7 +29,7 @@ type basReader interface {
 	ReadBytes(byte) ([]byte, error)
 }
 
-// progRdr holds the read I get bytes from and the text being de-tokenized
+// progRdr holds bytes from the tokenized program being de-tokenized
 // for the current line
 type progRdr struct {
 	src     basReader
@@ -121,10 +119,9 @@ func ParseFile(src *bufio.Reader, env *object.Environment) {
 }*/
 
 // loop to read line header (line number & offset)
-// reads and de-tokens until the end of line
-// then does lexical processing and parsing of the line
-// that causes the AST for the line to be stored into
-// the environment for execution
+// reads and de-tokens until the end of line.
+// Once it has the source line text, it calls
+// the environment object to add the line to the SourceTree.
 func (rdr *progRdr) readProg(env *object.Environment) {
 	for !rdr.eof {
 		rdr.readLineHeader()
@@ -133,9 +130,7 @@ func (rdr *progRdr) readProg(env *object.Environment) {
 		}
 		rdr.readLine()
 
-		l := lexer.New(rdr.lineInp)
-		p := parser.New(l)
-		p.ParseProgram(env)
+		env.AddSourceLine(rdr.lineInp, uint16(rdr.linenum))
 	}
 }
 
@@ -636,7 +631,7 @@ func (rdr *progRdr) ffPage() string {
 
 // A line header is composed of two 16bit numbers
 // the offset to the next line
-// the line number
+// and the line number
 // note that the first offset is a memory address
 // and not really useful for finding the second line
 func (rdr *progRdr) readLineHeader() {

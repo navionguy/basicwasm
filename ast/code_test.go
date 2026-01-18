@@ -68,6 +68,24 @@ func Test_GetReturnPoint(t *testing.T) {
 	assert.EqualValues(t, 2, rp.Stmt)
 }
 
+func Test_GetSrcLineCount(t *testing.T) {
+	tests := []struct {
+		src  string
+		line uint16
+		exp  uint16
+	}{
+		{src: "10 REM A Comment", line: 10, exp: 1},
+		{src: `20 REM "Hello World!"`, line: 20, exp: 2},
+		{src: "30 REM That's everything!", line: 30, exp: 3},
+	}
+	c := InitCode()
+	for _, tt := range tests {
+		c.AddSrcLine(tt.src, tt.line)
+
+		assert.EqualValues(t, tt.exp, c.GetSrcLineCount())
+	}
+}
+
 func Test_CodeJumpToLine(t *testing.T) {
 	c := InitCode()
 	c.AddSrcLine("10 REM A Comment", 10)

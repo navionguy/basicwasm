@@ -68,6 +68,7 @@ const (
 	AUTO    = "AUTO"
 	BEEP    = "BEEP"
 	BUILTIN = "BUILTIN"
+	CALL    = "CALL"
 	CHAIN   = "CHAIN"
 	CHDIR   = "CHDIR"
 	CLEAR   = "CLEAR"
