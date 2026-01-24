@@ -197,7 +197,9 @@ func (call *CallStatement) TokenLiteral() string { return strings.ToUpper(call.T
 func (call *CallStatement) HasTrash() bool       { return true }
 func (call *CallStatement) String() string       { return call.TokenLiteral() + " " + Trash(call.Trash) }
 
-// ChainStatement loads a program file
+// ChainStatement loads a program file and starts executing it.
+// A fully decorated CHAIN statement:
+// CHAIN "C:\MENU\HCAL.BAS", 100, ALL, DELETE 100 - 1000
 type ChainStatement struct {
 	Token  token.Token
 	Path   Expression       // filespec for file to chain in
@@ -216,40 +218,43 @@ func (chn *ChainStatement) TokenLiteral() string { return strings.ToUpper(chn.To
 func (chn *ChainStatement) HasTrash() bool       { return len(chn.Trash) > 0 }
 
 func (chn *ChainStatement) String() string {
-	var out bytes.Buffer
+	var out2 string
 
-	out.WriteString(chn.TokenLiteral())
-
-	if chn.Merge {
-		out.WriteString(" MERGE")
+	if chn.HasTrash() {
+		out2 = Trash(chn.Trash)
 	}
 
-	if chn.Path != nil {
-		out.WriteString(" " + chn.Path.String())
-	}
-
-	if chn.Line != nil {
-		if !chn.Line.HasTrash() {
-			out.WriteString(", ")
-		} else {
-			out.WriteString(",")
-		}
-		out.WriteString(chn.Line.String())
-	}
-
-	if chn.All {
-		out.WriteString(", ALL")
+	if chn.Range != nil {
+		out2 = chn.Range.String() + out2
 	}
 
 	if chn.Delete {
-		out.WriteString(", DELETE")
-		if chn.Range != nil {
-			out.WriteString(" " + chn.Range.String())
-		}
+		out2 = ", DELETE " + out2
 	}
 
-	out.WriteString(Trash(chn.Trash))
-	return out.String()
+	if chn.All {
+		out2 = ", All" + out2
+	} else if len(out2) > 0 {
+		// need to correctly show stuff after the missing ALL
+		out2 = ", " + out2
+	}
+
+	if chn.Line != nil {
+		out2 = ", " + chn.Line.String() + out2
+	} else if len(out2) > 0 {
+		out2 = ", " + out2
+	}
+
+	if chn.Path != nil {
+		out2 = " " + chn.Path.String() + out2
+	}
+
+	if chn.Merge {
+		out2 = " MERGE" + out2
+	}
+
+	out2 = chn.Token.Literal + out2
+	return out2
 }
 
 type ChDirStatement struct {
@@ -1151,9 +1156,9 @@ func Trash(Trashes []TrashStatement) string {
 		case token.COMMA, token.COLON:
 			out.WriteString(Trash.String())
 		case token.STRING:
-			out.WriteString(` "` + Trash.String() + `"`)
+			out.WriteString(`"` + Trash.String() + `"`)
 		default:
-			out.WriteString(` ` + Trash.String())
+			out.WriteString(Trash.String())
 		}
 	}
 

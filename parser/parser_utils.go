@@ -51,6 +51,7 @@ func (p *Parser) parseTrash(Trash *[]ast.TrashStatement) {
 		}
 
 		if p.chkEndOfStatement() {
+			*Trash = append(*Trash, ast.TrashStatement{})
 			return
 		}
 		p.nextToken()

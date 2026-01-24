@@ -53,6 +53,18 @@ func (c *Code) Goto(l uint16) uint16 {
 	return t
 }
 
+// Check if a source line is already in the tree
+// return true if it does
+// Only know use is when auto line number is active for the console.
+// If the line already exists, we append an '*' to the line number
+// to warn the user they are about to overwrite existing code.
+func (c *Code) LineExists(l uint16) bool {
+	if c.Goto(l) == 0 {
+		return false
+	}
+	return true
+}
+
 // LineParsed returns true if it has been parsed
 // false if it has note.
 func (c *Code) LineParsed() bool {

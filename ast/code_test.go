@@ -100,6 +100,16 @@ func Test_CodeJumpToLine(t *testing.T) {
 	assert.Nil(t, c.currLine)
 }
 
+func Test_LineExists(t *testing.T) {
+	c := InitCode()
+	c.AddSrcLine("10 REM A Comment", 10)
+	c.AddSrcLine("20 REM Another Comment", 20)
+
+	assert.False(t, c.LineExists(30))
+	assert.True(t, c.LineExists(20))
+
+}
+
 func Test_LineParsed(t *testing.T) {
 	c := InitCode()
 	c.AddSrcLine("10 REM A Comment", 10)

@@ -482,18 +482,21 @@ func (p *Parser) parseBuiltinExpression() *ast.BuiltinExpression {
 // CHAIN [MERGE] filename[,[line][,[ALL][,DELETE range]]]
 func (p *Parser) parseChainStatement() *ast.ChainStatement {
 	chain := ast.ChainStatement{}
-
-	// make sure there are parameters
-	if p.chkEndOfStatement() {
-		// nope, this is all trash
-		p.parseTrash(&chain.Trash)
-		return &chain
-	}
-
-	//start parsing the chain command
 	chain.Token = p.curToken
 	p.nextToken()
-	p.parseChainMerge(&chain)
+
+	// If there is a merge flag, go handle it
+	if p.curTokenIs(token.MERGE) {
+		p.parseChainMerge(&chain)
+	}
+
+	// If no parameters, that's a problem
+	if p.atEndOfStatement() {
+		p.parseTrash(&chain.Trash)
+	} else {
+		// Since there was no MERGE flag, go parse the rest
+		p.parseChainPath(&chain)
+	}
 
 	return &chain
 }
@@ -505,16 +508,16 @@ func (p *Parser) parseChainMerge(chain *ast.ChainStatement) {
 		p.parseChainPath(chain)
 		return
 	}
+	chain.Merge = true
+	p.nextToken()
 
-	// if peekToken is end of statement, that is an error
+	// if peekToken end of statement, that is an error
 	if p.chkEndOfStatement() {
 		p.parseTrash(&chain.Trash)
 		return
 	}
 
 	// set MERGE, then go get the path
-	chain.Merge = true
-	p.nextToken()
 	p.parseChainPath(chain)
 }
 
@@ -534,9 +537,8 @@ func (p *Parser) parseChainPath(chain *ast.ChainStatement) {
 // If I don't, execution starts at the beginning of the file
 func (p *Parser) parseChainStartLine(chain *ast.ChainStatement) {
 	p.nextToken()
-
 	// if ",," no start line, either ALL or DELETE
-	if p.curTokenIs(token.COMMA) {
+	if p.peekTokenIs(token.COMMA) {
 		p.parseChainAll(chain)
 		return
 	}

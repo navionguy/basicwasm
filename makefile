@@ -13,7 +13,10 @@
 
 ./webmodules/gwbasic.wasm : ./webmodules/src/gwbasic/gwbasic.go \
 			./ast/ast.go \
-			./ast/program.go \
+			./ast/cmd_line.go \
+			./ast/code.go \
+			./ast/source_line.go \
+			./ast/source_tree.go \
 			./berrors/berrors.go \
 			./builtins/builtins.go \
 			./cli/cli.go \
@@ -38,8 +41,8 @@
 #	tinygo build -no-debug -o ./webmodules/gwbasic.wasm -target=wasm ./webmodules/src/gwbasic/gwbasic.go
 	GOOS=js GOARCH=wasm go build -ldflags "-s -w" -o ./webmodules/gwbasic.wasm ./webmodules/src/gwbasic/gwbasic.go
 
-./assets/js/wasm_exec.js : /usr/lib/go/lib/wasm/wasm_exec.js
-	cp /usr/lib/go/lib/wasm/wasm_exec.js ./assets/js/wasm_exec.js
+./assets/js/wasm_exec.js : /usr/share/go-1.22/misc/wasm/wasm_exec.js
+	cp /usr/share/go-1.22/misc/wasm/wasm_exec.js ./assets/wasm
 
 ./assets/css/xterm.css : ./node_modules/@xterm/xterm/css/xterm.css
 	cp ./node_modules/@xterm/xterm/css/xterm.css ./assets/css/xterm.css
