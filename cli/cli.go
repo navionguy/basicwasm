@@ -135,7 +135,9 @@ func prompt(env *object.Environment) {
 	inc := auto.Params[1].(*ast.DblIntegerLiteral).Value
 	fill := " "
 
-	if env.StatementIter().Exists(int(line)) {
+	// If line already exists
+	// Give user a visual warning that he will overwrite it
+	if env.SrcLineExists(uint16(line)) {
 		fill = "*"
 	}
 

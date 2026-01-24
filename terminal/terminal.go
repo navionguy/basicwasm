@@ -1,10 +1,11 @@
+//go:build js && wasm
+
 package terminal
 
 import (
 	"fmt"
 	"strings"
 	"syscall/js"
-
 	"time"
 
 	"github.com/navionguy/basicwasm/keybuffer"
@@ -19,10 +20,10 @@ type Terminal struct {
 
 // New creates a new Terminal object
 func New(t js.Value) *Terminal {
-	env := &Terminal{term: t, kbuff: keybuffer.GetKeyBuffer()}
+	trm := &Terminal{term: t, kbuff: keybuffer.GetKeyBuffer()}
 
 	// t.Call("setOption", "scrollback", 0)
-	return env
+	return trm
 }
 
 // Println prints the string follow by CRLF

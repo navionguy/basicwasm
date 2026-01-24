@@ -565,13 +565,6 @@ func (e *Environment) AddStatement(stmt ast.Statement) {
 	//
 }
 
-// Returns the next statement to be executed
-// If no statements remain, returns nil
-func (e *Environment) NextStatement() ast.Statement {
-	s := e.source.NextStmt()
-	return s
-}
-
 // calls down to the source code to get the return point for GOSUB and ON GOSUB
 func (e *Environment) GetReturnPoint() ast.RetPoint {
 	return e.source.GetReturnPoint()
@@ -594,6 +587,18 @@ func (e *Environment) Goto(l uint16) Object {
 	}
 
 	return nil
+}
+
+// Returns the next statement to be executed
+// If no statements remain, returns nil
+func (e *Environment) NextStatement() ast.Statement {
+	s := e.source.NextStmt()
+	return s
+}
+
+// check to see if a source line already exists
+func (e *Environment) SrcLineExists(line uint16) bool {
+	return e.source.LineExists(line)
 }
 
 /*
