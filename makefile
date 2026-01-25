@@ -3,7 +3,7 @@
         ./fileserv/fileserv.go \
 		./webmodules/gwbasic.wasm \
 		./assets/wasm/gwbasic.wasm \
-		./assets/js/wasm_exec.js \
+		./assets/wasm/wasm_exec.js \
 		./assets/css/xterm.css \
 		./assets/js/xterm.js \
 		./assets/js/xterm.js.map \
@@ -41,8 +41,8 @@
 #	tinygo build -no-debug -o ./webmodules/gwbasic.wasm -target=wasm ./webmodules/src/gwbasic/gwbasic.go
 	GOOS=js GOARCH=wasm go build -ldflags "-s -w" -o ./webmodules/gwbasic.wasm ./webmodules/src/gwbasic/gwbasic.go
 
-./assets/js/wasm_exec.js : /usr/share/go-1.22/misc/wasm/wasm_exec.js
-	cp /usr/share/go-1.22/misc/wasm/wasm_exec.js ./assets/wasm
+./assets/wasm/wasm_exec.js : /usr/share/go/misc/wasm/wasm_exec.js
+	cp /usr/share/go/misc/wasm/wasm_exec.js ./assets/wasm
 
 ./assets/css/xterm.css : ./node_modules/@xterm/xterm/css/xterm.css
 	cp ./node_modules/@xterm/xterm/css/xterm.css ./assets/css/xterm.css
