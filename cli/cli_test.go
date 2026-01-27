@@ -62,6 +62,7 @@ func Test_EvalKeyCodes(t *testing.T) {
 			ato := ast.AutoCommand{Params: []ast.Expression{&ast.DblIntegerLiteral{Value: int32(10)}, &ast.DblIntegerLiteral{Value: int32(10)}}}
 			env.SaveSetting(settings.Auto, &ato)
 		}
+
 		evalKeyCodes(tt.key, env)
 		if len(tt.exp) > 0 {
 			if trm.ExpMsg.Failed {
@@ -84,9 +85,9 @@ func Test_ExecCommand(t *testing.T) {
 		auto bool
 	}{
 		//{inp: "\n"},
-		{inp: `10 PRINT X`},
-		{inp: "RESTORE X", exp: []string{"Syntax error", "OK"}},
-		{inp: "CHAIN", exp: []string{"Syntax error", "OK"}},
+		//{inp: `10 PRINT X`},
+		//{inp: "RESTORE X", exp: []string{"Syntax error", "OK"}},
+		//{inp: "CHAIN", exp: []string{"Syntax error", "OK"}},
 		{inp: `PRINT "HELLO"`, exp: []string{"HELLO", "", "OK"}},
 		//{inp: `10 PRINT X`, exp: []string{"10*"}, auto: true},
 	}

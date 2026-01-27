@@ -293,20 +293,10 @@ func Test_Commands(t *testing.T) {
 		env := object.NewTermEnvironment(mocks.MockTerm{})
 		sl := ParseInput(tt.inp, env)
 
-		if sl.LineLength() != 1 {
-			t.Fatal("program.Cmd does not contain single command")
-		}
-
+		assert.EqualValues(t, 1, sl.LineLength())
 		stmt := sl.NextStatement()
-
-		if stmt.TokenLiteral() != tt.tk {
-			t.Fatalf("Test_Commands(%s) didn't get a %s command", tt.inp, tt.tk)
-		}
-
-		lst := stmt.String()
-		if tt.lst != "" {
-			assert.Equal(t, tt.lst, lst, "Test_Commands(%s) expected %s, got %s", tt.inp, tt.lst, lst)
-		}
+		assert.Equal(t, tt.tk, stmt.TokenLiteral())
+		assert.EqualValues(t, tt.lst, stmt.String())
 	}
 }
 
