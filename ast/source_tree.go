@@ -90,8 +90,9 @@ func (srcTree *SourceTree) NextLine() *SourceLine {
 		return nil
 	}
 
-	// Try to convert the Item to a SourceLine
+	// Convert the Item to a SourceLine
 	nl, _ := got[0].(*SourceLine)
+	nl.itr = 0 // assume the statement array has been parsed out
 
 	// remember which line number I'm on
 	srcTree.curLine = nl.lineNum

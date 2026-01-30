@@ -139,20 +139,21 @@ type HttpClient interface {
 
 // Environment holds my variables and possibly an outer environment
 type Environment struct {
-	ForLoops  []ForBlock                    // any For Loops that are active
-	store     map[string]*variable          // variables and other program data
-	source    *ast.Code                     // holds the source code, the current line and the command line
-	cmdLine   *ast.CmdLine                  // manages the command line
-	common    map[string]*variable          // variables that live through a CHAIN
-	files     map[int16]gwtypes.AnOpenFile  // currently open files by file number
-	dir       map[string]gwtypes.AnOpenFile // locally cached files by full name
-	settings  map[string]ast.Node           // environment settings
-	readOnly  map[string]bool               // my read only environment variables
-	outer     *Environment                  // possibly a temporary containing environment, or nil
-	term      Console                       // the terminal console object
-	fgrColors map[int]string                // foreground terminal colors
-	bgrColors map[int]string                // background terminal colors
-	ScrnModes map[uint16]struct{}           // screen display modes
+	ForLoops   []ForBlock                    // any For Loops that are active
+	store      map[string]*variable          // variables and other program data
+	source     *ast.Code                     // holds the source code, the current line and the command line
+	LineNumber uint16                        // holds the currently executing line number, zero if not running
+	cmdLine    *ast.CmdLine                  // manages the command line
+	common     map[string]*variable          // variables that live through a CHAIN
+	files      map[int16]gwtypes.AnOpenFile  // currently open files by file number
+	dir        map[string]gwtypes.AnOpenFile // locally cached files by full name
+	settings   map[string]ast.Node           // environment settings
+	readOnly   map[string]bool               // my read only environment variables
+	outer      *Environment                  // possibly a temporary containing environment, or nil
+	term       Console                       // the terminal console object
+	fgrColors  map[int]string                // foreground terminal colors
+	bgrColors  map[int]string                // background terminal colors
+	ScrnModes  map[uint16]struct{}           // screen display modes
 
 	// The following hold "state" information controlled by commands/statements
 	client  HttpClient     // for making server requests
@@ -592,8 +593,7 @@ func (e *Environment) Goto(l uint16) Object {
 // Returns the next statement to be executed
 // If no statements remain, returns nil
 func (e *Environment) NextStatement() ast.Statement {
-	s := e.source.NextStmt()
-	return s
+	return e.source.NextStmt()
 }
 
 // check to see if a source line already exists
@@ -616,17 +616,10 @@ func (e *Environment) CmdComplete() {
 	e.cmdLine.CmdComplete()
 }
 
-/*
-// Command line has been parsed
-func (e *Environment) CmdParsed() {
-	e.program.CmdParsed()
-}
-
 // return the programs constant data
 func (e *Environment) ConstData() *ast.ConstData {
-	return e.program.ConstData()
+	return e.ConstData()
 }
-*/
 
 // check if a variable name is defined read only
 func (e *Environment) ReadOnly(v string) bool {

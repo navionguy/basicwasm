@@ -5,6 +5,7 @@ import (
 	"time"
 
 	"github.com/navionguy/basicwasm/ast"
+	"github.com/navionguy/basicwasm/evaluator"
 	"github.com/navionguy/basicwasm/object"
 	"github.com/navionguy/basicwasm/parser"
 	"github.com/navionguy/basicwasm/settings"
@@ -100,6 +101,8 @@ func execCommand(input string, env *object.Environment) {
 
 // once you have a parsed command line, go execute it
 func parsedCmdExecute(cl *ast.CmdLine, env *object.Environment) {
+	n := cl.NextStatement()
+	evaluator.Eval(n, cl, env)
 }
 
 // some special objects that can come back from command execution

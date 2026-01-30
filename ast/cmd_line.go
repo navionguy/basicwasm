@@ -42,10 +42,6 @@ func (cl *CmdLine) LineLength() uint16 {
 
 // Return the next statement and bump the index
 func (cl *CmdLine) NextStatement() Statement {
-	/*if len(cl.stmts) == 0 {
-		return nil
-	}*/
-
 	if cl.itr >= uint16(len(cl.stmts)) {
 		return nil
 	}

@@ -50,3 +50,10 @@ func Test_AddStatement(t *testing.T) {
 		assert.Nil(t, cl.NextStatement())
 	}
 }
+
+func Test_CmdComplete(t *testing.T) {
+	cl := NewCmdLine("RUN")
+	cl.itr = 5
+
+	cl.CmdComplete()
+}

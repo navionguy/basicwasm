@@ -116,14 +116,13 @@ func Test_CallStatement(t *testing.T) {
 	assert.EqualValues(t, "CALL", call.Token.Literal)
 	assert.EqualValues(t, token.CALL, call.Token.Type)
 	assert.True(t, call.HasTrash())
-	assert.EqualValues(t, `CALL  "Literaly anything"`, call.String())
+	assert.EqualValues(t, `CALL "Literaly anything"`, call.String())
 }
 
 func Test_ChainStatement(t *testing.T) {
 	tests := []struct {
-		cmd   ChainStatement
-		exp   string
-		trash []string
+		cmd ChainStatement
+		exp string
 	}{
 		{cmd: ChainStatement{Token: token.Token{Type: token.CHAIN, Literal: "CHAIN"},
 			Path: &StringLiteral{Token: token.Token{Type: token.STRING, Literal: "HIWORLD.BAS"}, Value: "HIWORLD.BAS"}},
@@ -139,12 +138,11 @@ func Test_ChainStatement(t *testing.T) {
 			All:  true, Delete: true, Merge: true,
 			Range: &InfixExpression{Token: token.Token{Type: token.MINUS, Literal: "-"},
 				Left: &IntegerLiteral{Value: 100}, Operator: "-", Right: &IntegerLiteral{Value: 500}}},
-			exp: `CHAIN MERGE "HIWORLD.BAS", ALL, DELETE 100 - 500`},
+			exp: `CHAIN MERGE "HIWORLD.BAS", , ALL, DELETE 100 - 500`},
 		{cmd: ChainStatement{Token: token.Token{Type: token.CHAIN, Literal: "CHAIN"},
 			Path: &StringLiteral{Token: token.Token{Type: token.STRING, Literal: "GOODBYE.BAS"}, Value: "GOODBYE.BAS"},
-			Line: &IntegerLiteral{Value: 200, Trash: []TrashStatement{{token.Token{Type: token.STRING, Literal: "OPEN"}}}}},
-			trash: []string{`"OPEN"`},
-			exp:   `CHAIN "GOODBYE.BAS", "OPEN"`},
+			Line: &IntegerLiteral{Value: 200}, Trash: []TrashStatement{{token.Token{Type: token.STRING, Literal: "OPEN"}}}},
+			exp: `CHAIN "GOODBYE.BAS", 200, "OPEN"`},
 		{cmd: ChainStatement{Token: token.Token{Type: token.CHAIN, Literal: "CHAIN"},
 			Path:   &StringLiteral{Token: token.Token{Type: token.STRING, Literal: "GOODBYE.BAS"}, Value: "GOODBYE.BAS"},
 			Line:   &IntegerLiteral{Value: 200},
@@ -156,7 +154,8 @@ func Test_ChainStatement(t *testing.T) {
 
 	for _, tt := range tests {
 		tt.cmd.statementNode()
-		assert.Equal(t, tt.cmd.Token.Literal, tt.cmd.TokenLiteral(), "(%s) Token.Literal and TokenLiteral() mismatch", tt.exp, tt.cmd.Token.Literal, tt.cmd.TokenLiteral())
+		assert.Equal(t, tt.cmd.Token.Literal, tt.cmd.TokenLiteral(), "(%s) Token.Literal and TokenLiteral() mismatch",
+			tt.exp, tt.cmd.Token.Literal, tt.cmd.TokenLiteral())
 		assert.Equal(t, tt.exp, tt.cmd.String(), "(%s) came back as %s", tt.exp, tt.cmd.String())
 	}
 }
@@ -1020,12 +1019,12 @@ func Test_TrashExpression(t *testing.T) {
 		trash []token.Token
 		exp   string
 	}{
-		{lit: "Trash", trash: []token.Token{{Type: token.IDENT, Literal: "Bifurcate"}}, exp: " Bifurcate"},
+		{lit: "Trash", trash: []token.Token{{Type: token.IDENT, Literal: "Bifurcate"}}, exp: "Bifurcate"},
 		{lit: "Trash", trash: []token.Token{
 			{Type: token.IDENT, Literal: "Sublease"},
 			{Type: token.COMMA, Literal: ","},
 			{Type: token.IDENT, Literal: "Rent"},
-		}, exp: " Sublease, Rent"},
+		}, exp: "Sublease,Rent"},
 	}
 
 	for _, tt := range tests {

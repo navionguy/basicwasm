@@ -25,16 +25,23 @@ func Test_ClearProgramMemory(t *testing.T) {
 	assert.EqualValues(t, 0, env.GetSrcLineCount())
 }
 
-// NextStatement should return the next statement to execute
-func Test_NextStatement(t *testing.T) {
-	//lineSeq := []uint16{10, 20, 30}
-
+// GetSrcLineCount returns the total number of lines in the source tree
+func Test_GetSrcLineCount(t *testing.T) {
 	env := newEnvironment()
 	env.ClearProgramMemory()
 	env.AddSourceLine("10 REM A comment", 10)
 	env.AddSourceLine(`20 PRINT "Hello World!`, 20)
 	env.AddSourceLine("30 END", 30)
 	assert.EqualValues(t, 3, env.GetSrcLineCount())
-	env.NextStatement()
+}
+
+// NextStatement should return the next statement to execute
+func Test_NextStatement(t *testing.T) {
+	env := newEnvironment()
+	env.ClearProgramMemory()
+	env.AddSourceLine("10 REM A comment", 10)
+	stmt := env.NextStatement()
+
+	assert.EqualValues(t, "10", stmt.String())
 
 }

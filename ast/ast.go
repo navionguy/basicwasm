@@ -24,6 +24,16 @@ type Statement interface {
 	statementNode()
 }
 
+// StmtLine holds all the statements for a line of source code
+// or command line entry.  This allows the evaluator logic to
+// iterate through the statements and evaluate them in order.
+// Without caring if is a source line or a command line.
+type StmtLine interface {
+	AddStatement(Statement)   // Adds a Statement to the end of this line
+	LineLength() uint16       // number of Statements in this line
+	NextStatement() Statement // or nil if end of line reached
+}
+
 // Expression defines interface for all expression nodes
 type Expression interface {
 	Node
@@ -65,7 +75,7 @@ func (ac *AutoCommand) String() string {
 	}
 
 	if ac.HasTrash() {
-		out.WriteString(Trash(ac.Trash))
+		out.WriteString(" " + Trash(ac.Trash))
 	}
 
 	return out.String()
@@ -85,7 +95,7 @@ func (bp *BeepStatement) String() string {
 	out.WriteString("BEEP")
 
 	if bp.HasTrash() {
-		out.WriteString(Trash(bp.Trash))
+		out.WriteString(" " + Trash(bp.Trash))
 	}
 
 	return out.String()
@@ -229,11 +239,14 @@ func (chn *ChainStatement) String() string {
 	}
 
 	if chn.Delete {
-		out2 = ", DELETE " + out2
+		if len(out2) > 0 {
+			out2 = " " + out2
+		}
+		out2 = ", DELETE" + out2
 	}
 
 	if chn.All {
-		out2 = ", All" + out2
+		out2 = ", ALL" + out2
 	} else if len(out2) > 0 {
 		// need to correctly show stuff after the missing ALL
 		out2 = ", " + out2
@@ -372,7 +385,12 @@ func (color *ColorStatement) String() string {
 		}
 	}
 
-	out.WriteString(Trash(color.Trash))
+	if color.HasTrash() {
+		if out.Len() > 6 {
+			out.WriteString(" ")
+		}
+		out.WriteString(Trash(color.Trash))
+	}
 
 	return out.String()
 }
@@ -638,7 +656,9 @@ func (ls *LetStatement) String() string {
 		out.WriteString(ls.Value.String())
 	}
 
-	out.WriteString(Trash(ls.Trash))
+	if ls.HasTrash() {
+		out.WriteString(" " + Trash(ls.Trash))
+	}
 
 	return out.String()
 }
@@ -659,7 +679,7 @@ func (lns *LineNumStmt) String() string {
 
 	out.WriteString(fmt.Sprintf("%d", lns.Value))
 
-	out.WriteString(Trash(lns.Trash))
+	out.WriteString(" " + Trash(lns.Trash))
 	return out.String()
 }
 
@@ -684,7 +704,9 @@ func (ld *LoadCommand) String() string {
 		out.WriteString(",R")
 	}
 
-	out.WriteString(Trash(ld.Trash))
+	if ld.HasTrash() {
+		out.WriteString(" " + Trash(ld.Trash))
+	}
 
 	return out.String()
 }
@@ -752,7 +774,7 @@ func (plt *PaletteStatement) String() string {
 	}
 
 	if plt.HasTrash() {
-		buf.WriteString(Trash(plt.Trash))
+		buf.WriteString(" " + Trash(plt.Trash))
 	}
 	return buf.String()
 }
@@ -784,7 +806,9 @@ func (nxt *NextStatement) String() string {
 		out.WriteString(" " + nxt.Id.String())
 	}
 
-	out.WriteString(Trash(nxt.Trash))
+	if nxt.HasTrash() {
+		out.WriteString(" " + Trash(nxt.Trash))
+	}
 
 	return out.String()
 }
@@ -979,7 +1003,7 @@ func (i *Identifier) String() string {
 	}
 
 	if len(i.Trash) > 0 {
-		out.WriteString(Trash(i.Trash))
+		out.WriteString(" " + Trash(i.Trash))
 	}
 
 	return out.String()
@@ -1002,7 +1026,7 @@ func (il *IntegerLiteral) String() string {
 		return fmt.Sprintf("%d", il.Value)
 	}
 
-	return Trash(il.Trash)
+	return " " + Trash(il.Trash)
 }
 
 // DblIntegerLiteral holds a 32bit integer
@@ -1023,7 +1047,7 @@ func (dil *DblIntegerLiteral) String() string {
 	out.WriteString(fmt.Sprintf("%d", dil.Value))
 
 	if dil.HasTrash() {
-		out.WriteString(Trash(dil.Trash))
+		out.WriteString(" " + Trash(dil.Trash))
 	}
 
 	return out.String()
@@ -1067,7 +1091,7 @@ func (fs *FloatSingleLiteral) String() string {
 	out.WriteString(fs.Token.Literal)
 
 	if fs.HasTrash() {
-		out.WriteString(Trash(fs.Trash))
+		out.WriteString(" " + Trash(fs.Trash))
 	}
 	return out.String()
 }
@@ -1090,7 +1114,7 @@ func (fd *FloatDoubleLiteral) String() string {
 	out.WriteString(fd.Token.Literal)
 
 	if fd.HasTrash() {
-		out.WriteString(Trash(fd.Trash))
+		out.WriteString(" " + Trash(fd.Trash))
 	}
 	return out.String()
 }
@@ -1114,7 +1138,7 @@ func (hc *HexConstant) String() string {
 	out.WriteString(hc.Value)
 
 	if hc.HasTrash() {
-		out.WriteString(Trash(hc.Trash))
+		out.WriteString(" " + Trash(hc.Trash))
 	}
 	return out.String()
 }
@@ -1182,7 +1206,9 @@ func (oc *OctalConstant) String() string {
 
 	out.WriteString(oc.Token.Literal)
 	out.WriteString(oc.Value)
-	out.WriteString(Trash(oc.Trash))
+	if oc.HasTrash() {
+		out.WriteString(" " + Trash(oc.Trash))
+	}
 
 	return out.String()
 }
@@ -1264,7 +1290,9 @@ func (opn *OpenStatement) String() string {
 	}
 
 	// if there was any Trash tokens, print them
-	out.WriteString(Trash(opn.Trash))
+	if opn.HasTrash() {
+		out.WriteString(" " + Trash(opn.Trash))
+	}
 	return out.String()
 }
 
@@ -1412,6 +1440,7 @@ type InfixExpression struct {
 
 func (ie *InfixExpression) expressionNode()      {}
 func (ie *InfixExpression) TokenLiteral() string { return ie.Token.Literal }
+
 func (ie *InfixExpression) HasTrash() bool {
 	if len(ie.Trash) > 0 {
 		return true
@@ -1445,8 +1474,11 @@ func (ie *InfixExpression) String() string {
 		out.WriteString(ie.Right.String())
 	}
 
-	out.WriteString(Trash(ie.Trash))
-	return out.String()
+	if ie.HasTrash() {
+		out.WriteString(" " + Trash(ie.Trash))
+	}
+
+	return strings.TrimRight(out.String(), " ")
 }
 
 // GroupedExpression is enclosed in parentheses
@@ -1785,7 +1817,7 @@ func (scrn *ScreenStatement) String() string {
 		}
 
 		if scrn.HasTrash() {
-			out.WriteString(Trash(scrn.Trash))
+			out.WriteString(" " + Trash(scrn.Trash))
 		}
 	}
 

@@ -33,16 +33,16 @@ func Test_AddSrcLine(t *testing.T) {
 
 	assert.NotZero(t, c.srcCode.tree.Len())
 
-	s := c.NextStmt()
+	s, _ := c.NextStmt()
 	assert.NotNil(t, s)
 	_, ok := s.(*LineNumStmt)
 	assert.True(t, ok)
 
-	s = c.NextStmt()
+	s, _ = c.NextStmt()
 	_, ok = s.(*RemStatement)
 	assert.True(t, ok)
 
-	s = c.NextStmt()
+	s, _ = c.NextStmt()
 	assert.Nil(t, s)
 
 	// ask for the next source line, there shouldn't be one.
@@ -126,12 +126,16 @@ func Test_NextSrcLine(t *testing.T) {
 
 	c.currLine = c.srcCode.FirstLine()
 	assert.NotNil(t, c.srcCode.curLine)
+	assert.Equal(t, uint16(10), c.currLine.lineNum)
 	assert.Equal(t, uint16(10), c.srcCode.curLine)
 
-	s := c.NextStmt()
+	var s Statement
+	s, c.currLine = c.NextStmt()
+	assert.NotNil(t, c.srcCode.curLine)
+	assert.EqualValues(t, uint16(10), c.srcCode.curLine)
+	assert.Nil(t, s)
+
+	s, c.currLine = c.nextSrcLine()
 	assert.NotNil(t, c.srcCode.curLine)
 	assert.EqualValues(t, uint16(20), c.srcCode.curLine)
-
-	s = c.NextStmt()
-	assert.Nil(t, s)
 }

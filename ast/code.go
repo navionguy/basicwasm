@@ -72,14 +72,19 @@ func (c *Code) LineParsed() bool {
 }
 
 // Fetch the next statement to be evaluated.
-// If currLine is all evaluated, this will try
+// If currLine is all evaluated, advance to the next line.
 // to advance to the next line in the tree.
 // If no more lines, returns nil
-func (c *Code) NextStmt() Statement {
+func (c *Code) NextStmt() (Statement, *SourceLine) {
+	// if no current line, start at first line
 	if c.currLine == nil {
 		c.currLine = c.srcCode.FirstLine()
-		stmt := c.currLine.NextStatement()
-		return stmt
+		c.currLine.itr = 0
+	}
+
+	// if statement array is empty, source needs to be parsed
+	if len(c.currLine.statements) == 0 {
+		return nil, c.currLine
 	}
 
 	// extract the next statement from the current line
@@ -87,22 +92,31 @@ func (c *Code) NextStmt() Statement {
 
 	if stmt == nil {
 		// no more statements on this line, move to the next
-		return c.nextSrcLine()
+		stmt, c.currLine = c.nextSrcLine()
 	}
 
-	return stmt
+	return stmt, c.currLine
 }
 
 // Have the SourceTree move forward to the next line.
-// He will return nil if there isn't one.
-func (c *Code) nextSrcLine() Statement {
-	sl := c.srcCode.NextLine()
+// He will return nil, nil if there isn't one.
+// nil, *SourceLine means line has not been parsed
+// Statement, nil means line was parsed and ready to evaluate
+func (c *Code) nextSrcLine() (Statement, *SourceLine) {
+	c.currLine = c.srcCode.NextLine()
 
-	if sl == nil {
-		return nil
+	// nil indicates end of the source tree
+	if c.currLine == nil {
+		return nil, nil
 	}
 
+	// if no statements, line needs to be parsed
+	if len(c.currLine.statements) == 0 {
+		return nil, c.currLine
+	}
+
+	// line was parsed,
 	st := c.currLine.NextStatement()
 
-	return st
+	return st, nil
 }
