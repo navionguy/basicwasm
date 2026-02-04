@@ -93,6 +93,7 @@ func Test_BuiltinExpression(t *testing.T) {
 
 	assert.Equal(t, "INSTR", builtin.TokenLiteral())
 	assert.Equal(t, `INSTR("FooBar","Bar",3)`, builtin.String())
+	assert.False(t, builtin.HasTrash())
 }
 
 func Test_CallExpression(t *testing.T) {

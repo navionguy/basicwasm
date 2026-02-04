@@ -28,6 +28,11 @@ func (c *Code) AddSrcLine(src string, lnum uint16) {
 	c.srcCode.addSourceLine(sl)
 }
 
+// Move to the first line of the source code
+func (c *Code) FirstLine() {
+	c.currLine = c.srcCode.firstLine()
+}
+
 // GetReturnPoint is used for GOSUB, ON GOSUB and FOR loops
 func (c *Code) GetReturnPoint() RetPoint {
 	return RetPoint{Line: c.currLine.lineNum, Stmt: uint8(c.currLine.itr + 1)}
@@ -78,7 +83,7 @@ func (c *Code) LineParsed() bool {
 func (c *Code) NextStmt() (Statement, *SourceLine) {
 	// if no current line, start at first line
 	if c.currLine == nil {
-		c.currLine = c.srcCode.FirstLine()
+		c.currLine = c.srcCode.firstLine()
 		c.currLine.itr = 0
 	}
 
@@ -118,5 +123,5 @@ func (c *Code) nextSrcLine() (Statement, *SourceLine) {
 	// line was parsed,
 	st := c.currLine.NextStatement()
 
-	return st, nil
+	return st, c.currLine
 }
