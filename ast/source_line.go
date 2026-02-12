@@ -25,6 +25,7 @@ type SourceLine struct {
 func (sl *SourceLine) TokenLiteral() string { return fmt.Sprint(sl.lineNum) }
 func (sl *SourceLine) String() string       { return sl.source }
 func (sl *SourceLine) Value() uint16        { return sl.lineNum }
+func (sl *SourceLine) Remaining() uint16    { return uint16(len(sl.statements)) - sl.itr }
 
 // BTree required interface
 func (sl *SourceLine) Less(than btree.Item) bool {

@@ -52,3 +52,15 @@ func (cl *CmdLine) NextStatement() Statement {
 
 	return stmt
 }
+
+func (cl *CmdLine) Remaining() uint16 {
+	return cl.LineLength() - cl.itr
+}
+
+func (cl *CmdLine) String() string {
+	return cl.input
+}
+
+func (cl *CmdLine) TokenLiteral() string {
+	return "CMD"
+}

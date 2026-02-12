@@ -686,7 +686,7 @@ var Builtins = map[string]*object.Builtin{
 		},
 	},
 	"SCREEN": { // read the ascii value at a position on the screen
-		// ToDo: add support for screen color
+		// TODO: add support for screen color
 		Fn: func(env *object.Environment, fn *object.Builtin, args ...object.Object) object.Object {
 			if len(args) != 2 {
 				return object.StdError(env, berrors.IllegalFuncCallErr)

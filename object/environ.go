@@ -157,6 +157,7 @@ type Environment struct {
 
 	// The following hold "state" information controlled by commands/statements
 	client  HttpClient     // for making server requests
+	consts  ast.ConstData  // support for READ/DATA statements
 	rnd     *rand.Rand     // random number generator
 	rndVal  float32        // most recent generated value
 	run     bool           // program is currently executing, if false, a command is executing
@@ -593,7 +594,8 @@ func (e *Environment) Goto(l uint16) Object {
 // Returns the next statement to be executed
 // If no statements remain, returns nil
 func (e *Environment) NextStatement() ast.Statement {
-	return e.source.NextStmt()
+	stmt, _ := e.source.NextStmt()
+	return stmt
 }
 
 // check to see if a source line already exists
@@ -601,24 +603,34 @@ func (e *Environment) SrcLineExists(line uint16) bool {
 	return e.source.LineExists(line)
 }
 
-/*
-func (e *Environment) AddCmdStmt(stmt ast.Statement) {
-	//e.Source.curLine.Add
-	//e.program.AddCmdStmt(stmt)
-}
-
-func (e *Environment) CmdLineIter() *ast.Code {
-	return e.source.CmdLineIter()
-}
-*/
-
 func (e *Environment) CmdComplete() {
 	e.cmdLine.CmdComplete()
 }
 
 // return the programs constant data
 func (e *Environment) ConstData() *ast.ConstData {
-	return e.ConstData()
+	e.consts = *e.ConstData()
+	return &e.consts
+}
+
+// The various ways the code might want to resume
+// after taking an ON ERROR branch.
+
+// Jump back to where the error occurred
+// TODO implement
+func (e *Environment) JumpBeforeRetPoint(_ ast.RetPoint) {
+
+}
+
+// Jump back to the statement after the error
+// TODO implement
+func (e *Environment) JumpToRetPoint(_ ast.RetPoint) int {
+	return 0
+}
+
+// start back at the begining of the static data statements
+func (e *Environment) ResetConstData() {
+	e.consts.Restore()
 }
 
 // check if a variable name is defined read only

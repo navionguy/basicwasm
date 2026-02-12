@@ -29,9 +29,11 @@ type Statement interface {
 // iterate through the statements and evaluate them in order.
 // Without caring if is a source line or a command line.
 type StmtLine interface {
+	Node
 	AddStatement(Statement)   // Adds a Statement to the end of this line
 	LineLength() uint16       // number of Statements in this line
 	NextStatement() Statement // or nil if end of line reached
+	Remaining() uint16        // number of statements left on the line
 }
 
 // Expression defines interface for all expression nodes
@@ -420,12 +422,39 @@ func (cmn *CommonStatement) String() string {
 
 // ConstData provides access to DATA elements
 type ConstData struct {
-	code *Code // pointer to the current lines of code
-	line int   // index into code.lines[]
-	stmt int   // index into code.lines[line].stmts
+	code *Code  // pointer to the current lines of code
+	line uint16 // index into code.lines[]
+	stmt uint16 // index into code.lines[]
+	// index into code.lines[line].stmts
 
 	data *DataStatement // the data statment I'm working from
-	exp  int            // index into data.exp[]
+	exp  uint16         // index into data.exp[]
+}
+
+func (cd *ConstData) statementNode()       {}
+func (cd *ConstData) TokenLiteral() string { return "DATA" }
+func (cd *ConstData) String() string       { return "DATA" }
+
+// TODO this logic is just stubbed in
+func (cd *ConstData) Next() Expression {
+	return cd.data.Consts[cd.stmt]
+}
+
+// Move back to the beginning of the static data
+func (cd *ConstData) Restore() {
+	cd.line = 0
+	cd.stmt = 0
+	cd.exp = 0
+}
+
+// Move back to a specific point in the data
+// TODO need to check if line number is valid, return false if not
+func (cd *ConstData) RestoreTo(l uint16) bool {
+	cd.line = l
+	cd.stmt = 0
+	cd.exp = 0
+
+	return true
 }
 
 // Cont command means restarting a stopped program
@@ -738,7 +767,7 @@ func (lct *LocateStatement) String() string {
 }
 
 // ColorPalette maps[GWBasicColor]XTermColor
-type ColorPalette map[int16]string
+type ColorPalette map[uint16]string
 
 // user wants to change the color palette
 type PaletteStatement struct {
@@ -838,7 +867,7 @@ func (on *OnExpression) String() string       { return "ON" + Trash(on.Trash) }
 // OnErrorGoto statement transfers execution when an error occurs
 type OnErrorGoto struct {
 	Token token.Token // "ON ERROR GOTO"
-	Jump  int         // line number to continue from
+	Jump  uint16      // line number to continue from
 }
 
 func (oer *OnErrorGoto) statementNode()       {}
@@ -1327,7 +1356,7 @@ func (rd *ReadStatement) String() string {
 // either the beginning or to a specified line number
 type RestoreStatement struct {
 	Token token.Token
-	Line  int
+	Line  uint16
 	Trash []TrashStatement
 }
 
@@ -1342,7 +1371,7 @@ func (rs *RestoreStatement) String() string {
 	out.WriteString(rs.Token.Literal)
 	if rs.Line > 0 {
 		out.WriteString(" ")
-		out.WriteString(strconv.Itoa((rs.Line)))
+		out.WriteString(strconv.Itoa(int(rs.Line)))
 	}
 
 	out.WriteString(Trash(rs.Trash))
@@ -1751,7 +1780,7 @@ func (retpt *RetPoint) String() string       { return retpt.TokenLiteral() }
 // RUN linenum starts execution at linenum
 type RunCommand struct {
 	Token     token.Token
-	StartLine int
+	StartLine uint16
 	LoadFile  Expression
 	KeepOpen  bool
 	Trash     []TrashStatement
@@ -1769,7 +1798,7 @@ func (run *RunCommand) String() string {
 	}
 
 	if run.StartLine != 0 {
-		rc = rc + " " + strconv.Itoa(run.StartLine)
+		rc = rc + " " + strconv.Itoa(int(run.StartLine))
 	}
 
 	if run.KeepOpen {

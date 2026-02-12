@@ -41,8 +41,8 @@ func Test_EvalKeyCodes(t *testing.T) {
 		{inp: "PRINT", key: []byte("\r"), exp: []string{"\r\n", "", "OK"}},           // output a blank line
 		{inp: "Down arrow", key: []byte{0x7f}, exp: []string{"\x1b[P"}},              // move cursor down
 		{inp: "F", key: []byte("F"), exp: []string{"F"}},                             // just echo the key
-		{inp: "ctrl-c", key: []byte{0x03}, exp: []string{""}},                        // nothing visibile, need to check state ToDo
-		{inp: "ctrl-c auto", key: []byte{0x03}, exp: []string{"", "OK"}, auto: true}, // should turn off auto ToDo check that
+		{inp: "ctrl-c", key: []byte{0x03}, exp: []string{""}},                        // nothing visibile, need to check state TODO
+		{inp: "ctrl-c auto", key: []byte{0x03}, exp: []string{"", "OK"}, auto: true}, // should turn off auto TODO check that
 	}
 
 	for _, tt := range tests {

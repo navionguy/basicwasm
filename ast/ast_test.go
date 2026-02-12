@@ -213,6 +213,17 @@ func Test_ClsStatement(t *testing.T) {
 	}
 }
 
+func Test_ConstData(t *testing.T) {
+	/*tests := []struct {
+
+	}*/
+
+	cd := ConstData{}
+	cd.statementNode()
+	assert.EqualValues(t, "DATA", cd.TokenLiteral())
+	assert.EqualValues(t, "DATA", cd.String())
+}
+
 func Test_RetPoint(t *testing.T) {
 	rp := RetPoint{Line: 1200, Stmt: 3}
 

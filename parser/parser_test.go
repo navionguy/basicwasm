@@ -550,7 +550,7 @@ func Test_LetStatementImplied(t *testing.T) {
 
 func Test_LetStatement(t *testing.T) {
 	inp := `10 let x = 5: let y$ = "test": let foobar% = 838383 : LET BANG! = 46.8 : LET POUND# = 7654321.1234`
-	//input := `10 LET 4 = 5` ToDo support this
+	//input := `10 LET 4 = 5` TODO support this
 
 	sl := ast.NewSourceLine(inp, 10)
 	l := lexer.New(sl.String())
@@ -1857,7 +1857,7 @@ func Test_FilesCommand(t *testing.T) {
 		env := object.NewTermEnvironment(mocks.MockTerm{})
 		ParseInput(tt.input, env)
 
-		// ToDo: finish writing this test
+		// TODO: finish writing this test
 
 	}
 }
@@ -1873,7 +1873,7 @@ func Test_FixedLiteral(t *testing.T) {
 		env := object.NewTermEnvironment(mocks.MockTerm{})
 		ParseInput(tt.inp, env)
 
-		// ToDo: finish writing this test
+		// TODO: finish writing this test
 	}
 }
 
@@ -1888,7 +1888,7 @@ func Test_ForStatement(t *testing.T) {
 		env := object.NewTermEnvironment(mocks.MockTerm{})
 		ParseInput(tt.inp, env)
 
-		// ToDo: finish writing this test
+		// TODO: finish writing this test
 
 	}
 }
@@ -1920,7 +1920,7 @@ func Test_PrintStatements(t *testing.T) {
 		stmt = env.NextStatement()
 		assert.NotNil(t, stmt)
 
-		//ToDo: expect results
+		//TODO: expect results
 		fmt.Printf("stmt[1] = %T\n", stmt)
 	}
 }

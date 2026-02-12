@@ -65,8 +65,8 @@ func NewFromString(src string) (Decimal, error) {
 //
 // Example:
 //
-//     NewFromInt(123).String() // output: "123"
-//     NewFromInt(-10).String() // output: "-10"
+//	NewFromInt(123).String() // output: "123"
+//	NewFromInt(-10).String() // output: "-10"
 func NewFromInt32(value int32) Decimal {
 	return Decimal{
 		value: int(value),
@@ -116,7 +116,7 @@ func (d Decimal) Sub(d2 Decimal) Decimal {
 
 // Mul returns the product of the two values
 func (d *Decimal) Mul(d2 Decimal) Decimal {
-	// todo: figure out how to catch/report overflow
+	// TODO: figure out how to catch/report overflow
 	prod := Decimal{value: d.value * d2.value, exp: d.exp + d2.exp}
 
 	dig := prod.countDigits()
@@ -131,7 +131,8 @@ func (d *Decimal) Mul(d2 Decimal) Decimal {
 // Div divides the two numbers and then does "GWBasic Rounding"
 // Which means, the final answer will have seven digits.
 // ex: 14.52 / 3.4 = 13.27059
-//     14.52 / 7.3 = 6.180822
+//
+//	14.52 / 7.3 = 6.180822
 //
 // who thought that up?
 func (d Decimal) Div(d2 Decimal) (Decimal, int) {
@@ -145,9 +146,11 @@ func (d Decimal) Div(d2 Decimal) (Decimal, int) {
 
 // QuoRem does divsion with remainder
 // d.QuoRem(d2,precision) returns (quotient q, remainder r, error) such that
-//   d = d2 * q + r, q an integer multiple of 10^(-precision)
-//   0 <= r < abs(d2) * 10 ^(-precision) if d>=0
-//   0 >= r > -abs(d2) * 10 ^(-precision) if d<0
+//
+//	d = d2 * q + r, q an integer multiple of 10^(-precision)
+//	0 <= r < abs(d2) * 10 ^(-precision) if d>=0
+//	0 >= r > -abs(d2) * 10 ^(-precision) if d<0
+//
 // Note that precision<0 is allowed as input.
 //
 // If error is non zero, it is a error code as defined in berrors
@@ -187,8 +190,9 @@ func (d Decimal) QuoRem(d2 Decimal, precision int) (Decimal, Decimal, int) {
 
 // Cmp compares two decimals and returns
 // -1 if d < d2
-//  0 if d == d2
-//  1 if d > d2
+//
+//	0 if d == d2
+//	1 if d > d2
 func (d Decimal) Cmp(d2 Decimal) int {
 	if d.exp != d2.exp {
 		rd, rd2 := rescalePair(d, d2)
@@ -224,7 +228,7 @@ func (d Decimal) Float64() (f float64, exact bool) {
 	return float64(d.value) * math.Pow10(d.exp), true
 }
 
-//sign() returns zero if val is zero, 1 if positive, -1 if negative
+// sign() returns zero if val is zero, 1 if positive, -1 if negative
 func (d *Decimal) sign() int {
 	if d.value == 0 {
 		return 0
@@ -264,9 +268,8 @@ func (d Decimal) rescale(exp int) Decimal {
 //
 // Example:
 //
-// 	   NewFromString("5.45").Round(-1).String() // output: "5.5"
-// 	   NewFromString("545").Round(1).String() // output: "550"
-//
+//	NewFromString("5.45").Round(-1).String() // output: "5.5"
+//	NewFromString("545").Round(1).String() // output: "550"
 func (d Decimal) Round(places int) Decimal {
 	rc := Decimal{value: d.value, exp: places}
 	dc := d.countDigits()

@@ -1390,13 +1390,14 @@ func (p *Parser) parseOnErrorStatement() ast.Statement {
 	}
 
 	// get the jump line number
-	var err error
 	p.nextToken()
-	oer.Jump, err = strconv.Atoi(p.curToken.Literal)
+	j, err := strconv.Atoi(p.curToken.Literal)
 
 	if err != nil {
 		oer.Jump = 0
 	}
+
+	oer.Jump = uint16(j)
 	return oer
 }
 
@@ -1426,7 +1427,7 @@ func (p *Parser) parseOnExpressionStatement() ast.Statement {
 	return &stmt
 }
 
-// establish i/o with a file or device[ToDo]
+// establish i/o with a file or device[TODO]
 func (p *Parser) parseOpenStatement() *ast.OpenStatement {
 	stmt := ast.OpenStatement{Token: p.curToken}
 
@@ -1649,7 +1650,7 @@ func (p *Parser) parseRemStatement() *ast.RemStatement {
 // RESTORE resets to read from the beginning of const DATA
 // it can optionally take a line number to restore to
 func (p *Parser) parseRestoreStatement() *ast.RestoreStatement {
-	stmt := ast.RestoreStatement{Token: p.curToken, Line: -1}
+	stmt := ast.RestoreStatement{Token: p.curToken, Line: 0}
 
 	if !p.peekTokenIs(token.LINENUM) && !p.peekTokenIs(token.EOF) && !p.peekTokenIs(token.EOL) && !p.peekTokenIs(token.COLON) {
 		p.nextToken()
@@ -1660,7 +1661,7 @@ func (p *Parser) parseRestoreStatement() *ast.RestoreStatement {
 			return &stmt
 		}
 
-		stmt.Line = targ
+		stmt.Line = uint16(targ)
 	}
 
 	if p.peekTokenIs(token.COLON) {
@@ -1729,7 +1730,8 @@ func (p *Parser) parseRunCommand() *ast.RunCommand {
 	// check for line number to start at
 	if p.peekTokenIs(token.INT) {
 		p.nextToken()
-		cmd.StartLine, _ = strconv.Atoi(p.curToken.Literal)
+		l, _ := strconv.Atoi(p.curToken.Literal) // TODO check for the error
+		cmd.StartLine = uint16(l)
 	} else if p.peekTokenIs(token.STRING) { // check for file to load
 		p.nextToken()
 		cmd.LoadFile = p.parseExpression(LOWEST)

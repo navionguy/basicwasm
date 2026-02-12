@@ -49,7 +49,7 @@ var (
 // Then he maps all the drive letters that point to a
 // file store.
 //
-// ToDo: drive the resource mapping from a table
+// TODO: drive the resource mapping from a table
 func WrapFileSources(rtr *mux.Router) {
 	resources := []struct {
 		rootdir  string
