@@ -66,7 +66,7 @@ func (srcTree *SourceTree) JumpToLine(l uint16) uint16 {
 	return line.lineNum
 }
 
-// Fetches the first line of code based on line number.
+// Jumps to the first line of code based on line number.
 // The iterator for the line is zeroed before returning.
 // If the tree is empty, returns a nill value.
 func (srcTree *SourceTree) firstLine() *SourceLine {

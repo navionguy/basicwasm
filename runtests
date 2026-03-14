@@ -15,7 +15,6 @@ go test ./localfiles -coverprofile=localfiles.out
 go test ./ -coverprofile=main.out
 go test ./object -coverprofile=object.out
 go test ./object/openfiles -coverprofile=openfiles.out
-go test ./object/source_tree -coverprofile=source_tree.out
 go test ./parser -coverprofile=parser.out
 go test ./token -coverprofile=token.out
 

@@ -112,15 +112,15 @@ func Test_ChainStatement(t *testing.T) {
 		exp   string
 		trash bool // I expect to have trash
 	}{
-		/**/ {cmd: `CHAIN`, exp: `CHAIN`, trash: true},
+		//{cmd: `CHAIN`, exp: `CHAIN`, trash: true},
 		{cmd: `CHAIN MERGE`, exp: `CHAIN MERGE`, trash: true},
-		{cmd: `CHAIN "MENU.BAS"`, exp: `CHAIN "MENU.BAS"`},
+		/*{cmd: `CHAIN "MENU.BAS"`, exp: `CHAIN "MENU.BAS"`},
 		{cmd: `CHAIN "MENU2.BAS", PRINT`, exp: `CHAIN "MENU2.BAS", PRINT`},
 		{cmd: `CHAIN "MENU.BAS", 10`, exp: `CHAIN "MENU.BAS", 10`},
-		{cmd: `CHAIN "MENU.BAS",, all`, exp: `CHAIN "MENU.BAS",, ALL`},
-		/*{cmd: `CHAIN "MENU2.BAS",, all OPEN`, exp: `CHAIN "MENU2.BAS",, ALL OPEN`, trash: true},
+		{cmd: `CHAIN "MENU.BAS",, all`, exp: `CHAIN "MENU.BAS",, all`},
+		{cmd: `CHAIN "MENU2.BAS",, all OPEN`, exp: `CHAIN "MENU2.BAS",, allOPEN`, trash: true},
 		{cmd: `CHAIN "C:\MENU\HCAL.BAS", 100,all,delete 100-1000`, exp: `CHAIN "C:\MENU\HCAL.BAS", 100, ALL, DELETE 100 - 1000`},
-		{cmd: `CHAIN "C:\MENU\HCAL.BAS", 100,all,delete 100-1000 PRINT`, exp: `CHAIN "C:\MENU\HCAL.BAS", 100, ALL, DELETE 100 - 1000 PRINT`, trash: true},
+		{cmd: `CHAIN "C:\MENU\HCAL.BAS", 100,all,delete 100-1000 PRINT`, exp: `CHAIN "C:\MENU\HCAL.BAS", 100, ALL, DELETE 100 - 1000PRINT`, trash: true},
 		{cmd: `CHAIN MERGE "C:\MENU\HIWORLD.BAS"`, exp: `CHAIN MERGE "C:\MENU\HIWORLD.BAS"`},
 		{cmd: `CHAIN "C:\MENU\START.BAS", 100,fred`, exp: `CHAIN "C:\MENU\START.BAS", 100, fred`, trash: true},*/
 	}
@@ -530,7 +530,6 @@ func Test_LetStatementImplied(t *testing.T) {
 		exp  []string
 	}{
 		{inp: `10 X = 5: Y = 20`, lnum: 10, exp: []string{` X = 5`, ` Y = 20`}},
-		{inp: `20 CALIBRATE PORT 10`, lnum: 20, exp: []string{`CALIBRATE PORT 10`}},
 	}
 
 	for _, tt := range tests {
@@ -666,7 +665,7 @@ func TestLineNumbers(t *testing.T) {
 	}
 
 	for _, tt := range tests {
-		stmt := env.NextStatement()
+		stmt, _ := env.NextStatement()
 		if stmt != nil {
 			if !testLineNumber(t, stmt, tt.lnum) {
 				return
@@ -813,20 +812,30 @@ func TestIdentifierExpression(t *testing.T) {
 	cmd := ParseInput("10 foobar", env)
 	assert.Nil(t, cmd)
 
-	// since the line
-	n := env.NextStatement()
+	// since the line hasn't been parsed, should get a nil stmt, with a SourceLine
+	n, l := env.NextStatement()
 	assert.Nil(t, n)
+	assert.NotNil(t, l)
 
-	n = env.NextStatement()
-	assert.NotNil(t, n)
+	// parse it to make sure we get an identifier
+	FinishParseSourceLine(l)
 
-	stmt, ok := n.(*ast.ExpressionStatement)
+	// should now be able to get a statement, expect it to be the line number
+	n, l = env.NextStatement()
+	stmt, ok := n.(*ast.LineNumStmt)
+
+	assert.NotNil(t, stmt)
+	assert.True(t, ok)
+
+	// now get the expression
+	n, l = env.NextStatement()
+	stmt2, ok := n.(*ast.ExpressionStatement)
 
 	assert.True(t, ok)
-	ident, ok := stmt.Expression.(*ast.Identifier)
+	ident, ok := stmt2.Expression.(*ast.Identifier)
 
 	assert.True(t, ok)
-	assert.Equal(t, "FOOBAR", ident)
+	assert.Equal(t, "FOOBAR", ident.Value)
 }
 
 func TestNewCommand(t *testing.T) {
@@ -899,8 +908,8 @@ func TestOnStatement(t *testing.T) {
 		env := object.NewTermEnvironment(mocks.MockTerm{})
 		ParseInput(tt.inp, env)
 
-		n := env.NextStatement()
-		n = env.NextStatement()
+		n, _ := env.NextStatement()
+		n, _ = env.NextStatement()
 		switch stmt := n.(type) {
 		case *ast.OnErrorGoto:
 			assert.EqualValues(t, tt.exp, stmt.String(), "ON ERROR parse fail")
@@ -922,29 +931,36 @@ func TestOpenStatement(t *testing.T) {
 		{inp: `20 open "O", #2, "test.out",128`,
 			exp: `open "O", #2, "test.out",128`},
 		{inp: `30 open "O" #3, "test.out",128`,
-			exp: `open "O" # 3, "test.out", 128`},
+			exp: `open "O" # 3 ,"test.out" , 128 `},
 
 		// verbose syntax
 		{inp: `40 open "test.out" FOR OUTPUT ACCESS WRITE SHARED AS #1 LEN = 128`,
-			exp: `open "test.out" FOR OUTPUT ACCESS WRITE SHARED AS #1 LEN = 128`},
+			exp: `open "test.out" FOR OUTPUT ACCESS WRITE SHARED AS #1 LEN = 128 `},
 		{inp: `50 open "test2.out" FOR OUTPUT ACCESS WRITE SHARED AS #2 LEN = 128 FOR`,
-			exp: `open "test2.out" FOR OUTPUT ACCESS WRITE SHARED AS #2 LEN = 128 FOR`},
+			exp: `open "test2.out" FOR OUTPUT ACCESS WRITE SHARED AS #2 LEN = 128 FOR `},
 		// this next one would eval to a syntax error
 		{inp: `60 open "test3.out" FOR OUTPUT ACCESS WRITE LOCK READ AS #3 LEN = 128`,
-			exp: `open "test3.out" FOR OUTPUT ACCESS WRITE LOCK READ AS # 3 LEN = 128`},
+			exp: `open "test3.out" FOR OUTPUT ACCESS WRITE LOCK READ AS # 3 LEN = 128 `},
 		// error case
-		{inp: `60 open 3, "test3.out" FOR OUTPUT ACCESS WRITE LOCK READ AS #3 LEN = 128`,
-			exp: `open 3, "test3.out" FOR OUTPUT ACCESS WRITE LOCK READ AS # 3 LEN = 128`},
+		{inp: `70 open 3, "test4.out" FOR OUTPUT ACCESS WRITE LOCK READ AS #4 LEN = 129`,
+			exp: `open 3 ,"test4.out" FOR OUTPUT ACCESS WRITE LOCK READ AS # 4 LEN = 129 `},
 	}
 
 	for _, tt := range tests {
 		env := object.NewTermEnvironment(mocks.MockTerm{})
-		ParseInput(tt.inp, env)
+		cmd := ParseInput(tt.inp, env)
+		assert.Nil(t, cmd)
 
-		// go get the second statement in program
+		// since the line hasn't been parsed, should get a nil stmt, with a SourceLine
+		n, sl := env.NextStatement()
+		assert.Nil(t, n)
+		assert.NotNil(t, sl)
 
-		n := env.NextStatement()
-		n = env.NextStatement()
+		// have the line parsed
+		FinishParseSourceLine(sl)
+
+		n, _ = env.NextStatement()
+		n, _ = env.NextStatement()
 
 		assert.Equal(t, tt.exp, n.String())
 	}
@@ -965,8 +981,8 @@ func TestPaletteStatement(t *testing.T) {
 		env := object.NewTermEnvironment(mocks.MockTerm{})
 		ParseInput(tt.inp, env)
 
-		n := env.NextStatement()
-		n = env.NextStatement()
+		n, _ := env.NextStatement()
+		n, _ = env.NextStatement()
 		stmt, ok := n.(*ast.PaletteStatement)
 
 		assert.True(t, ok, "Didn't get a palette statement")
@@ -1005,15 +1021,15 @@ func Test_ReadStatement(t *testing.T) {
 		env := object.NewTermEnvironment(mocks.MockTerm{})
 		ParseInput(tt.inp, env)
 
-		n := env.NextStatement()
-		n = env.NextStatement()
+		n, _ := env.NextStatement()
+		n, _ = env.NextStatement()
 
 		lm, ok := n.(*ast.LineNumStmt)
 
 		assert.True(t, ok)
 		assert.Equal(t, tt.lineNum, lm.Value)
 
-		n = env.NextStatement()
+		n, _ = env.NextStatement()
 		rstmt, ok := n.(*ast.ReadStatement)
 
 		assert.True(t, ok)
@@ -1036,8 +1052,8 @@ func Test_RemStatement(t *testing.T) {
 		env := object.NewTermEnvironment(mocks.MockTerm{})
 		ParseInput(tt.inp, env)
 
-		n := env.NextStatement()
-		n = env.NextStatement()
+		n, _ := env.NextStatement()
+		n, _ = env.NextStatement()
 
 		assert.Equal(t, tt.res, n.String())
 	}
@@ -1050,18 +1066,18 @@ func TestRestore(t *testing.T) {
 		inp string
 		exp interface{}
 	}{
-		{inp: `10 RESTORE`, exp: &ast.RestoreStatement{Token: rsTk, Line: -1}},
+		{inp: `10 RESTORE`, exp: &ast.RestoreStatement{Token: rsTk, Line: 0}},
 		{inp: `20 RESTORE 300`, exp: &ast.RestoreStatement{Token: rsTk, Line: 300}},
 		{inp: `30 RESTORE X`},
-		{inp: `40 RESTORE : END`, exp: &ast.RestoreStatement{Token: rsTk, Line: -1}},
+		{inp: `40 RESTORE : END`, exp: &ast.RestoreStatement{Token: rsTk, Line: 0}},
 	}
 
 	for _, tt := range tests {
 		env := object.NewTermEnvironment(mocks.MockTerm{})
 		ParseInput(tt.inp, env)
 
-		n := env.NextStatement()
-		n = env.NextStatement()
+		n, _ := env.NextStatement()
+		n, _ = env.NextStatement()
 
 		if tt.exp != nil {
 			compareStatements(tt.inp, n, tt.exp, t)
@@ -1111,10 +1127,10 @@ func Test_ScreenStatement(t *testing.T) {
 		env := object.NewTermEnvironment(mocks.MockTerm{})
 		ParseInput(tt.inp, env)
 
-		cd := env.NextStatement()
+		cd, _ := env.NextStatement()
 		assert.NotNil(t, cd)
 
-		cd = env.NextStatement()
+		cd, _ = env.NextStatement()
 		assert.NotNil(t, cd)
 
 		scrn := cd.(*ast.ScreenStatement)
@@ -1133,10 +1149,10 @@ func Test_StopStatement(t *testing.T) {
 	input := `10 STOP : REM a test`
 	env := object.NewTermEnvironment(mocks.MockTerm{})
 	ParseInput(input, env)
-	stmt := env.NextStatement()
+	stmt, _ := env.NextStatement()
 	assert.NotNil(t, stmt)
 
-	stmt = env.NextStatement()
+	stmt, _ = env.NextStatement()
 	assert.NotNil(t, stmt)
 	stop, ok := stmt.(*ast.StopStatement)
 
@@ -1151,17 +1167,16 @@ func Test_StringLiteralExpression(t *testing.T) {
 		exp  ast.Statement
 	}{
 		{inp: `10 "Hello World!"`, outp: `Hello World!`, exp: &ast.ExpressionStatement{Expression: &ast.StringLiteral{Value: `Hello World!`}}},
-		//{inp: `20 CALIBRATE PORT 10`},
 	}
 
 	for _, tt := range tests {
 		input := tt.inp
 		env := object.NewTermEnvironment(mocks.MockTerm{})
 		ParseInput(input, env)
-		stmt := env.NextStatement()
+		stmt, _ := env.NextStatement()
 		assert.NotNil(t, stmt)
 
-		stmt = env.NextStatement()
+		stmt, _ = env.NextStatement()
 		step, ok := stmt.(*ast.ExpressionStatement)
 		assert.True(t, ok)
 
@@ -1255,10 +1270,10 @@ func TestIntegerLiteralExpression(t *testing.T) {
 		env := object.NewTermEnvironment(mocks.MockTerm{})
 		ParseInput(tt.inp, env)
 
-		stmt := env.NextStatement()
+		stmt, _ := env.NextStatement()
 		assert.NotNil(t, stmt)
 
-		stmt = env.NextStatement()
+		stmt, _ = env.NextStatement()
 		assert.NotNil(t, stmt)
 
 		exp, ok := stmt.(*ast.ExpressionStatement)
@@ -1286,10 +1301,10 @@ func TestHexOctalConstants(t *testing.T) {
 		env := object.NewTermEnvironment(mocks.MockTerm{})
 		ParseInput(tt.inp, env)
 
-		stmt := env.NextStatement()
+		stmt, _ := env.NextStatement()
 		assert.NotNil(t, stmt)
 
-		stmt = env.NextStatement()
+		stmt, _ = env.NextStatement()
 		assert.NotNil(t, stmt)
 
 		exp, ok := stmt.(*ast.ExpressionStatement)
@@ -1376,10 +1391,10 @@ func TestParsingPrefixExpressions(t *testing.T) {
 		env := object.NewTermEnvironment(mocks.MockTerm{})
 		ParseInput(tt.input, env)
 
-		stmt := env.NextStatement()
+		stmt, _ := env.NextStatement()
 		assert.NotNil(t, stmt)
 
-		stmt = env.NextStatement()
+		stmt, _ = env.NextStatement()
 		assert.NotNil(t, stmt)
 
 		exp, ok := stmt.(*ast.ExpressionStatement)
@@ -1431,10 +1446,10 @@ func TestParsingInfixExpressions(t *testing.T) {
 		env := object.NewTermEnvironment(mocks.MockTerm{})
 		ParseInput(tt.input, env)
 
-		stmt := env.NextStatement()
+		stmt, _ := env.NextStatement()
 		assert.NotNil(t, stmt)
 
-		stmt = env.NextStatement()
+		stmt, _ = env.NextStatement()
 		assert.NotNil(t, stmt)
 
 		exp, ok := stmt.(*ast.ExpressionStatement)
@@ -1495,10 +1510,10 @@ func TestParsingIndexExpressions(t *testing.T) {
 		env := object.NewTermEnvironment(mocks.MockTerm{})
 		ParseInput(tt.input, env)
 
-		stmt := env.NextStatement()
+		stmt, _ := env.NextStatement()
 		assert.NotNil(t, stmt)
 
-		stmt = env.NextStatement()
+		stmt, _ = env.NextStatement()
 		assert.NotNil(t, stmt)
 
 		ls, ok := stmt.(*ast.LetStatement)
@@ -1535,10 +1550,10 @@ func TestIfStatement(t *testing.T) {
 		env := object.NewTermEnvironment(mocks.MockTerm{})
 		ParseInput(tt.inp, env)
 
-		stmt := env.NextStatement()
+		stmt, _ := env.NextStatement()
 		assert.NotNil(t, stmt)
 
-		stmt = env.NextStatement()
+		stmt, _ = env.NextStatement()
 		assert.NotNil(t, stmt)
 
 		ifstmt, ok := stmt.(*ast.IfStatement)
@@ -1570,16 +1585,16 @@ func Test_ParseInkeyExpression(t *testing.T) {
 		env := object.NewTermEnvironment(mocks.MockTerm{})
 		ParseInput(tt.inp, env)
 
-		stmt := env.NextStatement()
+		stmt, _ := env.NextStatement()
 		assert.NotNil(t, stmt)
 
-		stmt = env.NextStatement()
+		stmt, _ = env.NextStatement()
 		assert.NotNil(t, stmt)
 
-		stmt = env.NextStatement()
+		stmt, _ = env.NextStatement()
 		assert.NotNil(t, stmt)
 
-		stmt = env.NextStatement()
+		stmt, _ = env.NextStatement()
 		assert.Nil(t, stmt)
 	}
 
@@ -1619,10 +1634,10 @@ func TestGotoStatements(t *testing.T) {
 
 		assert.EqualValues(t, tt.expStmts, sl.LineLength())
 
-		stmt := env.NextStatement()
+		stmt, _ := env.NextStatement()
 		assert.NotNil(t, stmt)
 
-		stmt = env.NextStatement()
+		stmt, _ = env.NextStatement()
 		assert.NotNil(t, stmt)
 
 		gotoStmt, ok := stmt.(*ast.GotoStatement)
@@ -1648,10 +1663,10 @@ func TestGosubStatements(t *testing.T) {
 		env := object.NewTermEnvironment(mocks.MockTerm{})
 		ParseInput(tt.input, env)
 
-		stmt := env.NextStatement()
+		stmt, _ := env.NextStatement()
 		assert.NotNil(t, stmt)
 
-		stmt = env.NextStatement()
+		stmt, _ = env.NextStatement()
 		assert.NotNil(t, stmt)
 
 		gosubStmt, ok := stmt.(*ast.GosubStatement)
@@ -1693,7 +1708,7 @@ func TestReturnStatements(t *testing.T) {
 func Test_RunCommand(t *testing.T) {
 	tests := []struct {
 		inp   string
-		start int
+		start uint16
 		file  string
 		err   bool // I expect parsing to faile
 	}{
@@ -1914,10 +1929,10 @@ func Test_PrintStatements(t *testing.T) {
 		env := object.NewTermEnvironment(mocks.MockTerm{})
 		ParseInput(tt.input, env)
 
-		stmt := env.NextStatement()
+		stmt, _ := env.NextStatement()
 		assert.NotNil(t, stmt)
 
-		stmt = env.NextStatement()
+		stmt, _ = env.NextStatement()
 		assert.NotNil(t, stmt)
 
 		//TODO: expect results

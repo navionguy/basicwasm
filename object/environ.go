@@ -593,9 +593,9 @@ func (e *Environment) Goto(l uint16) Object {
 
 // Returns the next statement to be executed
 // If no statements remain, returns nil
-func (e *Environment) NextStatement() ast.Statement {
-	stmt, _ := e.source.NextStmt()
-	return stmt
+func (e *Environment) NextStatement() (ast.Statement, *ast.SourceLine) {
+	stmt, line := e.source.NextStmt()
+	return stmt, line
 }
 
 // check to see if a source line already exists

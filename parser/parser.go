@@ -512,7 +512,7 @@ func (p *Parser) parseChainMerge(chain *ast.ChainStatement) {
 	p.nextToken()
 
 	// if peekToken end of statement, that is an error
-	if p.chkEndOfStatement() {
+	if p.atEndOfStatement() {
 		p.parseTrash(&chain.Trash)
 		return
 	}
@@ -536,7 +536,6 @@ func (p *Parser) parseChainPath(chain *ast.ChainStatement) {
 // I check for an expression, if I find one, I save it as the line
 // If I don't, execution starts at the beginning of the file
 func (p *Parser) parseChainStartLine(chain *ast.ChainStatement) {
-	p.nextToken()
 	// if ",," no start line, either ALL or DELETE
 	if p.peekTokenIs(token.COMMA) {
 		p.parseChainAll(chain)
@@ -544,6 +543,7 @@ func (p *Parser) parseChainStartLine(chain *ast.ChainStatement) {
 	}
 
 	// get the starting line number
+	p.nextToken()
 	chain.Line = p.parseExpression(LOWEST)
 
 	// make sure it parsed

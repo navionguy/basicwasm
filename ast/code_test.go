@@ -25,7 +25,7 @@ func Test_AddSrcLine(t *testing.T) {
 	c.AddSrcLine("10 REM A Comment", 10)
 
 	// to avoid using the parser, manually load two statements
-	c.FirstLine()
+	c.currLine = c.srcCode.firstLine()
 	c.currLine.statements = append(c.currLine.statements, &LineNumStmt{Token: token.Token{Type: token.LINENUM, Literal: "10"}, Value: 10})
 	c.currLine.statements = append(c.currLine.statements, &RemStatement{Token: token.Token{Type: token.REM, Literal: token.REM}, Comment: "A Comment"})
 	// nil currLine so he will search the tree
@@ -54,7 +54,7 @@ func Test_GetReturnPoint(t *testing.T) {
 	// build up some source lines without using the parser
 	c := InitCode()
 	c.AddSrcLine("10 GOSUB 200: REM A Comment", 10)
-	c.FirstLine()
+	c.currLine = c.srcCode.firstLine()
 	c.currLine.statements = append(c.currLine.statements,
 		&LineNumStmt{Token: token.Token{Type: token.LINENUM, Literal: "10"}, Value: 10})
 	c.currLine.statements = append(c.currLine.statements,
@@ -113,7 +113,7 @@ func Test_LineExists(t *testing.T) {
 func Test_LineParsed(t *testing.T) {
 	c := InitCode()
 	c.AddSrcLine("10 REM A Comment", 10)
-	c.FirstLine()
+	c.currLine = c.srcCode.firstLine()
 	assert.False(t, c.LineParsed())
 
 	c.currLine.statements = append(c.currLine.statements, &RemStatement{Comment: "A Comment"})
@@ -152,7 +152,7 @@ func Test_NextSrcLine(t *testing.T) {
 	for i, tt := range tests {
 		// move to the first line
 		if i == 0 {
-			c.FirstLine()
+			c.currLine = c.srcCode.firstLine()
 		} else {
 			_, c.currLine = c.nextSrcLine()
 		}
@@ -164,7 +164,7 @@ func Test_NextSrcLine(t *testing.T) {
 	}
 
 	// now check to make sure I can read them out correctly
-	c.FirstLine()
+	c.currLine = c.srcCode.firstLine()
 	_, c.currLine = c.NextStmt()
 	for _, tt := range tests {
 		//var s Statement
@@ -179,7 +179,7 @@ func Test_NextSrcLine(t *testing.T) {
 	}
 
 	/*
-	   c.currLine = c.FirstLine()
+	   c.currLine = c.currLine = c.srcCode.firstLine()
 	   c.currLine.AddStatement(&LineNumStmt{Token: token.Token{Type: token.LINENUM, Literal: "10"}, Value: 10})
 	   c.currLine.AddStatement(&RemStatement{Token: token.Token{Type: token.REM, Literal: "REM"}, Comment: "A Comment"})
 	   assert.NotNil(t, c.srcCode.curLine)

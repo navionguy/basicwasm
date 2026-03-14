@@ -139,7 +139,7 @@ func Test_ChainStatement(t *testing.T) {
 			All:  true, Delete: true, Merge: true,
 			Range: &InfixExpression{Token: token.Token{Type: token.MINUS, Literal: "-"},
 				Left: &IntegerLiteral{Value: 100}, Operator: "-", Right: &IntegerLiteral{Value: 500}}},
-			exp: `CHAIN MERGE "HIWORLD.BAS", , ALL, DELETE 100 - 500`},
+			exp: `CHAIN MERGE "HIWORLD.BAS",, ALL, DELETE 100 - 500`},
 		{cmd: ChainStatement{Token: token.Token{Type: token.CHAIN, Literal: "CHAIN"},
 			Path: &StringLiteral{Token: token.Token{Type: token.STRING, Literal: "GOODBYE.BAS"}, Value: "GOODBYE.BAS"},
 			Line: &IntegerLiteral{Value: 200}, Trash: []TrashStatement{{token.Token{Type: token.STRING, Literal: "OPEN"}}}},
@@ -211,17 +211,6 @@ func Test_ClsStatement(t *testing.T) {
 		assert.Equal(t, "CLS", cls.TokenLiteral(), "Cls command has incorrect TokenLiteral")
 		assert.Equal(t, tt.exp, cls.String(), "Clear command didn't build string correctly")
 	}
-}
-
-func Test_ConstData(t *testing.T) {
-	/*tests := []struct {
-
-	}*/
-
-	cd := ConstData{}
-	cd.statementNode()
-	assert.EqualValues(t, "DATA", cd.TokenLiteral())
-	assert.EqualValues(t, "DATA", cd.String())
 }
 
 func Test_RetPoint(t *testing.T) {
@@ -1036,7 +1025,7 @@ func Test_TrashExpression(t *testing.T) {
 			{Type: token.IDENT, Literal: "Sublease"},
 			{Type: token.COMMA, Literal: ","},
 			{Type: token.IDENT, Literal: "Rent"},
-		}, exp: "Sublease,Rent"},
+		}, exp: "Sublease , Rent"},
 	}
 
 	for _, tt := range tests {

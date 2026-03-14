@@ -28,11 +28,6 @@ func (c *Code) AddSrcLine(src string, lnum uint16) {
 	c.srcCode.addSourceLine(sl)
 }
 
-// Move to the first line of the source code
-func (c *Code) FirstLine() {
-	c.currLine = c.srcCode.firstLine()
-}
-
 // GetReturnPoint is used for GOSUB, ON GOSUB and FOR loops
 func (c *Code) GetReturnPoint() RetPoint {
 	return RetPoint{Line: c.currLine.lineNum, Stmt: uint8(c.currLine.itr + 1)}
@@ -60,7 +55,7 @@ func (c *Code) Goto(l uint16) uint16 {
 
 // Check if a source line is already in the tree
 // return true if it does
-// Only know use is when auto line number is active for the console.
+// Only known use is when auto line number is active for the console.
 // If the line already exists, we append an '*' to the line number
 // to warn the user they are about to overwrite existing code.
 func (c *Code) LineExists(l uint16) bool {
